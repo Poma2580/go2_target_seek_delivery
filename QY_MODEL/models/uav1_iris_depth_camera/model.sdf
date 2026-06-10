@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <model name='uav1_iris_depth_camera'>
+
+    <!-- UAV BODY -->
+    <include>
+      <uri>model://uav1_iris</uri>
+      <pose>0 0 0 0 0 0</pose>
+      <plugin name="disable_gravity_iris" filename="libgazebo_disable_gravity.so">
+        <gravity>0</gravity>
+      </plugin>
+      <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+      <update_rate>1.0</update_rate>
+    </plugin>
+    </include>
+
+    <!-- DEPTH CAMERA -->
+    <include>
+      <uri>model://uav1_depth_camera</uri>
+      <pose>0 0 -0.1 0 1.5708 0</pose>
+      <plugin name="disable_gravity_camera" filename="libgazebo_disable_gravity.so">
+        <gravity>0</gravity>
+      </plugin>
+    </include>
+
+    <!-- FIXED JOINT (camera rigid attachment) -->
+    <joint name="depth_camera_joint" type="revolute">
+      <child>uav1_depth_camera::link</child>
+      <parent>uav1_iris::base_link</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <upper>0</upper>
+          <lower>0</lower>
+        </limit>
+      </axis>
+      <gravity>0</gravity>
+    </joint>
+
+  </model>
+</sdf>

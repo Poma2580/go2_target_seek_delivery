@@ -1,0 +1,7 @@
+go2_ws_v2/build/
+go2_ws_v2/install/
+go2_ws_v2/log/
+.agents/
+.codex/
+__pycache__/
+*.pyc

@@ -1,0 +1,63 @@
+Gazebo + target_seek + Go2：
+
+pkill -f gzserver
+pkill -f gzclient
+rm -rf ~/.gazebo/paging/city_terrain
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
+ros2 launch go2_config gazebo_target_seek_2d_lidar.launch.py gui:=true rviz:=false
+
+
+键盘控制：
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+
+SLAM：
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+ros2 launch go2_config slam.launch.py sim:=true rviz:=true
+
+
+==================== 多狗：三只 Go2（独立键盘控制，不带 SLAM）====================
+
+公共环境（每个终端都先执行一次）：
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
+# 终端1：只起 target_seek 世界
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+
+# 终端2/3/4：顺序导入，等上一只两个控制器 active 且 /go2_i/scan 出现再起下一只
+ros2 launch go2_config spawn_go2_1.launch.py
+ros2 launch go2_config spawn_go2_2.launch.py
+ros2 launch go2_config spawn_go2_3.launch.py
+
+# 终端5：弹出 3 个 xterm 键盘窗口（控哪只点哪只窗口）
+ros2 launch go2_config teleop_three_go2.launch.py
+
+# 检查
+ros2 control list_controllers --controller-manager /go2_1/controller_manager
+ros2 topic list | grep scan

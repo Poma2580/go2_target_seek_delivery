@@ -1,0 +1,9 @@
+1.我们根据修改指导修改了champ_字头的所有文件。
+2.对seek_taget中的road关键字进行了删除（方便后续建图），下一步需要修改sidewalk物体（考虑删除collision或者直接删除，让机器人能走进去）。
+3.对QYmodels中的uav1_iris, uav1_imu, uav1_gps, uav1_depth_camera做了gravity 0设置，使其不收重力影响。
+
+目前问题：
+1.uav1没有对应的ros2和gz topic，无法移动其position（缺少plugin或者接口），需要开放话题。目标是能通过python或者脚本发布ros2或者gz话题，能够移动无人机的在世界中的位置，这个是最高优先级。
+2. 需要考虑sidewalk部分怎么处理，保留的话需要去除collision（需要考虑会不会影响建图），同时修改color属性到浅色。
+3. 需要加入多狗。
+4.相对优化部分，可以把房顶等全都换成深色，更好识别。

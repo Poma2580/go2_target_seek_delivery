@@ -1,0 +1,90 @@
+Go2 target_seek 交付包更正说明0609
+
+问题现象：
+按 README 启动 Gazebo 时，ROS 2 launch 报错：
+
+package 'champ_config' not found
+
+原因：
+交付包中的配置包实际名称是 go2_config，但以下 4 个 launch 文件中仍残留旧包名 champ_config，导致启动时找不到配置包。
+
+需要更正的文件：
+
+1. go2_ws_v2/src/unitree-go2-ros2/champ/champ_bringup/launch/bringup.launch.py
+   将：
+   package="champ_config"
+   ).find("champ_config")
+   改为：
+   package="go2_config"
+   ).find("go2_config")
+
+2. go2_ws_v2/src/unitree-go2-ros2/champ/champ_gazebo/launch/gazebo.launch.py
+   将：
+   package="champ_config"
+   ).find("champ_config")
+   改为：
+   package="go2_config"
+   ).find("go2_config")
+
+3. go2_ws_v2/src/unitree-go2-ros2/champ/champ_bringup/launch/bringup.launch
+   将：
+   $(find champ_config)/config/joints/joints.yaml
+   $(find champ_config)/config/links/links.yaml
+   $(find champ_config)/config/gait/gait.yaml
+   改为：
+   $(find go2_config)/config/joints/joints.yaml
+   $(find go2_config)/config/links/links.yaml
+   $(find go2_config)/config/gait/gait.yaml
+
+4. go2_ws_v2/src/unitree-go2-ros2/champ/champ_bringup/launch/joints_gui.launch.py
+   将：
+   FindPackageShare(package="champ_config").find("champ_config")
+   改为：
+   FindPackageShare(package="go2_config").find("go2_config")
+
+更正后重新构建：
+
+cd go2_target_seek_delivery/go2_ws_v2
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+
+然后重新执行 README 中的启动命令即可。
+
+
+补充问题：
+如果启动时报错：
+
+package 'go2_gazebo' not found
+
+排查结论：
+这通常不是缺少包。当前交付包实际存在的 Gazebo 包名是 champ_gazebo，不是 go2_gazebo。
+如果报 package 'go2_gazebo' not found，说明同事手里的某个 launch 文件或 install 目录中仍残留旧包名 go2_gazebo。
+
+请在 go2_ws_v2 目录下执行：
+
+grep -R "go2_gazebo" -n src install
+
+如果 grep 结果出现在 launch 文件里，例如：
+
+go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/gazebo_target_seek_2d_lidar.launch.py
+go2_ws_v2/src/unitree-go2-ros2/champ/champ_gazebo/launch/gazebo.launch.py
+
+则将 launch 文件中的 go2_gazebo 改为 champ_gazebo。
+
+注意：
+如果 grep 只在下面这个 yaml 中出现：
+
+go2_ws_v2/src/unitree-go2-ros2/robots/descriptions/go2_description/config/_robot_control.yaml
+
+这个不是本次 package not found 的原因，可以先不用改。
+
+修正后建议清理旧构建并重新构建：
+
+cd go2_target_seek_delivery/go2_ws_v2
+source /opt/ros/humble/setup.bash
+rm -rf build install log
+colcon build --symlink-install
+source install/setup.bash
+
+然后重新执行 README 中的启动命令。

@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <model name='swarm_house'>
+    <include>
+      <uri>model://house_without_fangding</uri>
+    </include>
+
+    <include>
+      <uri>model://fangding</uri>
+    </include>
+
+  </model>
+</sdf>
