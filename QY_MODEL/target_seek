@@ -39,6 +39,16 @@
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
     </physics>
+    
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+
+      <update_rate>1.0</update_rate>
+    </plugin>
+       
+    
     <light name='sun' type='directional'>
       <pose>0 0 1000 0 -0 0</pose>
       <cast_shadows>1</cast_shadows>
