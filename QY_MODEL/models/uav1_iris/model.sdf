@@ -1,3 +1,4 @@
+<?xml version="1.0" ?>
 <sdf version='1.6'>
   <model name='uav1_iris'>
     <link name='base_link'>
@@ -579,5 +580,26 @@
       <accelerometerBiasCorrelationTime>300.0</accelerometerBiasCorrelationTime>
       <accelerometerTurnOnBiasSigma>0.196</accelerometerTurnOnBiasSigma>
     </plugin>
+    
+    <plugin name="gazebo_ros_planar_move" filename="libgazebo_ros_planar_move.so">
+      <ros>
+        <!-- Add a namespace -->
+        <namespace>/uav1</namespace>
+        <!-- Remap the default topic -->
+        <remapping>cmd_vel:=custom_cmd_vel</remapping>
+        <remapping>odom:=custom_odom</remapping>
+      </ros>
+      <update_rate>100</update_rate>
+      <publish_rate>10</publish_rate>
+      <!-- output -->
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <odometry_frame>odom_demo</odometry_frame>
+      <robot_base_frame>link</robot_base_frame>
+      <covariance_x>0.0001</covariance_x>
+      <covariance_y>0.0001</covariance_y>
+      <covariance_yaw>0.01</covariance_yaw>
+    </plugin>
+    
   </model>
 </sdf>
