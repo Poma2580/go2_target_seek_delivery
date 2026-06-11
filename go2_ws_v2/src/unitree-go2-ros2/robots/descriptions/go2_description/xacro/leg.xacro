@@ -177,21 +177,28 @@
             </hardware>
             <joint name="${name}_hip_joint">
                 <command_interface name="effort"/>
-                <state_interface name="position"/>
+                <state_interface name="position">
+                    <param name="initial_value">0.0</param>
+                </state_interface>
                 <state_interface name="velocity"/>
             </joint>
         
             <joint name="${name}_upper_leg_joint">
                 <command_interface name="effort"/>
-                <state_interface name="position"/>
+                <state_interface name="position">
+                    <param name="initial_value">0.9</param>
+                </state_interface>
                 <state_interface name="velocity"/>
             </joint>
         
             <joint name="${name}_lower_leg_joint">
                 <command_interface name="effort"/>
-                <state_interface name="position"/>
+                <state_interface name="position">
+                    <param name="initial_value">-1.8</param>
+                </state_interface>
                 <state_interface name="velocity"/>
             </joint>
+
         </ros2_control> 
 
         <!-- <xacro:leg_transmission name="${name}"/> -->

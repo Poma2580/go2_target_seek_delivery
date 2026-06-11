@@ -4,5 +4,36 @@
 
 待解决：
 1.uav1没有对应的ros2和gz topic，无法移动其position（缺少plugin或者接口），需要开放话题。目标是能通过python或者脚本发布ros2或者gz话题，能够移动无人机的在世界中的位置，这个是最高优先级。
+2.相对优化部分，可以把房顶等全都换成深色，更好识别。
 
-3.相对优化部分，可以把房顶等全都换成深色，更好识别。
+
+GitHub仓库与协作方式：
+仓库地址：https://github.com/Poma2580/go2_target_seek_delivery
+固定版本tag：0610_go2_simulation
+
+当前已确认：
+1.main分支已推送到GitHub。
+2.0610_go2_simulation tag已推送到GitHub。
+3.本地main已跟踪origin/main。
+4.当前基线提交号是5fd5cad。
+
+同事拉取项目：
+git clone https://github.com/Poma2580/go2_target_seek_delivery.git
+cd go2_target_seek_delivery
+
+如果需要切到0610固定版本：
+git checkout 0610_go2_simulation
+
+如果要继续一起开发，建议从main新建自己的功能分支：
+git checkout main
+git pull
+git checkout -b feature/同事名字-修改内容
+
+修改完成后提交并推送自己的分支：
+git add .
+git commit -m "说明这次改了什么"
+git push -u origin feature/同事名字-修改内容
+
+然后在GitHub上开Pull Request合并回main。这样多人协作时不会互相覆盖，出问题也方便回退。
+
+

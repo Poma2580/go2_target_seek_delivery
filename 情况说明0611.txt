@@ -1,0 +1,47 @@
+====================================雷达参数设置：===========================
+ 1.
+ 文件位置/home/bit/go2_target_seek_delivery/go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/config/autonomy/slam.yaml
+ 参数：max_laser_range: 5.0
+ 含义：slam模式下（以单狗为例），建图时最多用 5 米数据，即Rviz扫出来的白色栅格地图大小
+
+ 2.
+ 文件位置/home/bit/go2_target_seek_delivery/go2_ws_v2/src/unitree-go2-ros2/robots/descriptions/go2_description/xacro/laser_2d_slam.xacro
+ 参数：<range>/<max>10.0</max>
+ 含义：单狗/多狗的雷达量程，即gazebo紫色线条，Rviz中的彩色边线
+
+Note:由于使用过 --symlink-install编译过源码，以上参数改动均不用重新编译，直接运行即可。
+
+
+====================================今日改动 0611===========================
+
+已完成：
+1. 修复多狗顺序导入时姿态翻倒/翻滚问题。
+   根因：URDF 未给关节初始角，Gazebo 中 revolute joint 默认从 0 开始；Go2 小腿 lower_leg 的合法范围是 [-2.7227, -0.83776]，0 已经越限。控制器接管前，小腿会先被关节限位和接触力弹起，导致机器人倾倒；多狗导入时 gzserver 负载更高，控制器接管延迟更明显，所以问题被放大。
+
+2. 关闭 2D 雷达在 Gazebo 中的可视化射线，降低多狗仿真显示负载。
+
+改动文件：
+1. go2_ws_v2/src/unitree-go2-ros2/robots/descriptions/go2_description/xacro/leg.xacro
+   在 <ros2_control> 块中给每条腿三个关节的 position state_interface 添加 initial_value：
+   - hip_joint: 0.0
+   - upper_leg_joint: 0.9
+   - lower_leg_joint: -1.8
+
+   说明：leg.xacro 使用 ${name} 宏生成 rf/lf/rh/lh 四条腿，所以该修改会自动套用到所有腿；三只 Go2 共用同一份 go2_description，因此多狗也会同时生效。
+
+2. go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/spawn_go2_1.launch.py
+   go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/spawn_go2_2.launch.py
+   go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/spawn_go2_3.launch.py
+   将 SPAWN_Z 从 0.30 调整为 0.20，减小导入时的落地落差。
+
+3. go2_ws_v2/src/unitree-go2-ros2/robots/descriptions/go2_description/xacro/laser_2d_slam.xacro
+   将 <visualize>true</visualize> 改为 <visualize>false</visualize>。
+
+影响：
+1. 多狗顺序导入时，机器人会从更合理的微蹲站立姿态开始，避免小腿关节从越限角度被 Gazebo 物理约束强行拉回。
+2. Gazebo 中不再显示 2D 雷达紫色射线，但 /scan 数据仍正常发布，不影响 RViz 显示、建图和导航使用。
+3. 因为当前工作区使用过 --symlink-install，xacro 和 launch 文件改动后不需要重新 colcon build，重启对应 launch 即可生效。
+
+验证：
+1. 单只 spawn_go2_1 导入后可以直接微蹲站立，不再出现导入即翻滚。
+2. 三只 Go2 按 spawn_go2_1、spawn_go2_2、spawn_go2_3 顺序导入正常。

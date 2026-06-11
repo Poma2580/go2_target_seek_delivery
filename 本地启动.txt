@@ -50,6 +50,16 @@ export GAZEBO_MODEL_DATABASE_URI=""
 # 终端1：只起 target_seek 世界
 ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
 
+
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
 # 终端2/3/4：顺序导入，等上一只两个控制器 active 且 /go2_i/scan 出现再起下一只
 ros2 launch go2_config spawn_go2_1.launch.py
 ros2 launch go2_config spawn_go2_2.launch.py
