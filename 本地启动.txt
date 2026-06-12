@@ -1,9 +1,13 @@
+===================================== 本地启动命令简洁版 ========================================
 Gazebo + target_seek + Go2：
 
 pkill -f gzserver
 pkill -f gzclient
 rm -rf ~/.gazebo/paging/city_terrain
 
+
+
+======================================单狗：启动世界 + 键盘控制 + SLAM ===========================
 export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
@@ -68,6 +72,57 @@ ros2 launch go2_config spawn_go2_3.launch.py
 # 终端5：弹出 3 个 xterm 键盘窗口（控哪只点哪只窗口）
 ros2 launch go2_config teleop_three_go2.launch.py
 
-# 检查
-ros2 control list_controllers --controller-manager /go2_1/controller_manager
-ros2 topic list | grep scan
+
+==================== 多狗：三只 Go2 + 3D雷达 ====================
+
+【重要】跑任何 ROS 命令前先 conda deactivate，确认 which python3 为 /usr/bin/python3，
+       否则 relay / spawn_entity 会因 conda(python3.8) 崩溃，狗不生成、点云不显示。
+
+公共环境（每个终端都先执行一次）：
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
+# 终端 1：只启动 target_seek 世界（不导入狗，不暂停物理）
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+
+# 终端 2/3/4：逐只导入带 3D Velodyne 的狗。
+# 务必等上一只的两个控制器都 active、且 /go2_i/velodyne_points 出现后，再启动下一只。
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
+ros2 launch go2_config spawn_go2_velodyne_1.launch.py
+ros2 launch go2_config spawn_go2_velodyne_2.launch.py
+ros2 launch go2_config spawn_go2_velodyne_3.launch.py
+
+# 终端 5：一次性弹出 3 个 xterm 键盘窗口（go2_1 / go2_2 / go2_3）
+ros2 launch go2_config teleop_three_go2.launch.py
+
+# 终端 6：RViz 同时查看三份点云
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+
+ros2 launch go2_config view_three_go2_velodyne.launch.py
+
+================= 单狗 3D 点云（已验证可显示）==================================
+# 分三个终端：先世界，再 go2_1，再单狗 rviz（Fixed Frame = go2_1/odom）
+# 每个终端先 conda deactivate + source 环境
+ros2 launch go2_config gazebo_target_seek_world.launch.py
+ros2 launch go2_config spawn_go2_velodyne_1.launch.py
+ros2 launch go2_config view_go2_velodyne_1.launch.py

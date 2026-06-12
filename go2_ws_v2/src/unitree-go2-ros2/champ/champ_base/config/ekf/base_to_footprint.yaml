@@ -1,4 +1,4 @@
-base_to_footprint_ekf:
+/**:
   ros__parameters:
     frequency: 50.0
     publish_tf: true

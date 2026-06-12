@@ -1,0 +1,72 @@
+==============================================================================
+GitHub仓库与协作方式：
+仓库地址：https://github.com/Poma2580/go2_target_seek_delivery
+固定版本tag：0610_go2_simulation
+
+当前已确认：
+1.main分支已推送到GitHub。
+2.0610_go2_simulation tag已推送到GitHub。
+3.本地main已跟踪origin/main。
+4.当前基线提交号是5fd5cad。
+
+同事拉取项目：
+git clone https://github.com/Poma2580/go2_target_seek_delivery.git
+cd go2_target_seek_delivery
+
+如果需要切到0610固定版本：
+git checkout 0610_go2_simulation
+
+如果要继续一起开发，建议从main新建自己的功能分支：
+git checkout main
+git pull
+git checkout -b feature/同事名字-修改内容
+
+====================每次更改后如何提交==============================================================
+
+git status
+查看当前仓库状态。它告诉你：在哪个分支、是否和远程一致、哪些文件修改了、哪些文件还没加入提交。
+
+git add -A
+把当前所有改动加入“暂存区”，包括修改过的文件、新文件、删除的文件。暂存区可以理解为“准备放进下一次 commit 的清单”。
+
+git commit -m "..."
+把暂存区里的内容打包成一个本地提交。-m 后面是提交说明。你这次生成的是：
+50ac457 修复多狗导入姿态翻滚+关闭雷达可视化、更新0611文档
+
+git push origin main
+把本地 main 分支的新提交推送到远程仓库 origin 的 main 分支，也就是 GitHub 上。
+
+git log --oneline -3
+用一行一个提交的简短格式，显示最近 3 个提交。
+
+git ls-remote origin main
+直接询问远程 GitHub：origin/main 当前指向哪个提交哈希。
+
+git rev-parse HEAD
+查看你本地当前所在提交的完整哈希。HEAD 就是“你当前所在的位置”。
+
+===========================如何同步同事的新版本，当本地无任何改动时==================================
+
+cd /path/to/go2_target_seek_delivery
+git checkout main
+git pull origin main
+
+==========================如何同步同事的新版本，当本地的更改还未提交时==================================
+同事在自己电脑上执行：
+cd /path/to/go2_target_seek_delivery
+git status
+
+如果看到有未提交改动，先临时保存：
+git stash push -u -m "临时保存未完成改动"
+这里 -u 很重要，表示连新建但还没 git 跟踪的文件也一起保存。
+
+然后拉取你的最新版本：
+git checkout main
+git pull origin main
+
+确认已经同步到你的提交：
+git log --oneline -3
+
+然后把同事自己的改动恢复回来：
+git stash pop
+如果没有冲突，就继续开发即可。

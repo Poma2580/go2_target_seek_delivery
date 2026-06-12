@@ -25,7 +25,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 ROBOT_NAME = "go2_3"
 SPAWN_X = "-3.5"
 SPAWN_Y = "3.9"
-SPAWN_Z = "0.20"
+SPAWN_Z = "0.50"
 SPAWN_YAW = "0.0"
 
 

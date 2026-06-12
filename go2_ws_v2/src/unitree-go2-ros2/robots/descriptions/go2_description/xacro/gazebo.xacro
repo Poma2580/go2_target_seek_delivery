@@ -2,10 +2,15 @@
 <robot>
 
     <gazebo>
-      <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+      <plugin name="p3d_base_controller_$(arg name_suffix)" filename="libgazebo_ros_p3d.so">
         <ros>
             <namespace>$(arg robot_namespace)</namespace>
-            <remapping>odom:=odom/ground_truth</remapping>
+            <!-- Absolute topic for multi-dog isolation. gazebo_ros mis-assigns the plugin
+                 namespace (off-by-one) when several robots share one gzserver, so a relative
+                 remap lands in the wrong dog. Same trick velodyne_3d.xacro already uses.
+                 NOTE keep this comment free of "colon space" - robot_description is
+                 YAML-parsed by launch and a colon-space anywhere breaks it. -->
+            <remapping>odom:=$(arg robot_namespace)/odom/ground_truth</remapping>
         </ros>
 
         <body_name>base_link</body_name>
@@ -18,7 +23,7 @@
     </gazebo>
 
     <gazebo>
-        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control_$(arg name_suffix)">
             <ros>
                 <namespace>$(arg robot_namespace)</namespace>
             </ros>
@@ -72,10 +77,10 @@
                 </z>
             </linear_acceleration>
             </imu>
-            <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+            <plugin name="imu_plugin_$(arg name_suffix)" filename="libgazebo_ros_imu_sensor.so">
                 <ros>
                     <namespace>$(arg robot_namespace)</namespace>
-                    <remapping>~/out:=imu/data</remapping>
+                    <remapping>~/out:=$(arg robot_namespace)/imu/data</remapping>
                 </ros>
                 <initial_orientation_as_reference>false</initial_orientation_as_reference>
             </plugin>

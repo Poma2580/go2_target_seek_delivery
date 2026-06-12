@@ -1,0 +1,110 @@
+====================================今日改动 0612===========================
+
+1. 新增“三只 Go2 + 3D Velodyne”独立启动链路，不改原 2D 多狗链路：
+   - 新增 3D 雷达 xacro：velodyne_3d.xacro
+   - 新增 3D 整机模型：robot_3d_lidar_nocam.xacro
+   - 新增三只狗 spawn：spawn_go2_velodyne_1/2/3.launch.py
+   - 新增 RViz：view_three_go2_velodyne.launch.py + three_go2_velodyne.rviz
+
+2. 3D 模式下每只狗只发布点云，不发布 /go2_i/scan：
+   - /go2_1/velodyne_points
+   - /go2_2/velodyne_points
+   - /go2_3/velodyne_points
+   - frame 分别为 go2_1/velodyne、go2_2/velodyne、go2_3/velodyne
+
+3. 已更新 README_go2_target_seek_delivery.md：
+   - 追加 3D 多狗实际运行命令
+   - 追加 Velodyne 3D 雷达关键参数
+   - 追加检查点云、TF、控制器状态的命令
+
+4. 已验证：
+   - colcon build --packages-select go2_description go2_config 通过
+   - xacro 展开后点云 remap 和 frame 正确
+   - 新 launch 文件可被 ros2 launch 识别
+
+====================================调试更新 0612（RViz 点云不显示）===========================
+
+现象：
+   - 3D 多狗 RViz 不显示点云，TF 面板报 "No transform from [go2_i/...]"，终端狂刷
+     "dropping message ... queue is full"。不是 topic 冲突，是 TF 链断了。
+
+根因（运行时实测定位）：
+   - 整条链只缺一段：go2_i/base_footprint -> go2_i/base_link，该段应由 EKF
+     (base_to_footprint_ekf) 发布，但 EKF 一条 TF 都没发。两层原因：
+     (a) 共享配置 base_to_footprint.yaml 顶层 key 是裸节点名，命名空间节点
+         /go2_i/base_to_footprint_ekf 加载不到 -> EKF 用默认参数，无输入。
+     (b) world_frame/odom_frame 无前缀（base_footprint），而输入 pose 的 frame 是
+         go2_i/base_footprint，对不上 -> EKF 丢弃所有测量、永不初始化、不发 TF。
+     (c) launch 里参数文件(yaml)会覆盖内联 dict（与顺序无关），所以最初把
+         world_frame 写在 yaml 后面也没生效（ros2 param get 实测仍是 base_footprint）。
+
+改动：
+   - champ_base/config/ekf/base_to_footprint.yaml 顶层 key 改为 /**（任意命名空间可加载）。
+   - spawn_go2_velodyne_1/2/3.launch.py 的 EKF 改为“全内联参数”（pose0/imu0/各 frame），
+     world_frame = odom_frame = go2_i/base_footprint，base_link_frame = go2_i/base_link。
+     （绕开 yaml 覆盖内联 dict 的坑。）
+   - 新增单狗 RViz：view_go2_velodyne_1.launch.py + rviz/go2_velodyne_1.rviz
+     （Fixed Frame = go2_1/odom，不发 world->odom 静态变换，沿用 2D 成熟做法）。
+
+验证（go2_1，gazebo+spawn 运行时实测通过）：
+   - ros2 param get /go2_1/base_to_footprint_ekf world_frame -> go2_1/base_footprint
+   - tf2_echo go2_1/base_footprint go2_1/base_link -> 平移 [0,0,0.426]，已发布
+   - tf2_echo go2_1/odom go2_1/velodyne -> 可解析
+   - /go2_1/velodyne_points -> 5822 点/帧 @ ~6Hz，frame=go2_1/velodyne
+
+当前状态：
+   - 单狗 go2_1 3D 点云在 RViz 正常显示（view_go2_velodyne_1.launch.py）。已闭环 ✓
+   - 三只狗：每只的 TF 链都已修好（三个 spawn 都改了）。但 view_three_go2_velodyne.launch.py
+     里的 world->go2_i/odom 静态变换带了真实偏移(-3.5,1.5 等)，而真值 odom 本身就是 world
+     参考系，会重复叠加 -> 点云位置偏移。待把这些静态变换改成单位变换(0,0,0)后，三狗
+     合一视图才正确。（功能上能出点云，只是摆放位置不对。）
+
+环境注意（重要）：
+   - 跑任何 ROS 命令前务必 conda deactivate；which python3 必须是 /usr/bin/python3。
+     conda(python3.8) 会让 ground_truth_odom_relay.py / spawn_entity.py 崩溃
+     （ModuleNotFoundError: rclpy._rclpy_pybind11 / lxml），导致狗不生成、odom 不发、链从源头断。
+
+====================================调试更新 0612（三狗 go2_3 TF 断 + 卡顿）===========================
+
+现象：
+   - 三狗合一时，go2_1/go2_2 点云正常，但 go2_3 的 TF 树报 "No transform"、终端只刷
+     go2_3/velodyne 的 queue full；遥控机器狗非常卡顿（Gazebo RTF≈0.30）。
+
+【重大发现】根因（运行时逐项实测定位）：
+   - go2_3 链只断在 odom->base_footprint（relay 没输入）：/go2_3/odom/ground_truth 发布者=0，
+     而 /go2_3/p3d_base_controller 节点不存在。
+   - 真因是 gazebo_ros 多机器人“命名空间错位（off-by-one）”：同一个 gzserver 里，每只狗的
+     Gazebo 插件会落到“上一只”的命名空间——
+       go2_2 的插件落到 /go2_1，go2_3 的插件落到 /go2_2
+     导致 /go2_1 有 2 个 p3d 发布者、/go2_2 有 1 个、/go2_3 有 0 个。
+   - velodyne 之所以没事：它的输出话题是“绝对名”(/go2_i/velodyne_points)，错位也能发对；
+     p3d 的 odom 用“相对名”，错位后就发到了别的狗 -> go2_3 真值丢失。
+
+走过的弯路（记录以免重犯）：
+   - 误以为是“插件重名冲突”，给插件名加唯一后缀(name_suffix)：能防节点 FQN 重名，但没解决错位。
+   - 试过把 p3d/imu 的 remap 改绝对名：gazebo_ros 对 p3d 的 odom 源不认绝对名，无效（对 velodyne 的
+     ~/out 才有效）。该两处改动现已冗余、无害，可还原。
+   - 坑：robot_description 以内联 dict 传参会被 launch 按 YAML 解析，URDF 注释里出现“冒号+空格”
+     会直接报 "Unable to parse robot_description as yaml" 导致狗起不来——注释别用 ": "。
+
+【已修复】方案 A（已运行时验证通过）：
+   - 在 spawn_go2_velodyne_1/2/3.launch.py 的 spawn_entity 参数里，给每只狗加：
+       "-robot_namespace", f"/{ROBOT_NAME}"
+     让 gazebo 在话题层把命名空间纠正回来。
+
+验证（三狗 gazebo+spawn 运行时实测）：
+   - /go2_1|2|3/odom/ground_truth 发布者数 = 1 / 1 / 1（go2_3 由 0 变 1）
+   - tf2_echo go2_3/odom go2_3/base_footprint -> 可解析
+   - tf2_echo go2_1|2|3/odom go2_i/velodyne -> 三只全部可解析
+   - 无双重命名空间(/go2_i/go2_i/...)
+
+关于卡顿（RTF 0.30）：
+   - 实测 headless 三狗 RTF≈0.994（物理/传感器不是瓶颈，24 核机 gzserver 仅约 1.15 核）。
+   - 卡顿来自渲染端竞争：Gazebo GUI(gzclient) + RViz 三份稠密点云 + 世界里的 uav1 深度相机 抢 GPU
+     （外加 VS Code 占 ~47% CPU）。最简解：仿真用 gui:=false 只看 RViz；或降 Velodyne 采样/频率、
+     关掉不用的 uav1 深度相机。
+
+当前状态：
+   - 三只狗 TF 链全部修好，go2_3 点云可正常变换显示。已闭环 ✓
+   - 待办：view_three_go2_velodyne.launch.py 的 world->go2_i/odom 静态变换改成单位变换(0,0,0)，
+     三狗合一视图位置才完全正确（现能出点云，仅摆放位置因重复叠加而偏）。

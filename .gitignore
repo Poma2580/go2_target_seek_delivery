@@ -3,5 +3,7 @@ go2_ws_v2/install/
 go2_ws_v2/log/
 .agents/
 .codex/
+.codegraph/
+.claude/
 __pycache__/
 *.pyc

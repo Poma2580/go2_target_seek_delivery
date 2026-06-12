@@ -225,6 +225,99 @@ ros2 topic list | grep scan        # /go2_1/scan /go2_2/scan /go2_3/scan
 > 控制器命名空间由 URDF 内 `gazebo_ros2_control` 插件的 `<ros><namespace>` 烧入。
 > 启动时请**顺序导入**三只狗（等上一只 active 再起下一只），最稳。
 
+## 多狗模式：三只 Go2 + 3D Velodyne（替换 2D 激光）
+
+本模式复用同一个 `target_seek` 世界和三狗键盘控制链路，但每只 Go2 只装 3D Velodyne，
+不再加载 2D 激光雷达，因此不会发布 `/go2_i/scan`。三只狗分别发布：
+
+```text
+go2_i/cmd_vel                    键盘速度指令
+go2_i/velodyne_points            3D 点云（sensor_msgs/PointCloud2，frame: go2_i/velodyne）
+go2_i/odom                       里程计，TF: go2_i/odom -> go2_i/base_footprint
+go2_i/controller_manager         各自的 ros2_control 控制器管理器
+出生点: go2_1 (-3.5, 1.5)  go2_2 (-3.5, 2.7)  go2_3 (-3.5, 3.9)  z=0.50
+```
+
+如果目标机器还没有 Velodyne 相关包，先安装：
+
+```bash
+sudo apt update
+sudo apt install -y \
+  ros-humble-velodyne-description \
+  ros-humble-velodyne-gazebo-plugins
+```
+
+启动步骤（建议每条单独开一个终端，每个终端都要先 source 环境）：
+
+```bash
+export DELIVERY_ROOT=/实际/项目路径/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""
+```
+
+```bash
+# 终端 1：只启动 target_seek 世界（不导入狗，不暂停物理）
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+
+# 终端 2/3/4：逐只导入带 3D Velodyne 的狗。
+# 务必等上一只的两个控制器都 active、且 /go2_i/velodyne_points 出现后，再启动下一只。
+ros2 launch go2_config spawn_go2_velodyne_1.launch.py
+ros2 launch go2_config spawn_go2_velodyne_2.launch.py
+ros2 launch go2_config spawn_go2_velodyne_3.launch.py
+
+# 终端 5：一次性弹出 3 个 xterm 键盘窗口（go2_1 / go2_2 / go2_3）
+ros2 launch go2_config teleop_three_go2.launch.py
+
+# 终端 6：RViz 同时查看三份点云（固定坐标系 world）
+ros2 launch go2_config view_three_go2_velodyne.launch.py
+```
+
+> 注意：运行任何 ROS 命令前先 `conda deactivate`，确认 `which python3` 为
+> `/usr/bin/python3`。conda 的 python 会让 `ground_truth_odom_relay.py`、
+> `spawn_entity.py` 崩溃（找不到 `rclpy._rclpy_pybind11` / `lxml`），导致狗不生成、
+> odom 不发、点云无法在 RViz 显示。
+
+只看单只狗（推荐先用它验证点云链路，固定坐标系 `go2_1/odom`，无需 world 静态 TF）：
+
+```bash
+# 终端 1：世界；终端 2：导入 go2_1；终端 3：单狗 RViz
+ros2 launch go2_config gazebo_target_seek_world.launch.py
+ros2 launch go2_config spawn_go2_velodyne_1.launch.py
+ros2 launch go2_config view_go2_velodyne_1.launch.py
+```
+
+检查（每只狗都应满足）：
+
+```bash
+# 三份点云都在发布
+ros2 topic list | grep velodyne_points
+ros2 topic hz /go2_1/velodyne_points
+ros2 topic echo /go2_1/velodyne_points --field header.frame_id --once   # go2_1/velodyne
+
+# 本 3D 模式替换掉 2D 激光，不应出现三狗 scan
+ros2 topic list | grep -c /scan
+
+# 两个控制器都 active
+ros2 control list_controllers --controller-manager /go2_1/controller_manager
+# joint_trajectory 同时有发布者和订阅者（控制链闭合）
+ros2 topic info /go2_1/joint_group_effort_controller/joint_trajectory   # Publisher 1 / Subscription 1
+
+# TF 中 base_link 到 Velodyne frame 正常
+ros2 run tf2_ros tf2_echo go2_1/base_link go2_1/velodyne
+
+# 完整链路（odom 经 base_footprint/base_link 到 velodyne）可解析 —— RViz 能否显示的关键判据
+# 若此命令报 "frame does not exist"，多半是 EKF 未发布 base_footprint->base_link 或 conda 环境问题
+ros2 run tf2_ros tf2_echo go2_1/odom go2_1/velodyne
+```
+
+> 说明：3D 版同样采用绝对点云话题名（如 `/go2_3/velodyne_points`）强制指定 Gazebo
+> 传感器插件输出，避免多实例命名空间解析不稳。RViz 启动文件会额外发布
+> `world -> go2_i/odom` 的静态 TF，让三棵独立 TF 树能在同一个 `world` fixed frame 下显示。
+
 ## 模型参数说明
 
 ### 机器狗
@@ -255,6 +348,30 @@ frame_id: front_laser
 量程: 0.12 到 10.0 m
 更新率: 20 Hz
 噪声 stddev: 0.01
+```
+
+3D Velodyne 雷达：
+
+```text
+型号: Velodyne VLP-16
+mesh: $(find velodyne_description)/meshes/VLP16_base_1.dae, VLP16_base_2.dae, VLP16_scan.dae
+base link: velodyne_base_link
+scan link: velodyne
+相对 base_link 固定关节: xyz=0.2 0 0.08, rpy=0 0 0
+velodyne_base_link 到 velodyne: xyz=0 0 0.0377, rpy=0 0 0
+Gazebo sensor 类型: ray
+发布话题: /velodyne_points；多狗 3D 模式为 /go2_i/velodyne_points
+frame_id: velodyne；多狗 3D 模式为 go2_i/velodyne
+水平扫描角度: -3.141592653589793 到 3.141592653589793 rad
+水平采样数: 440
+垂直扫描角度: -0.2617993877991494 到 0.2617993877991494 rad
+垂直线数: 16
+ray range: 0.3 到 131.0 m，resolution=0.001
+plugin 输出 range: min_range=0.9, max_range=130.0
+更新率: 10 Hz
+点云组织: organize_cloud=false
+噪声: gaussian_noise=0.008
+Gazebo 插件: libgazebo_ros_velodyne_laser.so
 ```
 
 深度相机：

@@ -1,8 +1,8 @@
-"""Spawn a single namespaced Go2 (go2_1) into an already-running Gazebo world.
+"""Spawn a single namespaced Go2 (go2_2) into an already-running Gazebo world.
 
-namespace is baked into the URDF plugins at xacro time (robot_namespace:=/go2_1),
-so gazebo_ros2_control's controller_manager lands at /go2_1/controller_manager.
-2D lidar (no camera) -> /go2_1/scan. Run gazebo_target_seek_world.launch.py first.
+namespace is baked into the URDF plugins at xacro time (robot_namespace:=/go2_2),
+so gazebo_ros2_control's controller_manager lands at /go2_2/controller_manager.
+3D Velodyne lidar (no camera) -> /go2_2/velodyne_points. Run gazebo_target_seek_world.launch.py first.
 """
 
 import os
@@ -22,9 +22,9 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 
-ROBOT_NAME = "go2_1"
+ROBOT_NAME = "go2_2"
 SPAWN_X = "-3.5"
-SPAWN_Y = "1.5"
+SPAWN_Y = "2.7"
 SPAWN_Z = "0.50"
 SPAWN_YAW = "0.0"
 
@@ -36,7 +36,7 @@ def generate_launch_description():
     config_pkg_share = get_package_share_directory("go2_config")
     descr_pkg_share = get_package_share_directory("go2_description")
 
-    model_path = os.path.join(descr_pkg_share, "xacro", "robot_2d_lidar_nocam.xacro")
+    model_path = os.path.join(descr_pkg_share, "xacro", "robot_3d_lidar_nocam.xacro")
     joints_config = os.path.join(config_pkg_share, "config", "joints", "joints.yaml")
     links_config = os.path.join(config_pkg_share, "config", "links", "links.yaml")
     gait_config = os.path.join(config_pkg_share, "config", "gait", "gait.yaml")
@@ -55,10 +55,12 @@ def generate_launch_description():
         ROBOT_NAME,
         " frame_prefix:=",
         f"{ROBOT_NAME}/",
-        " scan_topic:=",
-        f"/{ROBOT_NAME}/scan",
+        " points_topic:=",
+        f"/{ROBOT_NAME}/velodyne_points",
         " ros_control_file:=",
         ros_control_config,
+        " name_suffix:=",
+        ROBOT_NAME,
     ]
     robot_description = {"robot_description": Command(xacro_cmd)}
     robot_urdf = Command(xacro_cmd)
@@ -120,14 +122,33 @@ def generate_launch_description():
         name="base_to_footprint_ekf",
         output="screen",
         parameters=[
-            {"base_link_frame": f"{ROBOT_NAME}/base_link"},
-            {"use_sim_time": use_sim_time_param},
-            os.path.join(
-                get_package_share_directory("champ_base"),
-                "config",
-                "ekf",
-                "base_to_footprint.yaml",
-            ),
+            {
+                "use_sim_time": use_sim_time_param,
+                "frequency": 50.0,
+                "publish_tf": True,
+                "transform_timeout": 0.01,
+                "transform_time_offset": 0.045,
+                "two_d_mode": False,
+                "pose0": "base_to_footprint_pose",
+                "pose0_config": [
+                    True, True, True,
+                    True, True, True,
+                    False, False, False,
+                    False, False, False,
+                    False, False, False,
+                ],
+                "imu0": "imu/data",
+                "imu0_config": [
+                    False, False, False,
+                    False, False, False,
+                    True, True, True,
+                    False, False, False,
+                    False, False, False,
+                ],
+                "world_frame": f"{ROBOT_NAME}/base_footprint",
+                "odom_frame": f"{ROBOT_NAME}/base_footprint",
+                "base_link_frame": f"{ROBOT_NAME}/base_link",
+            }
         ],
         remappings=[("odometry/filtered", "odom/local")],
     )
@@ -159,6 +180,8 @@ def generate_launch_description():
         arguments=[
             "-entity",
             ROBOT_NAME,
+            "-robot_namespace",
+            f"/{ROBOT_NAME}",
             "-topic",
             f"/{ROBOT_NAME}/robot_description",
             "-x",
