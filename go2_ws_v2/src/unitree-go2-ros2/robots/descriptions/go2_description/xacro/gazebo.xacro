@@ -2,7 +2,7 @@
 <robot>
 
     <gazebo>
-      <plugin name="p3d_base_controller_$(arg name_suffix)" filename="libgazebo_ros_p3d.so">
+      <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
         <ros>
             <namespace>$(arg robot_namespace)</namespace>
             <!-- Absolute topic for multi-dog isolation. gazebo_ros mis-assigns the plugin
@@ -23,7 +23,7 @@
     </gazebo>
 
     <gazebo>
-        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control_$(arg name_suffix)">
+        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
             <ros>
                 <namespace>$(arg robot_namespace)</namespace>
             </ros>
@@ -77,7 +77,7 @@
                 </z>
             </linear_acceleration>
             </imu>
-            <plugin name="imu_plugin_$(arg name_suffix)" filename="libgazebo_ros_imu_sensor.so">
+            <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
                 <ros>
                     <namespace>$(arg robot_namespace)</namespace>
                     <remapping>~/out:=$(arg robot_namespace)/imu/data</remapping>

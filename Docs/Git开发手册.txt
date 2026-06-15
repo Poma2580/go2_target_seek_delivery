@@ -13,9 +13,6 @@ GitHub仓库与协作方式：
 git clone https://github.com/Poma2580/go2_target_seek_delivery.git
 cd go2_target_seek_delivery
 
-如果需要切到0610固定版本：
-git checkout 0610_go2_simulation
-
 如果要继续一起开发，建议从main新建自己的功能分支：
 git checkout main
 git pull
@@ -70,3 +67,20 @@ git log --oneline -3
 然后把同事自己的改动恢复回来：
 git stash pop
 如果没有冲突，就继续开发即可。
+
+======================在Github上确认同事的修改合并==========================================
+推荐流程：
+点开第一个 PR，比如 added plugin in uav1
+看页面下方有没有绿色按钮：Merge pull request
+或 Squash and merge
+或 Rebase and merge
+
+如果显示 Able to merge / 没有冲突，就可以点合并。
+合并后再处理第二个 PR。
+两个都合完后，你本地执行：
+cd /home/bit/go2_target_seek_delivery
+git checkout main
+git pull origin main
+git fetch --tags
+然后确认：
+git log --oneline --decorate -5
