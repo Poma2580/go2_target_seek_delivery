@@ -127,11 +127,11 @@
         <self_collide>1</self_collide>
     </gazebo>
     <gazebo reference="lf_foot_link">
-        <mu1>0.6</mu1>
-        <mu2>0.6</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
         <self_collide>1</self_collide>
-        <kp>10000.0</kp>
-        <kd>1.0</kd>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
     </gazebo>
 
     <!-- FR leg -->
@@ -152,11 +152,11 @@
         <self_collide>1</self_collide>
     </gazebo>
     <gazebo reference="rf_foot_link">
-        <mu1>0.6</mu1>
-        <mu2>0.6</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
         <self_collide>1</self_collide>
-        <kp>10000.0</kp>
-        <kd>1.0</kd>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
     </gazebo>
 
     <!-- RL leg -->
@@ -177,11 +177,11 @@
         <self_collide>1</self_collide>
     </gazebo>
     <gazebo reference="lh_foot_link">
-        <mu1>0.6</mu1>
-        <mu2>0.6</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
         <self_collide>1</self_collide>
-        <kp>10000.0</kp>
-        <kd>1.0</kd>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
     </gazebo>
 
     <!-- RR leg -->
@@ -202,11 +202,11 @@
         <self_collide>1</self_collide>
     </gazebo>
     <gazebo reference="rh_foot_link">
-        <mu1>0.6</mu1>
-        <mu2>0.6</mu2>
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
         <self_collide>1</self_collide>
-        <kp>10000.0</kp>
-        <kd>1.0</kd>
+        <kp>100000.0</kp>
+        <kd>100.0</kd>
     </gazebo>
 
 </robot>

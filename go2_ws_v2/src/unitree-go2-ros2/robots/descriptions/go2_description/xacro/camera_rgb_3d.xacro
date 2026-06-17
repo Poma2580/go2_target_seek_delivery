@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+
+<!-- Lightweight RGB-only camera for the multi-dog 3D chain. Each dog must
+     publish its own image on /go2_i/camera/image_raw with no cross-talk.
+
+     IMPORTANT multi-dog gotcha (verified live with three dogs in one gzserver)
+     gazebo_ros_camera does NOT honor an absolute remapping the way the velodyne
+     and imu sensor plugins do, so the image/camera_info topics are locked to
+     the node namespace plus camera_name. Worse, the node namespace handed to
+     a sensor plugin by spawn_entity -robot_namespace is mis-assigned off-by-one
+     when several dogs share one gzserver (dog i lands in dog i-1 namespace), so
+     two cameras collide on /go2_1 while /go2_3 gets none (flicker plus black).
+     Fix bake the full per-dog path into camera_name as an ABSOLUTE name
+     (robot_namespace already starts with a slash so /go2_i/camera is absolute);
+     an absolute camera_name ignores the buggy node namespace and pins the topic
+     to /go2_i/camera/image_raw. frame_name still uses frame_prefix and is read
+     correctly per dog. Low resolution and visualize=false to keep GPU cost down.
+     NOTE keep comments free of colon-space because robot_description is
+     YAML-parsed by launch and a colon-space anywhere breaks it. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:arg name="robot_namespace" default=""/>
+    <xacro:arg name="frame_prefix" default=""/>
+    <xacro:arg name="name_suffix" default=""/>
+
+    <joint name="camera_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.28 0 0.12"/>
+        <parent link="base_link"/>
+        <child link="camera_link"/>
+    </joint>
+
+    <link name="camera_link">
+        <inertial>
+            <mass value="0.05"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.04 0.08 0.035"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+
+    <joint name="camera_rgb_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.02 0 0"/>
+        <parent link="camera_link"/>
+        <child link="camera_rgb_frame"/>
+    </joint>
+    <link name="camera_rgb_frame"/>
+
+    <joint name="camera_rgb_optical_joint" type="fixed">
+        <origin rpy="-1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0"/>
+        <parent link="camera_rgb_frame"/>
+        <child link="camera_rgb_optical_frame"/>
+    </joint>
+    <link name="camera_rgb_optical_frame"/>
+
+    <gazebo reference="camera_rgb_frame">
+        <sensor name="camera_rgb" type="camera">
+            <always_on>true</always_on>
+            <visualize>false</visualize>
+            <update_rate>10</update_rate>
+            <camera name="camera">
+                <horizontal_fov>1.047</horizontal_fov>
+                <image>
+                    <width>320</width>
+                    <height>240</height>
+                    <format>R8G8B8</format>
+                </image>
+                <clip>
+                    <near>0.05</near>
+                    <far>100.0</far>
+                </clip>
+            </camera>
+            <plugin name="camera_controller_$(arg name_suffix)" filename="libgazebo_ros_camera.so">
+                <ros>
+                    <namespace>/</namespace>
+                </ros>
+                <camera_name>$(arg robot_namespace)/camera</camera_name>
+                <frame_name>$(arg frame_prefix)camera_rgb_optical_frame</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+</robot>

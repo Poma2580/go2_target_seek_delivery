@@ -12,6 +12,8 @@
     <xacro:arg name="points_topic" default="velodyne_points"/>
     <xacro:arg name="ros_control_file" default="$(find go2_description)/config/ros_control/ros_control.yaml"/>
     <xacro:arg name="name_suffix" default=""/>
+    <xacro:arg name="enable_velodyne" default="false"/>
+    <xacro:arg name="enable_camera" default="true"/>
 
     <xacro:include filename="$(find go2_description)/xacro/const.xacro"/>
     <xacro:include filename="$(find go2_description)/xacro/materials.xacro"/>
@@ -96,6 +98,11 @@
     <xacro:leg name="rh" mirror="-1" mirror_dae="False" front_hind="-1" front_hind_dae="False"/>
     <xacro:leg name="lh" mirror="1" mirror_dae="True" front_hind="-1" front_hind_dae="False"/>
 
-    <xacro:include filename="$(find go2_description)/xacro/velodyne_3d.xacro"/>
+    <xacro:if value="$(arg enable_velodyne)">
+        <xacro:include filename="$(find go2_description)/xacro/velodyne_3d.xacro"/>
+    </xacro:if>
+    <xacro:if value="$(arg enable_camera)">
+        <xacro:include filename="$(find go2_description)/xacro/camera_rgb_3d.xacro"/>
+    </xacro:if>
 
 </robot>

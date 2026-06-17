@@ -1,0 +1,108 @@
+====================================情况说明 0616（Go2 静态抖动/滑动问题）===========================
+
+问题来源：
+   - 参考源项目 issue：
+     https://github.com/anujjain-dev/unitree-go2-ros2/issues/18
+   - issue 标题：抖动 #18
+
+现象：
+   - Go2 机器人在 Gazebo 中静止时会轻微抖动、缓慢漂移，看起来像“静态滑动”。
+   - 单纯修改 PID 参数没有解决。
+   - 有用户反馈在 slam_toolbox 建图时，地图也会跟着漂移。
+
+排查与结论（实测，重要纠正）：
+
+   一、issue #18 / 网传"把 max_step_size 改成 0.004 匹配 250Hz 控制器"是错误方向，实测变差：
+       - 把 world 的 <max_step_size> 从默认 0.001 改成 0.004 后，机器狗一导入就翻倒、腿剧烈抖动。
+       - 原因：物理积分步长必须比控制周期"更细"，不是相等或更粗。
+         控制器 250Hz = 控制周期 4ms；物理 max_step_size=0.001（1000Hz）意味着每个控制周期内
+         有 4 个物理子步，这才是正确稳定的关系。步长放大到 0.004（4ms）对 12 个 effort 关节 + 4 足
+         接触、且 ODE iters 仅 10 的系统远超数值稳定极限 → 约束发散 → 抖动 + 翻倒。
+       - 结论：max_step_size 必须保持 0.001，绝不要改 0.004。
+
+   二、只改 world 物理块（iters / contact_max_correcting_vel / erp）实测对前漂"无效"，已退回原设置。
+       - 说明本场景的前漂不是求解器收敛主导，而是脚-地接触太软导致的切向蠕滑。
+
+   三、真正有效的修复 = 调硬"脚-地接触"（已验证：导入正常、不打滑、不翻倒）：
+       文件：go2_ws_v2/src/unitree-go2-ros2/robots/descriptions/go2_description/xacro/gazebo.xacro
+       对四个 *_foot_link（lf/rf/lh/rh）：
+           <kp>   10000.0 → 100000.0   （接触刚度提高 10 倍，脚不再陷地蠕滑）
+           <kd>   1.0     → 100.0      （接触阻尼，抑制微弹）
+           <mu1>  0.6     → 1.0        （静摩擦，抗滑）
+           <mu2>  0.6     → 1.0
+       注意：只改四个 *_foot_link，其余腿部 link 的 mu/kp 保持不变。
+       因工作区用过 --symlink-install，改完 gazebo.xacro 无需 colcon build，重启 spawn launch 即生效。
+
+   验证：
+       - 起世界 + 单狗，不发任何 cmd_vel，静置 30s：
+           ros2 topic echo /go2_1/odom/ground_truth --field pose.pose.position
+         base_link 的 x/y 不再持续增长（30s 内位移在毫米级）即修复成功。
+       - 关节抖动：ros2 topic echo /go2_1/joint_states，velocity 不再持续小幅震荡。
+       - gzclient 左下角 real-time factor 稳定 ~1.0。
+
+后续注意：
+   - slam_toolbox 建图漂移不一定完全由静态抖动导致，还可能叠加 odom / EKF 问题。
+   - issue 回复中提到：odom 可能不准，疑似因为 imu 输出部分为无穷大，导致 EKF 后的 odom 有问题。
+   - 后续如继续排查建图漂移，建议单独检查：
+       /imu 数据是否存在 inf / nan
+       EKF 输入输出是否稳定
+       /odom 与真实运动是否一致
+
+本次记录范围：
+   - 已实改 gazebo.xacro 四个 *_foot_link 接触参数（见上"三"），打滑/前漂问题已解决。
+   - world 文件 max_step_size 保持 0.001，未改动（0.004 是错误方向，已验证会翻倒）。
+
+====================================今日改动 0616（三狗 3D 加 RGB 相机 + 保留激光雷达）===========================
+
+背景与目标：
+   - 三狗 3D 每只只发点云，三份稠密点云 + GUI + uav1 深度相机抢 GPU，RTF 卡到 ~0.30（见 0612）。
+   - 目标：给每只狗装一个轻量 RGB 相机并能实时看画面；同时保留 3D Velodyne 以减渲染/显存压力。
+   - 相机做成可开关、按狗命名空间隔离；激光雷达可开关（本次最终决定默认开启，用于上传建图版本）。
+
+新增/修改文件：
+   1. 新增 go2_description/xacro/camera_rgb_3d.xacro
+      - 轻量 RGB 相机，照 velodyne_3d.xacro 的命名空间隔离写法
+        （robot_namespace / frame_prefix / name_suffix 在 xacro 时烘焙）。
+      - sensor type=camera（非 depth）；插件 libgazebo_ros_camera.so。
+   2. 改 go2_description/xacro/robot_3d_lidar_nocam.xacro
+      - 新增 arg enable_velodyne(默认 false) / enable_camera(默认 true)。
+      - velodyne 改为 <xacro:if> 条件包含，并新增相机条件包含。
+   3. 改 go2_config/launch/spawn_go2_velodyne_1/2/3.launch.py（三份相同）
+      - 新增 launch 参数 enable_lidar / enable_camera，透传到 xacro 的 enable_velodyne / enable_camera。
+        （注：enable_lidar 默认今日已改为 true——上传带雷达建图版本，方便对方一键建图。）
+      - points_topic 保留（关激光时无害冗余）。
+   4. 改 go2_config/rviz/three_go2_velodyne.rviz
+      - 新增 3 个 rviz_default_plugins/Image 显示，订阅 /go2_1|2|3/camera/image_raw。
+      - 原 3 个 PointCloud2 显示保留（关激光时为空、无害，恢复激光即可用）。
+
+关键参数（相机）：
+   - 分辨率 320x240、format R8G8B8、FOV 1.047、update_rate 10Hz、visualize=false（省 GPU）。
+   - 安装位置：base_link 前方 xyz=0.28 0 0.12。
+   - 话题：/go2_i/camera/image_raw、/go2_i/camera/camera_info。
+   - frame：go2_i/camera_rgb_optical_frame。
+
+显示方式（两种都配）：
+   - RViz：view_three_go2_velodyne.launch.py，三个 Image 面板出画面。
+   - rqt_image_view：
+       ros2 run rqt_image_view rqt_image_view /go2_1/camera/image_raw
+       ros2 run rqt_image_view rqt_image_view /go2_2/camera/image_raw
+       ros2 run rqt_image_view rqt_image_view /go2_3/camera/image_raw
+
+激光雷达开关（默认已开 enable_lidar:=true，用于建图）：
+   - 默认直接启动即带 3D Velodyne：ros2 launch go2_config spawn_go2_velodyne_1.launch.py
+   - 如需临时关激光省 GPU：加 enable_lidar:=false。
+   - 如需临时关相机：加 enable_camera:=false。
+
+复用的坑规避（沿用 0612 记录）：
+   - xacro 注释里禁止出现“冒号+空格(": ")”——robot_description 会被 launch 当 YAML 解析，
+     冒号+空格会报 "Unable to parse robot_description as yaml" 导致狗起不来。
+   - 跑任何 ROS 命令前务必 conda deactivate；which python3 必须是 /usr/bin/python3。
+
+构建：
+   - colcon build --packages-select go2_description go2_config
+
+验证要点：
+   - xacro 干跑：camera 插件数 =1、velodyne 插件数 =0。
+   - 运行时：/go2_i/camera/image_raw ~10Hz；/go2_i/velodyne_points 为空。
+   - RViz 三个 Image 面板出画面；RTF 较纯三点云有改善。
+   - 恢复激光：enable_lidar:=true 后点云恢复、TF 正常。

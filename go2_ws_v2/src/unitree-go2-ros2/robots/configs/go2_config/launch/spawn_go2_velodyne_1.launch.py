@@ -61,6 +61,10 @@ def generate_launch_description():
         ros_control_config,
         " name_suffix:=",
         ROBOT_NAME,
+        " enable_velodyne:=",
+        LaunchConfiguration("enable_lidar"),
+        " enable_camera:=",
+        LaunchConfiguration("enable_camera"),
     ]
     robot_description = {"robot_description": Command(xacro_cmd)}
     robot_urdf = Command(xacro_cmd)
@@ -235,6 +239,16 @@ def generate_launch_description():
                 "use_ground_truth_odom",
                 default_value="true",
                 description="Use Gazebo ground-truth odometry for this robot",
+            ),
+            DeclareLaunchArgument(
+                "enable_lidar",
+                default_value="true",
+                description="Mount the 3D Velodyne lidar (on by default for mapping)",
+            ),
+            DeclareLaunchArgument(
+                "enable_camera",
+                default_value="true",
+                description="Mount the lightweight RGB camera",
             ),
             robot_state_publisher,
             quadruped_controller,

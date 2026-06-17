@@ -180,7 +180,7 @@ ros2 launch go2_config teleop_three_go2.launch.py
 键盘窗口与单狗相同（i 前进、, 后退、j 左转、l 右转、k 停）。
 键盘只对当前鼠标焦点所在的 xterm 窗口生效，要控制哪只狗，先点一下对应窗口再按键。
 
-## 多狗模式：三只 Go2 + 3D Velodyne
+## 多狗模式：三只 Go2 + 3D Velodyne + RGB 相机
 
 本模式复用同一个 `target_seek` 世界和三狗键盘控制链路，每只 Go2 装 3D Velodyne。
 
@@ -216,6 +216,20 @@ ros2 launch go2_config teleop_three_go2.launch.py
 ```bash
 ros2 launch go2_config view_three_go2_velodyne.launch.py
 ```
+
+终端 7：按需用 RViz/RQT 查看三个相机视角：
+
+显示方式：
+   - RViz：同终端6的指令，在上一个RViz面板中加入三个 Image 面板出画面。
+```bash
+ros2 launch go2_config view_three_go2_velodyne.launch.py
+```
+   - rqt_image_view：
+  ```bash
+       ros2 run rqt_image_view rqt_image_view /go2_1/camera/image_raw
+       ros2 run rqt_image_view rqt_image_view /go2_2/camera/image_raw
+       ros2 run rqt_image_view rqt_image_view /go2_3/camera/image_raw
+  ```
 
 ## 模型参数说明
 

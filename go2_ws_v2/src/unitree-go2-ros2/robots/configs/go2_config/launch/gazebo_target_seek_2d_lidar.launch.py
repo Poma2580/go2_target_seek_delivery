@@ -63,7 +63,7 @@ def generate_launch_description():
     )
     declare_world_init_x = DeclareLaunchArgument("world_init_x", default_value="-3.5")
     declare_world_init_y = DeclareLaunchArgument("world_init_y", default_value="2.7")
-    declare_world_init_z = DeclareLaunchArgument("world_init_z", default_value="0.25")
+    declare_world_init_z = DeclareLaunchArgument("world_init_z", default_value="0.4")
     declare_world_init_heading = DeclareLaunchArgument(
         "world_init_heading", default_value="0.0"
     )
