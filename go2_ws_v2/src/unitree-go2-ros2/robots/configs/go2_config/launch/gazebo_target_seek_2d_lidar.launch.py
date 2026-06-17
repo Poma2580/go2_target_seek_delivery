@@ -19,11 +19,11 @@ def _prepend_paths(*paths):
 
 
 def generate_launch_description():
-    qy_model_root = os.environ.get(
-        "QY_MODEL_ROOT", os.path.abspath(os.path.join(os.getcwd(), "..", "QY_MODEL"))
+    kd_model_root = os.environ.get(
+        "KD_MODEL_ROOT", os.path.abspath(os.path.join(os.getcwd(), "..", "KD_MODEL"))
     )
-    default_world_path = os.path.join(qy_model_root, "target_seek")
-    qy_model_path = os.path.join(qy_model_root, "models")
+    default_world_path = os.path.join(kd_model_root, "world", "forestV3.world")
+    kd_model_path = os.path.join(kd_model_root, "models")
     gazebo_model_cache = os.path.expanduser("~/.gazebo/models")
 
     config_pkg_share = launch_ros.substitutions.FindPackageShare(
@@ -153,7 +153,7 @@ def generate_launch_description():
             declare_world_init_heading,
             SetEnvironmentVariable(
                 "GAZEBO_MODEL_PATH",
-                _prepend_paths(qy_model_path, gazebo_model_cache),
+                _prepend_paths(kd_model_path, gazebo_model_cache),
             ),
             SetEnvironmentVariable("GAZEBO_MODEL_DATABASE_URI", ""),
             bringup_ld,

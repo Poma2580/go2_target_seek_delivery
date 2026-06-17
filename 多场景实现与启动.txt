@@ -1,0 +1,239 @@
+多场景实现与启动
+
+一、目标
+
+使用同一个 ROS2 launch 文件：
+
+  go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/gazebo_world_2d_lidar.launch.py
+
+实现不同 Gazebo 场景的切换，并同时启动：
+
+  1. Gazebo 场景
+  2. 一只带 2D lidar 的 Go2
+  3. 可选 RViz
+  4. ground truth odom relay
+
+当前已经支持的 scene 参数：
+
+  scene:=forest    启动 KD_MODEL/world/forestV3.world
+  scene:=qy        启动 QY_MODEL/target_seek
+
+机场环境当前没有作为 scene 选项写入 choices，但可以通过 world 参数手动指定：
+
+  world:=$KD_MODEL_ROOT/world/airport
+
+
+二、一个 .py 文件中实现多场景切换的方法
+
+核心文件：
+
+  gazebo_world_2d_lidar.launch.py
+
+核心思想：
+
+  1. 用 DeclareLaunchArgument 声明一个 scene 参数。
+  2. 用 _scene_paths(scene) 根据 scene 的值选择不同的 world 文件和 models 目录。
+  3. 用 OpaqueFunction 延迟执行 _launch_setup(context)，这样可以在运行时读取用户传入的 scene。
+  4. 把选中的 world 传给 champ_gazebo/launch/gazebo.launch.py。
+  5. 把选中的 models 目录加入 GAZEBO_MODEL_PATH，保证 Gazebo 能找到该场景依赖的模型。
+
+关键结构如下：
+
+  scenes = {
+      "qy": {
+          "world": os.path.join(qy_model_root, "target_seek"),
+          "models": os.path.join(qy_model_root, "models"),
+      },
+      "forest": {
+          "world": os.path.join(kd_model_root, "world", "forestV3.world"),
+          "models": os.path.join(kd_model_root, "models"),
+      },
+  }
+
+启动时传入：
+
+  scene:=forest
+
+程序就会使用：
+
+  KD_MODEL/world/forestV3.world
+  KD_MODEL/models
+
+启动时传入：
+
+  scene:=qy
+
+程序就会使用：
+
+  QY_MODEL/target_seek
+  QY_MODEL/models
+
+world 参数也保留了手动覆盖能力。例如启动机场：
+
+  scene:=forest world:=$KD_MODEL_ROOT/world/airport
+
+这里 scene:=forest 主要用于选择 KD_MODEL/models，world 参数则覆盖具体加载的世界文件。
+
+
+三、每个终端都先执行公共环境配置
+
+每打开一个新终端，都先执行：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+如果之前启动过 Gazebo，建议先关闭旧进程：
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+
+四、启动森林场景
+
+终端 1：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true rviz:=false
+
+
+五、启动 target_seek 场景
+
+终端 1：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true rviz:=false
+
+
+六、启动机场场景
+
+机场 world 文件路径：
+
+  KD_MODEL/world/airport
+
+终端 1：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest world:=$KD_MODEL_ROOT/world/airport gui:=true rviz:=false
+
+说明：
+
+  当前 launch 文件没有 scene:=airport。
+  这里使用 scene:=forest 是为了加载 KD_MODEL/models。
+  同时用 world:=$KD_MODEL_ROOT/world/airport 覆盖具体世界文件。
+
+
+七、键盘控制 Go2
+
+场景启动成功后，另开终端 2：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+常用按键：
+
+  i    前进
+  ,    后退
+  j    左转
+  l    右转
+  k    停止
+
+
+八、SLAM 建图
+
+场景启动成功后，另开终端 3：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config slam.launch.py sim:=true rviz:=true
+
+说明：
+
+  sim:=true 表示使用仿真时间。
+  rviz:=true 表示启动 RViz 查看建图效果。
+  建图依赖 /scan 和 /odom，所以 Gazebo 中的 Go2 和 2D lidar 要先正常启动。
+
+
+九、检查是否启动成功
+
+检查雷达话题：
+
+  ros2 topic list | grep scan
+  ros2 topic echo /scan --once
+
+检查里程计：
+
+  ros2 topic list | grep odom
+  ros2 topic echo /odom --once
+
+检查 Gazebo 是否还在运行：
+
+  ps aux | grep gzserver
+  ps aux | grep gzclient
+
+
+十、推荐启动顺序
+
+第 1 个终端：启动场景和 Go2
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true rviz:=false
+
+或：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true rviz:=false
+
+或：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest world:=$KD_MODEL_ROOT/world/airport gui:=true rviz:=false
+
+第 2 个终端：启动键盘控制
+
+  ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+第 3 个终端：启动 SLAM 建图
+
+  ros2 launch go2_config slam.launch.py sim:=true rviz:=true
+

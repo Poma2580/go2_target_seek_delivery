@@ -1,0 +1,187 @@
+Gazebo world 场景切换启动手册
+
+一、启动文件
+
+统一启动文件：
+
+  go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/gazebo_world_2d_lidar.launch.py
+
+这个文件只启动 Gazebo 世界，不生成机器狗。
+
+它通过 scene 参数切换场景：
+
+  scene:=qy       使用 QY_MODEL/target_seek
+  scene:=forest   使用 KD_MODEL/world/forestV3.world
+
+
+二、每个新终端先配置环境
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+说明：
+
+  DELIVERY_ROOT 是项目根目录。
+  QY_MODEL_ROOT 是 QY 场景目录。
+  KD_MODEL_ROOT 是森林场景目录。
+  source /opt/ros/humble/setup.bash 用来加载 ROS2 Humble。
+  source install/setup.bash 用来加载当前工作空间里的 go2_config 等包。
+
+
+三、启动 QY_MODEL 的 target_seek 场景
+
+终端 1：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true
+
+这个命令会加载：
+
+  world:
+    QY_MODEL/target_seek
+
+  models:
+    QY_MODEL/models
+
+
+四、启动 KD_MODEL 的 forestV3 森林场景
+
+终端 1：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true
+
+这个命令会加载：
+
+  world:
+    KD_MODEL/world/forestV3.world
+
+  models:
+    KD_MODEL/models
+
+
+五、不打开 Gazebo 图形界面
+
+如果只想启动 gzserver，不打开 gzclient：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=false
+
+或者：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=false
+
+
+六、暂停物理仿真启动
+
+调试时可以让 Gazebo 启动后先暂停物理：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true paused:=true
+
+
+七、启动世界后生成机器狗
+
+这个 world 启动文件只负责启动世界，不会自动生成机器狗。
+
+如果要在已经启动的世界里生成多只 Go2，可以新开终端执行：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config spawn_go2_1.launch.py
+
+第二只：
+
+  ros2 launch go2_config spawn_go2_2.launch.py
+
+第三只：
+
+  ros2 launch go2_config spawn_go2_3.launch.py
+
+建议按顺序启动，等上一只机器狗控制器加载完成后，再启动下一只。
+
+
+八、检查
+
+查看当前 launch 文件支持的参数：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py --show-args
+
+查看 Gazebo 进程：
+
+  ps aux | grep gzserver
+  ps aux | grep gzclient
+
+查看 ROS 话题：
+
+  ros2 topic list
+
+
+九、常见问题
+
+1. 提示找不到 gazebo_world_2d_lidar.launch.py
+
+说明新增 launch 文件后没有重新 build。执行：
+
+  cd /home/wangantong/go2_target_seek_delivery/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  colcon build --packages-select go2_config --symlink-install
+  source install/setup.bash
+
+2. Gazebo 模型缺失
+
+检查环境变量：
+
+  echo $QY_MODEL_ROOT
+  echo $KD_MODEL_ROOT
+
+如果启动 scene:=qy，确认存在：
+
+  $QY_MODEL_ROOT/target_seek
+  $QY_MODEL_ROOT/models
+
+如果启动 scene:=forest，确认存在：
+
+  $KD_MODEL_ROOT/world/forestV3.world
+  $KD_MODEL_ROOT/models
+
+3. 想切换场景
+
+先关闭旧 Gazebo：
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+再重新启动另一个 scene：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true
+
+或者：
+
+  ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true

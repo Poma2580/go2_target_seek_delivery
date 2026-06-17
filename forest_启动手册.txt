@@ -1,0 +1,258 @@
+KD_MODEL 森林 Gazebo 场景启动手册
+
+一、当前场景配置说明
+
+本工程现在使用新的 KD_MODEL 场景目录：
+
+  /home/wangantong/go2_target_seek_delivery/KD_MODEL
+
+其中：
+
+  世界文件目录：
+    KD_MODEL/world
+
+  模型文件目录：
+    KD_MODEL/models
+
+当前两个 launch 文件默认使用的世界文件是：
+
+  KD_MODEL/world/forestV3.world
+
+相关 launch 文件：
+
+  单狗 + Gazebo + 2D lidar：
+    go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/gazebo_target_seek_2d_lidar.launch.py
+
+  只启动 Gazebo 世界，不生成机器人：
+    go2_ws_v2/src/unitree-go2-ros2/robots/configs/go2_config/launch/gazebo_target_seek_world.launch.py
+
+
+二、每个终端启动前都先配置环境
+
+建议每打开一个新终端，都先执行下面这组命令：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  export GAZEBO_MODEL_PATH=$KD_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+  export GAZEBO_MODEL_DATABASE_URI=""
+
+说明：
+
+  DELIVERY_ROOT 是整个工程根目录。
+  KD_MODEL_ROOT 是新的 Gazebo 森林场景目录。
+  GAZEBO_MODEL_PATH 用来告诉 Gazebo 去 KD_MODEL/models 里面找模型。
+  GAZEBO_MODEL_DATABASE_URI="" 用来关闭在线模型数据库，避免 Gazebo 等待联网下载模型。
+
+
+三、启动单只 Go2 + 森林 Gazebo 场景
+
+终端 1：
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  export GAZEBO_MODEL_PATH=$KD_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+  export GAZEBO_MODEL_DATABASE_URI=""
+
+  ros2 launch go2_config gazebo_forest_target_seek_2d_lidar.launch.py gui:=true rviz:=false
+
+这个命令会做三件事：
+
+  1. 启动 Gazebo，并加载 KD_MODEL/world/forestV3.world
+  2. 从 KD_MODEL/models 里加载森林场景相关模型
+  3. 生成一只带 2D lidar 的 Go2
+
+
+四、键盘控制单只 Go2
+
+终端 2：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+常用按键参考：
+
+  i    前进
+  ,    后退
+  j    左转
+  l    右转
+  k    停止
+
+
+五、只启动森林 Gazebo 世界，不生成机器人
+
+这个方式用于多机器人场景。先启动世界，再分别生成 go2_1、go2_2、go2_3。
+
+终端 1：
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  export GAZEBO_MODEL_PATH=$KD_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+  export GAZEBO_MODEL_DATABASE_URI=""
+
+  ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+
+
+六、多只 Go2 依次生成
+
+先确认终端 1 已经启动 gazebo_target_seek_world.launch.py。
+
+终端 2：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config spawn_go2_1.launch.py
+
+终端 3：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config spawn_go2_2.launch.py
+
+终端 4：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config spawn_go2_3.launch.py
+
+建议顺序启动，不要三个 spawn 同时启动。等上一只机器人控制器加载完成后，再启动下一只。
+
+
+七、多机器人键盘控制
+
+终端 5：
+
+  export DELIVERY_ROOT=/home/wangantong/go2_target_seek_delivery
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+  ros2 launch go2_config teleop_three_go2.launch.py
+
+启动后会弹出多个键盘控制窗口。需要控制哪只机器人，就点击对应窗口后输入键盘指令。
+
+
+八、切换到 KD_MODEL 里的其他世界
+
+KD_MODEL/world 里面还有这些世界文件：
+
+  forest.world
+  forestV1.world
+  forestV2.world
+  forestV3.world
+  campus.world
+  indoor.world
+  tunnel.world
+  garage.world
+
+如果不想使用默认的 forestV3.world，可以在 ros2 launch 后面手动指定 world 参数。
+
+例如启动 forest.world：
+
+  ros2 launch go2_config gazebo_target_seek_2d_lidar.launch.py \
+    world:=$KD_MODEL_ROOT/world/forest.world \
+    gui:=true rviz:=false
+
+例如只启动 campus.world：
+
+  ros2 launch go2_config gazebo_target_seek_world.launch.py \
+    world:=$KD_MODEL_ROOT/world/campus.world \
+    gui:=true
+
+
+九、检查是否启动成功
+
+查看 Gazebo 进程：
+
+  ps aux | grep gzserver
+  ps aux | grep gzclient
+
+查看 lidar 话题：
+
+  ros2 topic list | grep scan
+
+查看单机器人 cmd_vel：
+
+  ros2 topic list | grep cmd_vel
+
+多机器人时查看控制器：
+
+  ros2 control list_controllers --controller-manager /go2_1/controller_manager
+  ros2 control list_controllers --controller-manager /go2_2/controller_manager
+  ros2 control list_controllers --controller-manager /go2_3/controller_manager
+
+
+十、常见问题
+
+1. Gazebo 打开后模型缺失
+
+检查 KD_MODEL_ROOT 和 GAZEBO_MODEL_PATH：
+
+  echo $KD_MODEL_ROOT
+  echo $GAZEBO_MODEL_PATH
+
+确认 GAZEBO_MODEL_PATH 里包含：
+
+  /home/wangantong/go2_target_seek_delivery/KD_MODEL/models
+
+2. Gazebo 仍然加载旧的 QY_MODEL 场景
+
+检查启动终端里是否还设置了旧变量：
+
+  echo $QY_MODEL_ROOT
+
+当前新场景主要使用：
+
+  KD_MODEL_ROOT
+
+3. 提示找不到 launch 包或节点
+
+通常是没有 source 工作区：
+
+  cd /home/wangantong/go2_target_seek_delivery/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+4. Gazebo 卡住或旧场景残留
+
+先关闭旧 Gazebo：
+
+  pkill -f gzserver
+  pkill -f gzclient
+
+然后重新启动。

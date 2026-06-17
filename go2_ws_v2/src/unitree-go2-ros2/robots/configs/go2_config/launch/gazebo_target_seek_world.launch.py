@@ -30,11 +30,11 @@ def generate_launch_description():
     gui = LaunchConfiguration("gui")
     paused = LaunchConfiguration("paused")
 
-    qy_model_root = os.environ.get(
-        "QY_MODEL_ROOT", os.path.abspath(os.path.join(os.getcwd(), "..", "QY_MODEL"))
+    kd_model_root = os.environ.get(
+        "KD_MODEL_ROOT", os.path.abspath(os.path.join(os.getcwd(), "..", "KD_MODEL"))
     )
-    default_world_path = os.path.join(qy_model_root, "target_seek")
-    qy_model_path = os.path.join(qy_model_root, "models")
+    default_world_path = os.path.join(kd_model_root, "world","forestV3.world")
+    kd_model_path = os.path.join(kd_model_root, "models")
     gazebo_model_cache = os.path.expanduser("~/.gazebo/models")
 
     gazebo_config = os.path.join(
@@ -74,11 +74,11 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "world", default_value=default_world_path,
-                description="Gazebo world path (default: $QY_MODEL_ROOT/target_seek)",
+                description="Gazebo world path (default: $KD_MODEL_ROOT/world/forestV3.world)",
             ),
             SetEnvironmentVariable(
                 "GAZEBO_MODEL_PATH",
-                _prepend_paths(qy_model_path, gazebo_model_cache),
+                _prepend_paths(kd_model_path, gazebo_model_cache),
             ),
             SetEnvironmentVariable("GAZEBO_MODEL_DATABASE_URI", ""),
             start_gazebo_server,
