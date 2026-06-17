@@ -17,12 +17,24 @@ export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
+export KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
 export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
 export GAZEBO_MODEL_DATABASE_URI=""
 
-ros2 launch go2_config gazebo_target_seek_2d_lidar.launch.py gui:=true rviz:=false
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true rviz:=false
 
+第 1 个终端：启动场景和 Go2
+
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true rviz:=false
+
+或：
+
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true rviz:=false
+
+或：
+
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=airport gui:=true rviz:=false
 
 键盘控制：
 

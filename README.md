@@ -1,10 +1,10 @@
-# Go2 + target_seek 使用手册
+# Go2 多场景使用手册
 
-**Latest Updated 2026.06.15**
+**Latest Updated 2026.06.17**
 
-本文档说明如何在 Gazebo Classic 中启动 `target_seek` 场景：
+本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
-- 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，支持键盘控制和 SLAM。
+- 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只带 3D Velodyne 的 Go2，各自独立键盘控制，并可用 RViz 查看 3D 点云。
 
@@ -42,6 +42,9 @@ go2_target_seek_delivery/
   go2_ws_v2/
   QY_MODEL/
     models/
+  KD_MODEL/
+    models/
+    world/
   README.md
 ```
 
@@ -95,7 +98,8 @@ cat <<EOF >> ~/.bashrc
 # go2_target_seek_delivery
 export DELIVERY_ROOT="$(pwd)"
 export QY_MODEL_ROOT="\$DELIVERY_ROOT/QY_MODEL"
-export GAZEBO_MODEL_PATH="\$QY_MODEL_ROOT/models:\$GAZEBO_MODEL_PATH"
+export KD_MODEL_ROOT="\$DELIVERY_ROOT/KD_MODEL"
+export GAZEBO_MODEL_PATH="\$QY_MODEL_ROOT/models:\$KD_MODEL_ROOT/models:\$GAZEBO_MODEL_PATH"
 export GAZEBO_MODEL_DATABASE_URI=""
 EOF
 
@@ -125,10 +129,17 @@ source /opt/ros/humble/setup.bash
 source install/setup.bash
 ```
 
-终端 1：启动 `target_seek` 世界和单只 Go2：
+终端 1：从 3 个场景中选择一个，启动世界和单只 Go2：
 
 ```bash
-ros2 launch go2_config gazebo_target_seek_2d_lidar.launch.py gui:=true rviz:=false
+# target_seek 场景
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=qy gui:=true rviz:=false
+
+# 森林场景
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true rviz:=false
+
+# 机场场景
+ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=airport gui:=true rviz:=false
 ```
 
 终端 2：启动键盘控制，控制时鼠标焦点需要停留在该终端窗口内：
@@ -151,7 +162,7 @@ ros2 launch go2_config slam.launch.py sim:=true rviz:=true
 
 每个终端先执行：
 
-
+```bash
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -186,6 +197,7 @@ ros2 launch go2_config teleop_three_go2.launch.py
 
 每个终端先执行：
 
+```bash
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash

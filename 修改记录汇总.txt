@@ -45,3 +45,10 @@ BIT：
     1.修复 Go2 静止打滑/前漂问题：调硬脚-地接触太软导致的切向蠕滑。
     2.给每只狗加轻量 RGB 相机，RViz 新增三个 Image 面板。
     3.三狗 3D velodyne 启动链路 enable_lidar 默认为 true，上传雷达启动版本，便于开发建图。
+
+========================================= 06.17 修改 ========================================================================
+BIT：
+    已完成：
+    1.新增单狗多世界启动方式：gazebo_world_2d_lidar.launch.py 支持通过 scene:=qy、scene:=forest、scene:=airport 在 target_seek、森林、机场三个场景间切换,其中森林场景会有倾倒情况还未完全解决。
+    2.机场场景独立为 scene:=airport，不再需要使用 scene:=forest world:=$KD_MODEL_ROOT/world/airport 的临时覆盖写法。
+    3.同步更新 README 单狗模式启动说明和多场景环境变量说明。

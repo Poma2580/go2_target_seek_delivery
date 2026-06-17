@@ -128,10 +128,17 @@ def generate_launch_description():
     robot_description = {"robot_description": Command(["xacro ", LaunchConfiguration("description_path")])}
 
 
-    load_joint_state_controller = ExecuteProcess(
-        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-             'joint_states_controller'],
-        output='screen',
+    load_joint_state_controller = Node(
+        package="controller_manager",
+        executable="spawner",
+        output="screen",
+        arguments=[
+            "joint_states_controller",
+            "--controller-manager",
+            "/controller_manager",
+            "--controller-manager-timeout",
+            "120",
+        ],
     )
 
     load_joint_trajectory_position_controller = ExecuteProcess(
@@ -139,10 +146,17 @@ def generate_launch_description():
              'joint_group_position_controller'],
         output='screen'
     )
-    load_joint_trajectory_effort_controller = ExecuteProcess(
-        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
-             'joint_group_effort_controller'],
-        output='screen'
+    load_joint_trajectory_effort_controller = Node(
+        package="controller_manager",
+        executable="spawner",
+        output="screen",
+        arguments=[
+            "joint_group_effort_controller",
+            "--controller-manager",
+            "/controller_manager",
+            "--controller-manager-timeout",
+            "120",
+        ],
     )
 
     # joint_group_position_controller
