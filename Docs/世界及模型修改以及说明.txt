@@ -1,0 +1,16 @@
+0618更新：
+
+截止到更新KD_world之前，可行的工作流（已经merge到main branch中）涉及对QY_WORLD中多个文件的修改，分别包括：
+
+
+QY_WORLD/target_seek:
+1. 43-49行加入了gazebo_ros_state插件，通过此插件在/gazebo话题下能够获取物体位置信息（坐标）；
+
+QY_WORLD/models/uav1_iris:
+1. 在584-602行加入了gazebo_ros_planar_move插件，此插件的自定义名称设置为/uav1/custom_cmd_vel，支持通过发送vel指令移动模型；
+2. 修改了全部gravity参数，使其为0，方便做飞行操作；
+
+QY_WORLD/models/uav1_gps 及 uav1_iris_depth_camera:
+1. 修改了全部gravity参数，使其为0，方便做飞行操作；
+
+
