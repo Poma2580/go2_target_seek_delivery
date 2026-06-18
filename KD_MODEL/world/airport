@@ -15,6 +15,15 @@
       <direction>-0.4 0.25 -0.9</direction>
     </light>
 
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+
+      <update_rate>1.0</update_rate>
+    </plugin>
+       
+
     <!-- Field size is X Y Z. Change X to tune overall length and Y to tune width. -->
     <model name="airport_flat_field">
       <static>true</static>
@@ -596,5 +605,11 @@
       <name>tree_southeast_1</name>
       <pose>165 -62 0 0 0 0</pose>
     </include>
+
+    <include>
+      <uri>model://uav1_iris_depth_camera</uri>
+      <pose>-15 -2 50 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>
