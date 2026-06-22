@@ -32,7 +32,7 @@
         <visual name="grass_visual">
           <geometry>
             <box>
-              <size>900 900 0.02</size>
+              <size>360 120 0.02</size>
             </box>
           </geometry>
           <material>
@@ -53,7 +53,7 @@
     <!-- Two horizontal strips: runway above, taxiway below. -->
     <model name="runway_04_22">
       <static>true</static>
-      <pose>0 18 0.045 0 0 0</pose>
+      <pose>0 18 0.025 0 0 0</pose>
       <link name="link">
         <visual name="runway_visual">
           <geometry>
@@ -135,7 +135,7 @@
 
     <model name="parallel_taxiway">
       <static>true</static>
-      <pose>0 -10 0.045 0 0 0</pose>
+      <pose>0 -10 0.026 0 0 0</pose>
       <link name="link">
         <visual name="taxiway_visual">
           <geometry>
@@ -178,7 +178,7 @@
 
     <model name="north_runway_exit">
       <static>true</static>
-      <pose>-95 3.5 0.045 0 0 0</pose>
+      <pose>-95 3.5 0.027 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -203,7 +203,7 @@
 
     <model name="south_runway_exit">
       <static>true</static>
-      <pose>65 3.5 0.045 0 0 0</pose>
+      <pose>65 3.5 0.027 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -228,7 +228,7 @@
 
     <model name="center_runway_exit">
       <static>true</static>
-      <pose>0 3.5 0.045 0 0 0</pose>
+      <pose>0 3.5 0.027 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -254,7 +254,7 @@
     <!-- Apron and terminal are concentrated below the taxiway. -->
     <model name="main_apron">
       <static>true</static>
-      <pose>15 -37 0.045 0 0 0</pose>
+      <pose>15 -37 0.026 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -279,7 +279,7 @@
 
     <model name="terminal_connector_1">
       <static>true</static>
-      <pose>-35 -24 0.045 0 0 0</pose>
+      <pose>-35 -24 0.028 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -304,7 +304,7 @@
 
     <model name="terminal_connector_2">
       <static>true</static>
-      <pose>80 -24 0.045 0 0 0</pose>
+      <pose>80 -24 0.028 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -354,7 +354,7 @@
 
     <model name="right_service_road">
       <static>true</static>
-      <pose>145 -35 0.045 0 0 0</pose>
+      <pose>145 -35 0.027 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -379,7 +379,7 @@
 
     <model name="apron_to_service_road">
       <static>true</static>
-      <pose>92 -48 0.045 0 0 0</pose>
+      <pose>92 -48 0.028 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
@@ -396,6 +396,56 @@
           <geometry>
             <box>
               <size>90 10 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="fuel_depot_pad">
+      <static>true</static>
+      <pose>0 52 0.028 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>70 28 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.31 0.28 1</ambient>
+            <diffuse>0.32 0.31 0.28 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>70 28 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="fire_station_pad">
+      <static>true</static>
+      <pose>125 52 0.028 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>90 28 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.31 0.28 1</ambient>
+            <diffuse>0.32 0.31 0.28 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>90 28 0.01</size>
             </box>
           </geometry>
         </collision>
@@ -458,6 +508,12 @@
       <uri>model://fire_truck</uri>
       <name>fire_truck_1</name>
       <pose>92 45 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://fire_truck</uri>
+      <name>fire_truck_2</name>
+      <pose>82 545 0 0 0 0</pose>
     </include>
 
     <include>
@@ -524,6 +580,30 @@
       <uri>model://construction_cone</uri>
       <name>cone_apron_2</name>
       <pose>90 -24 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://oak_tree</uri>
+      <name>tree_northwest_1</name>
+      <pose>-165 62 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://oak_tree</uri>
+      <name>tree_northeast_1</name>
+      <pose>165 62 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://pine_tree</uri>
+      <name>tree_southwest_1</name>
+      <pose>-165 -62 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://pine_tree</uri>
+      <name>tree_southeast_1</name>
+      <pose>165 -62 0 0 0 0</pose>
     </include>
 
     <include>
