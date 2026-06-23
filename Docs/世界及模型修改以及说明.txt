@@ -14,3 +14,13 @@ QY_WORLD/models/uav1_gps 及 uav1_iris_depth_camera:
 1. 修改了全部gravity参数，使其为0，方便做飞行操作；
 
 
+0619 Update:
+
+KD_WORLD/world/airport:
+1. At line 18-24, added plugin to move drone.
+2. At line 609-612, added uav model spawn, heritaged from QY_WORLD/models.
+
+KD_WORLD/world/airport:
+1. At line 101-107, added plugin to move drone.
+2. At line 30947-30950, added uav model spawn, heritaged from QY_WORLD/models.
+3. At line 1, added <?xml version="1.0"?> to optimize visual.
