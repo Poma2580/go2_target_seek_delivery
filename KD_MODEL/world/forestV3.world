@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <sdf version='1.7'>
   <world name='default'>
     <light name='sun' type='directional'>
@@ -96,6 +97,17 @@
         <projection_type>perspective</projection_type>
       </camera>
     </gui>
+
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+
+      <update_rate>1.0</update_rate>
+    </plugin>
+       
+
+
     <model name='oak_tree'>
       <static>1</static>
       <link name='link'>
@@ -30931,5 +30943,11 @@
       </link>
       <pose>4.36685 18.587 0 0 -0 0</pose>
     </model>
+
+    <include>
+      <uri>model://uav1_iris_depth_camera</uri>
+      <pose>-15 -2 50 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>
