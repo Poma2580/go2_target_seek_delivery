@@ -23,10 +23,10 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 ROBOT_NAME = "go2_2"
-SPAWN_X = "-3.5"
-SPAWN_Y = "2.7"
+SPAWN_X = "15"
+SPAWN_Y = "-35"
 SPAWN_Z = "0.40"
-SPAWN_YAW = "0.0"
+SPAWN_YAW = "0"
 
 
 def generate_launch_description():
@@ -242,12 +242,12 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "enable_lidar",
-                default_value="true",
-                description="Mount the 3D Velodyne lidar (on by default for mapping)",
+                default_value="false",
+                description="Mount the 3D Velodyne lidar",
             ),
             DeclareLaunchArgument(
                 "enable_camera",
-                default_value="true",
+                default_value="false",
                 description="Mount the lightweight RGB camera",
             ),
             robot_state_publisher,

@@ -4,7 +4,7 @@
       knee_orientation : ">>"
       pantograph_leg : false
       odom_scaler: 0.9
-      max_linear_velocity_x : 0.5
+      max_linear_velocity_x : 0.65
       max_linear_velocity_y : 0.25
       max_angular_velocity_z : 0.9
       com_x_translation: 0.0

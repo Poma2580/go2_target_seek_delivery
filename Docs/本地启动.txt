@@ -160,3 +160,32 @@ ros2 run rqt_image_view rqt_image_view /go2_3/camera/image_raw
 ros2 launch go2_config gazebo_target_seek_world.launch.py
 ros2 launch go2_config spawn_go2_velodyne_1.launch.py
 ros2 launch go2_config view_go2_velodyne_1.launch.py
+===================================
+
+cd /home/bit/go2_target_seek_delivery/Scripts
+./start_three_go2_velodyne.sh
+
+启动前快速自检（可选，终端 5 跑节点前）
+
+ros2 topic list | grep -E "go2_[123]/(odom|cmd_vel)"   # 应有 6 条
+ros2 topic echo /go2_1/odom --once                      # 看 position.x/y 是不是狗的世界系真实位置
+
+启动静态围捕
+ros2 run multi_go2_waypoint waypoint_encircle
+
+启动动态围捕
+ros2 run multi_go2_waypoint dynamic_encircle --ros-args -p use_sim_time:=true
+
+启动行人状态广播
+ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true
+# 另开窗口验证：
+ros2 topic hz /walking_target/odom            # 期望 ~20Hz
+ros2 topic echo /walking_target/odom --once   # 坐标与行人一致、运动时 twist 非零
+
+export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+export GAZEBO_MODEL_PATH=$QY_MODEL_ROOT/models:$GAZEBO_MODEL_PATH
+export GAZEBO_MODEL_DATABASE_URI=""

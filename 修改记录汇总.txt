@@ -52,3 +52,25 @@ BIT：
     1.新增单狗多世界启动方式：gazebo_world_2d_lidar.launch.py 支持通过 scene:=qy、scene:=forest、scene:=airport 在 target_seek、森林、机场三个场景间切换,其中森林场景会有倾倒情况还未完全解决。
     2.机场场景独立为 scene:=airport，不再需要使用 scene:=forest world:=$KD_MODEL_ROOT/world/airport 的临时覆盖写法。
     3.同步更新 README 单狗模式启动说明和多场景环境变量说明。
+
+========================================= 06.23 修改 ========================================================================
+BIT：
+    已完成：
+    1.在 QY_MODEL/target_seek 中加入静态 SUV 目标，当作是追踪静态的目标；
+    2.调整三只 Go2 的 3D spawn 初始位姿：从不同位置不同方向进行围捕；
+    3.新增脚本 Scripts/start_three_go2_velodyne.sh，一键启动 target_seek 世界并顺序导入三只 Go2；
+    4.实现三狗联合使用 waypoint 实现静态目标围捕控制（multi_go2_waypoint_encircle.py），新增 ROS2 包 multi_go2_waypoint（首个 ament_python 包）。
+        4.1.按半径 r=2m、目标 SUV(42,-20,yaw=-0.5) 解算等边三角形围捕终点，三狗沿各自 waypoint 序列行进，到位后对准内侧目标停车。
+        4.2.控制采用 tracking->final_yaw_align->done 状态机，比例控制 + 限速（线速 0.45/角速 0.9），全员完成后持续发零速防漂移。
+    5.在 QY_MODEL / target_seek 中加入动态的 行人 目标，当作是动态围捕的目标，目前行人在拐角处有一些漂移；
+
+========================================= 06.24 修改 ========================================================================
+BIT：
+    已完成：
+    1.新增行人状态桥接节点 actor_state_publisher（multi_go2_waypoint 包）：持续发布行人的移动位置和姿态/walking_target/odom
+    2.三只 Go2 实时追踪 target_seek 里绕房子行走的行人，增加动态围捕节点 dynamic_encircle
+        2.1.设计思路：三段式状态机 approach（走预设安全路点绕开建筑）-> catch_up（沿矩形预设路径就近追人）-> formation（绕行人 1.5m 旋转三角）。
+    
+    缺陷与不足：
+    1.狗的追踪速度稍慢，在房屋处需要追逐一段长时间才能跟上行人
+    2.有时候会在追踪过程中出现狗翻倒的情况，有可能是因为在第三状态时，尝试调整yaw角导致不稳定或者互相碰撞

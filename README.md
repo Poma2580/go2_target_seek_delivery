@@ -1,12 +1,14 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.06.17**
+**Latest Updated 2026.06.24**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
 - 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只带 3D Velodyne 的 Go2，各自独立键盘控制，并可用 RViz 查看 3D 点云。
+- 多狗围捕模式：三只 Go2 沿预设 waypoint 自动行进，在 `target_seek` 场景里对静态目标 SUV 完成等边三角形围捕。
+- 多狗动态追踪模式：三只 Go2 实时追踪 `target_seek` 场景里绕房子行走的行人，沿回路追上后维持 1.5m 旋转三角围捕。
 
 ## 版本要求
 
@@ -243,6 +245,77 @@ ros2 launch go2_config view_three_go2_velodyne.launch.py
        ros2 run rqt_image_view rqt_image_view /go2_3/camera/image_raw
   ```
 
+## 多狗模式：三只 Go2 联合 Waypoint 静态围捕
+
+让三只 Go2（go2_1 / go2_2 / go2_3）沿各自预设的 waypoint 自动行进，最终在目标 SUV
+（`target_x=42, target_y=-20, target_yaw=-0.5`）周围按等边三角形（半径 `r=2m`）完成围捕，
+各自对准内侧目标后停车。控制节点为 `multi_go2_waypoint` 包的 `multi_go2_waypoint_encircle`。
+
+
+一键启动 `target_seek` 世界和三只 Go2：
+
+```bash
+cd /home/bit/go2_target_seek_delivery/Scripts
+./start_three_go2_velodyne.sh
+```
+
+脚本会启动 Gazebo 世界，依次导入 go2_1 / go2_2 / go2_3，并等待每只狗的
+`joint_group_effort_controller` 与 `joint_states_controller` 都 active 后再启动下一只。
+当前脚本按运动控制调试配置显式关闭 lidar/camera，不暂停 Gazebo 物理。
+
+另开终端启动围捕控制节点（首次需先 `colcon build --symlink-install` 并 `source install/setup.bash`）：
+
+```bash
+ros2 run multi_go2_waypoint waypoint_encircle
+```
+
+三只狗会依次走完 waypoint，在 SUV 周围围成三角形并对准内侧目标后停车；节点日志打印
+“所有机器狗已完成围捕”即成功。`Ctrl+C` 退出节点时会自动给三只狗补发零速度，狗会停住。
+
+控制参数（到点阈值、比例增益、限速等）集中在 `waypoint_encircle.py` 的
+`WaypointEncircle` 类常量里，仿真抖动或绕圈时可微调。
+
+## 多狗模式：三只 Go2 联合动态行人追踪围捕
+
+让三只 Go2 实时追踪 `target_seek` 场景里绕房子行走的行人 actor（`walking_target`），
+始终在行人周围维持一个随其运动方向旋转、半径 `1.5m` 的三角编队。涉及 `multi_go2_waypoint`
+包的两个节点：`actor_state_publisher`（行人状态桥接）与 `dynamic_encircle`（动态围捕）。
+
+每个终端先执行（务必先 `conda deactivate`，确认 `which python3` 为 `/usr/bin/python3`）：
+
+```bash
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
+
+一键启动 `target_seek` 世界和三只 Go2：
+
+```bash
+cd /home/bit/go2_target_seek_delivery/Scripts
+./start_three_go2_velodyne.sh
+```
+
+终端 5：启动行人状态桥接节点：
+
+```bash
+ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true
+```
+
+终端 6：启动动态围捕节点：
+
+```bash
+ros2 run multi_go2_waypoint dynamic_encircle --ros-args -p use_sim_time:=true
+```
+
+三只狗会先走各自的安全路点上到行人回路，再沿环追上行人，最后在行人身边围成三角并随其移动；
+节点日志会打印每只狗的阶段切换（`approach 完成 -> catch_up`、`追上行人 -> formation` 等）。
+`Ctrl+C` 退出节点会自动给三只狗补发零速度；行人里程计缺失/超时时三狗自动保持静止。
+
+接近安全路点 `APPROACH_WAYPOINTS` 与控制参数（`catch_speed`、`catch_lookahead`、
+`catch_radius`、`revert_radius`、加速度限幅等）都在 `dynamic_encircle.py` 顶部和节点参数里，
+可按场景微调；环角点 `LOOP_CORNERS` 须与行人 actor 的（加宽后）矩形路线保持一致。
+
 ## 模型参数说明
 
 ### 机器狗
@@ -252,7 +325,10 @@ ros2 launch go2_config view_three_go2_velodyne.launch.py
 URDF/xacro robot name: go2
 主本体 link: trunk
 base_link 到 trunk: 固定关节，xyz=0 0 0, rpy=0 0 0
-默认出生点: x=-3.5, y=2.7, z=0.25, yaw=0.0
+当前 3D 多狗默认出生点:
+  go2_1: x=0,  y=-4,  z=0.40, yaw=0
+  go2_2: x=15, y=-35, z=0.40, yaw=0
+  go2_3: x=60, y=10,  z=0.40, yaw=0
 机身碰撞盒尺寸: 0.3762 x 0.0935 x 0.114 m
 机身质量: 6.921 kg
 ```

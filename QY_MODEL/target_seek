@@ -45,7 +45,7 @@
         <namespace>/gazebo</namespace>
       </ros>
 
-      <update_rate>1.0</update_rate>
+      <update_rate>20.0</update_rate>
     </plugin>
        
     
@@ -11849,6 +11849,64 @@
       <uri>model://uav1_iris_depth_camera</uri>
       <pose>-15 -2 0 0 0 0</pose>
     </include>
+
+    <include>
+      <name>suv</name>
+      <uri>model://suv</uri>
+      <pose>42 -20 0 0 0 -0.5</pose>
+    </include>
+  
+    <actor name="walking_target">
+      <pose>0 0 0 0 0 0</pose>
+
+      <skin>
+        <filename>model://actor/meshes/SKIN_man_green_shirt.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+
+      <animation name="walking">
+        <filename>model://actor/meshes/ANIMATION_walking.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <auto_start>true</auto_start>
+
+        <trajectory id="0" type="walking">
+          <!-- 矩形外扩 1m(角点 41/-13/36/4)，速度~0.35 m/s；每段两端 yaw 相同避免直行扭身，
+               拐角原地转 2s，yaw 递增(逆时针全程左转)防 270° 反转 -->
+          <!-- A 段：(41,4)->(41,36) 向北 32m，两端 yaw=1.57 -->
+          <waypoint><time>0</time><pose>41 4 0 0 0 1.5708</pose></waypoint>
+          <waypoint><time>91</time><pose>41 36 0 0 0 1.5708</pose></waypoint>
+          <!-- 拐角1：原地左转 北->西 -->
+          <waypoint><time>93</time><pose>41 36 0 0 0 3.1416</pose></waypoint>
+
+          <!-- B 段：(41,36)->(-13,36) 向西 54m，两端 yaw=3.14 -->
+          <waypoint><time>247</time><pose>-13 36 0 0 0 3.1416</pose></waypoint>
+          <!-- 拐角2：原地左转 西->南 -->
+          <waypoint><time>249</time><pose>-13 36 0 0 0 4.7124</pose></waypoint>
+
+          <!-- C 段：(-13,36)->(-13,4) 向南 32m，两端 yaw=4.712(=-1.57) -->
+          <waypoint><time>340</time><pose>-13 4 0 0 0 4.7124</pose></waypoint>
+          <!-- 拐角3：原地左转 南->东 -->
+          <waypoint><time>342</time><pose>-13 4 0 0 0 6.2832</pose></waypoint>
+
+          <!-- D 段：(-13,4)->(41,4) 向东 54m，两端 yaw=6.283(=0) -->
+          <waypoint><time>496</time><pose>41 4 0 0 0 6.2832</pose></waypoint>
+          <!-- 拐角4：原地左转 东->北，回到起始朝向(7.854=1.57+2π)，loop 无缝 -->
+          <waypoint><time>498</time><pose>41 4 0 0 0 7.854</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+    <!-- <include>
+      <name>moving_pedestrian</name>
+      <uri>model://person_standing</uri>
+      <pose>40 10 0 0 0 3.14</pose>
+    </include> -->
+
     <!-- <include>
       <uri>model://uav2_iris_depth_camera</uri>
       <pose>-15 -1 0 0 0 0</pose>
