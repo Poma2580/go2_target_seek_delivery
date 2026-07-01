@@ -62,8 +62,8 @@ wait_for_ros_service "/spawn_entity"
 # 终端 2：启动 go2_1
 gnome-terminal --title="spawn_go2_1" -- bash -c "
 $COMMON_ENV
-echo '==== Spawning go2_1 without lidar/camera ===='
-ros2 launch go2_config spawn_go2_velodyne_1.launch.py enable_lidar:=false enable_camera:=false
+echo '==== Spawning go2_1 without lidar with camera ===='
+ros2 launch go2_config spawn_go2_velodyne_1.launch.py enable_lidar:=false enable_camera:=true
 exec bash
 "
 
@@ -72,8 +72,8 @@ wait_for_controllers_active "go2_1"
 # 终端 3：启动 go2_2
 gnome-terminal --title="spawn_go2_2" -- bash -c "
 $COMMON_ENV
-echo '==== Spawning go2_2 without lidar/camera ===='
-ros2 launch go2_config spawn_go2_velodyne_2.launch.py enable_lidar:=false enable_camera:=false
+echo '==== Spawning go2_2 without lidar with camera ===='
+ros2 launch go2_config spawn_go2_velodyne_2.launch.py enable_lidar:=false enable_camera:=true
 exec bash
 "
 
@@ -82,8 +82,8 @@ wait_for_controllers_active "go2_2"
 # 终端 4：启动 go2_3
 gnome-terminal --title="spawn_go2_3" -- bash -c "
 $COMMON_ENV
-echo '==== Spawning go2_3 without lidar/camera ===='
-ros2 launch go2_config spawn_go2_velodyne_3.launch.py enable_lidar:=false enable_camera:=false
+echo '==== Spawning go2_3 without lidar with camera ===='
+ros2 launch go2_config spawn_go2_velodyne_3.launch.py enable_lidar:=false enable_camera:=true
 exec bash
 "
 

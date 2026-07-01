@@ -7,3 +7,6 @@ go2_ws_v2/log/
 .claude/
 __pycache__/
 *.pyc
+Docs/本地启动.txt
+# YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
+*.pt

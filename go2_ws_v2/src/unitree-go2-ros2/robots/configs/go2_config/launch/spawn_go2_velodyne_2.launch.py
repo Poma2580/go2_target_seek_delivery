@@ -247,8 +247,8 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "enable_camera",
-                default_value="false",
-                description="Mount the lightweight RGB camera",
+                default_value="true",
+                description="Mount the RGB-D depth camera",
             ),
             robot_state_publisher,
             quadruped_controller,

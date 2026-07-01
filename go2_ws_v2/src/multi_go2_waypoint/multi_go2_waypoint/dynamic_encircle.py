@@ -100,17 +100,21 @@ class Loop:
         return best
 
 
-# 三只狗在编队里的角度偏置（相对行人运动航向）
+# 三只狗在编队里的角度偏置（相对行人运动航向）。
+# go2_1 是唯一的视觉感知源：放在行人“正后方”(π)，朝运动方向（朝前）走时相机始终
+# 对着行人背影，formation 阶段不会因背对行人而丢检测、连累全队停车。
+# go2_2/go2_3 放在 ±60° 偏前，与 go2_1 仍构成等边三角形（间隔 120°）。
 FORMATION_OFFSETS = {
-    'go2_1': 0.0,
-    'go2_2': 2.0 * math.pi / 3.0,    # +120°
-    'go2_3': -2.0 * math.pi / 3.0,   # -120°
+    'go2_1': math.pi,                # 180°（行人正后方，保持感知）
+    'go2_2': math.pi / 3.0,          # +60°
+    'go2_3': -math.pi / 3.0,         # -60°
 }
 
 # 用户手工设计的接近安全路点：每只狗一串 (x, y)，绕开建筑到达环附近。
 # 留空列表 [] 表示该狗跳过 approach、直接进入 catch_up（沿环追人）。
+# go2_1 初始即能感知到行人，直接进入 catch_up，故留空。
 APPROACH_WAYPOINTS = {
-    'go2_1': [(2.0, 4.0)],
+    'go2_1': [],
     'go2_2': [(17.0, -27.0), (10.0, -17.0), (9.0, 5.0)],
     'go2_3': [(41.0, 10.0)],
 }
@@ -155,16 +159,20 @@ class DynamicEncircle(Node):
         super().__init__('multi_go2_dynamic_encircle')
 
         # 参数
-        self.declare_parameter('formation_radius', 1.5)
+        self.declare_parameter('formation_radius', 3.0)  # 编队半径（绕行人距离）
         self.declare_parameter('control_rate', 20.0)
-        self.declare_parameter('target_timeout', 0.5)
+        # 目标里程计话题：默认真值，切到在线感知时传 /go2_1/target_estimated/odom。
+        self.declare_parameter('target_odom_topic', '/walking_target/odom')
+        self.declare_parameter('target_timeout', 5.0)         # 超过此龄视为“非新鲜”，进入 coast
+        self.declare_parameter('target_hold', 8.0)            # coast 最长保活时间，超过视为真丢失
         self.declare_parameter('odom_timeout', 0.5)
         self.declare_parameter('max_linear', 0.65)
         self.declare_parameter('max_angular', 0.9)
+        self.declare_parameter('max_coast_speed', 0.65)       # coast 外推时的速度模长上限
         self.declare_parameter('position_deadband', 0.25)
         self.declare_parameter('k_linear', 0.8)
-        self.declare_parameter('k_angular', 1.5)
-        self.declare_parameter('turn_in_place_thresh', 0.7)
+        self.declare_parameter('k_angular', 0.9)
+        self.declare_parameter('turn_in_place_thresh', 1.2)  # 航向误差大于此阈值原地转
         self.declare_parameter('heading_speed_thresh', 0.08)   # 低于此速度冻结编队航向
         self.declare_parameter('heading_slew_rate', 1.0)       # 编队航向变化率限幅 rad/s
         self.declare_parameter('accel_lin', 1.0)               # 线/角加速度限幅
@@ -173,15 +181,18 @@ class DynamicEncircle(Node):
         self.declare_parameter('approach_reach', 0.35)         # approach 路点到达阈值
         self.declare_parameter('catch_lookahead', 1.5)         # catch_up 沿环前瞻距离(小→贴边)
         self.declare_parameter('catch_speed', 0.6)             # catch_up 恒定巡航速度
-        self.declare_parameter('catch_radius', 2.0)            # 进 formation 的距离
-        self.declare_parameter('revert_radius', 4.0)           # 退回 catch_up 的距离(滞回)
+        self.declare_parameter('catch_radius', 3.5)            # 进 formation 的距离
+        self.declare_parameter('revert_radius', 8.0)           # 退回 catch_up 的距离(滞回)
 
         self.r = self.get_parameter('formation_radius').value
         self.rate = float(self.get_parameter('control_rate').value)
+        self.target_odom_topic = self.get_parameter('target_odom_topic').value
         self.target_timeout = self.get_parameter('target_timeout').value
+        self.target_hold = self.get_parameter('target_hold').value
         self.odom_timeout = self.get_parameter('odom_timeout').value
         self.max_linear = self.get_parameter('max_linear').value
         self.max_angular = self.get_parameter('max_angular').value
+        self.max_coast_speed = self.get_parameter('max_coast_speed').value
         self.deadband = self.get_parameter('position_deadband').value
         self.k_linear = self.get_parameter('k_linear').value
         self.k_angular = self.get_parameter('k_angular').value
@@ -199,30 +210,40 @@ class DynamicEncircle(Node):
         self.dt = 1.0 / self.rate
         self.loop = Loop(LOOP_CORNERS)
 
-        # 行人状态
+        # 行人状态：target_* 为“本拍实际使用”的目标（可能是新鲜值或 coast 外推值）；
+        # last_good_* 为最后一次新鲜估计的快照，coast 时据此外推。
         self.target_x = 0.0
         self.target_y = 0.0
         self.target_vx = 0.0
         self.target_vy = 0.0
-        self.target_stamp = None
+        self.last_good_x = 0.0
+        self.last_good_y = 0.0
+        self.last_good_vx = 0.0
+        self.last_good_vy = 0.0
+        self.last_good_time = None       # rclpy.time.Time，最后一次新鲜估计的接收时刻
         self.target_received = False
-        self.formation_heading = None   # 平滑后的编队航向（运动方向）
+        self.target_ok = False           # 本拍目标是否可用（新鲜或 coast 期内）
+        self.formation_heading = None    # 平滑后的编队航向（运动方向）
 
         self.dogs = {name: DogState(self, name) for name in FORMATION_OFFSETS}
 
         self.target_sub = self.create_subscription(
-            Odometry, '/walking_target/odom', self._target_cb, 10)
+            Odometry, self.target_odom_topic, self._target_cb, 10)
 
         self.timer = self.create_timer(self.dt, self.control_loop)
         self._lost_logged = False
-        self.get_logger().info('multi_go2_dynamic_encircle 已启动，等待行人与里程计...')
+        self.get_logger().info(
+            f'multi_go2_dynamic_encircle 已启动，目标源={self.target_odom_topic}，'
+            f'等待行人与里程计...')
 
     def _target_cb(self, msg):
-        self.target_x = msg.pose.pose.position.x
-        self.target_y = msg.pose.pose.position.y
-        self.target_vx = msg.twist.twist.linear.x
-        self.target_vy = msg.twist.twist.linear.y
-        self.target_stamp = msg.header.stamp
+        # 只缓存“最后一次新鲜估计”的快照；本拍实际使用值在 control_loop 里由
+        # _resolve_target 决定（新鲜则直接用，短断则据此外推）。
+        self.last_good_x = msg.pose.pose.position.x
+        self.last_good_y = msg.pose.pose.position.y
+        self.last_good_vx = msg.twist.twist.linear.x
+        self.last_good_vy = msg.twist.twist.linear.y
+        self.last_good_time = self.get_clock().now()
         self.target_received = True
 
     def _age(self, stamp):
@@ -230,6 +251,47 @@ class DynamicEncircle(Node):
             return float('inf')
         now = self.get_clock().now()
         return (now - rclpy.time.Time.from_msg(stamp)).nanoseconds * 1e-9
+
+    def _resolve_target(self):
+        """决定本拍使用的目标状态，并写入 self.target_x/y/vx/vy 与 self.target_ok。
+
+        三档：
+          - 新鲜（龄 ≤ target_timeout）：直接用最后估计，返回 fresh=True。
+          - 短断（target_timeout < 龄 ≤ target_hold）：用最后估计按最后速度外推，
+            速度模长先钳到 max_coast_speed，避免噪声让外推乱飞；返回 fresh=False。
+          - 真丢失（龄 > target_hold 或从未收到）：target_ok=False，返回 fresh=False。
+        """
+        if not self.target_received or self.last_good_time is None:
+            self.target_ok = False
+            return False
+
+        age = (self.get_clock().now() - self.last_good_time).nanoseconds * 1e-9
+
+        if age <= self.target_timeout:
+            self.target_x = self.last_good_x
+            self.target_y = self.last_good_y
+            self.target_vx = self.last_good_vx
+            self.target_vy = self.last_good_vy
+            self.target_ok = True
+            return True
+
+        if age <= self.target_hold:
+            # coast：按最后速度外推位置（速度模长钳制）。航向用钳制后的速度，
+            # 这样 _update_formation_heading 在 coast 期保持一致。
+            vx, vy = self.last_good_vx, self.last_good_vy
+            speed = math.hypot(vx, vy)
+            if speed > self.max_coast_speed and speed > 1e-6:
+                scale = self.max_coast_speed / speed
+                vx, vy = vx * scale, vy * scale
+            self.target_x = self.last_good_x + vx * age
+            self.target_y = self.last_good_y + vy * age
+            self.target_vx = vx
+            self.target_vy = vy
+            self.target_ok = True
+            return False
+
+        self.target_ok = False
+        return False
 
     def _update_formation_heading(self):
         """用行人运动方向更新编队航向：低速冻结，并做变化率限幅。"""
@@ -269,17 +331,23 @@ class DynamicEncircle(Node):
         dog.cmd_pub.publish(cmd)
 
     def control_loop(self):
-        # 行人超时：全员零速
-        if not self.target_received or self._age(self.target_stamp) > self.target_timeout:
-            for dog in self.dogs.values():
-                dog.publish_zero()
-            if not self._lost_logged:
-                self.get_logger().warn('行人里程计缺失/超时，三狗保持静止。')
-                self._lost_logged = True
-            return
-        self._lost_logged = False
+        # 解析本拍目标：新鲜 / coast 外推 / 真丢失。不再“无目标整段 return 全员零速”——
+        # approach 段只走预设路点、不依赖目标，真丢失时仍可推进；catch_up/formation 段
+        # 在 control_one 内部按 self.target_ok 决定是否停。
+        fresh = self._resolve_target()
 
-        self._update_formation_heading()
+        if not self.target_ok:
+            if not self._lost_logged:
+                self.get_logger().warn(
+                    f'行人估计缺失/超过保活({self.target_hold:.1f}s)，'
+                    f'追捕段保持静止；approach 段继续。')
+                self._lost_logged = True
+        else:
+            self._lost_logged = False
+
+        # 编队航向只在估计新鲜时更新，coast 期冻结在最后值。
+        if fresh:
+            self._update_formation_heading()
 
         for name, dog in self.dogs.items():
             self.control_one(name, dog)
@@ -290,9 +358,8 @@ class DynamicEncircle(Node):
             dog.publish_zero()
             return
 
-        dist_to_ped = math.hypot(self.target_x - dog.x, self.target_y - dog.y)
-
-        # ---- 阶段1：approach（走预设安全路点）----
+        # ---- 阶段1：approach（走预设安全路点，不依赖目标）----
+        # 放在目标可用性判断之前：approach 段只走预设路点，目标暂缺也照常推进。
         if dog.phase == 'approach':
             wps = APPROACH_WAYPOINTS.get(name, [])
             if dog.approach_index >= len(wps):
@@ -305,6 +372,13 @@ class DynamicEncircle(Node):
                     dog.approach_index += 1
                 self._emit(dog, lin, ang)
                 return
+
+        # catch_up / formation 都需要目标位置；目标真丢失（超过保活）则原地停。
+        if not self.target_ok:
+            dog.publish_zero()
+            return
+
+        dist_to_ped = math.hypot(self.target_x - dog.x, self.target_y - dog.y)
 
         # ---- 阶段2：catch_up（沿环就近追人，贴角、不穿心）----
         if dog.phase == 'catch_up':
@@ -330,40 +404,78 @@ class DynamicEncircle(Node):
                 self._emit(dog, lin, ang)
                 return
 
-        # ---- 阶段3：formation（绕行人 1.5m 旋转三角围捕）----
-        # 被甩远则退回 catch_up（滞回，避免直线抄近路撞楼）
-        if dist_to_ped > self.revert_radius:
-            dog.phase = 'catch_up'
-            self.get_logger().info(f'{name}: 被甩开 -> catch_up')
-            dog.publish_zero()
-            return
+        # ============================ 阶段3：formation ============================
+        # 目标：让每只狗贴到“行人 + 固定角度偏置 + 半径 r”的编队点上，绕着行人成三角。
+        # go2_1 的偏置是 π（行人正后方 r 米处），朝运动方向走时前向相机正好看行人背影。
+        #
+        # 原“被甩远退回 catch_up”的滞回已被注释掉（下面几行）——注意：这样一来 formation
+        # 是“只进不出”的终态，一旦某拍编队点算歪把狗带偏，也不会再回 catch_up 纠正。
+        # if dist_to_ped > self.revert_radius:
+        #     dog.phase = 'catch_up'
+        #     self.get_logger().info(f'{name}: 被甩开 -> catch_up')
+        #     dog.publish_zero()
+        #     return
 
-        if self.formation_heading is None:
-            # 行人还没动过，没有可用航向；原地等
-            dog.publish_zero()
-            return
+        # if self.formation_heading is None:
+        #     # 编队点方位依赖“行人运动航向”；行人若从未动过就没有航向，先原地等。
+        #     dog.publish_zero()
+        #     return
 
-        angle = self.formation_heading + FORMATION_OFFSETS[name]
-        goal_x = self.target_x + self.r * math.cos(angle)
-        goal_y = self.target_y + self.r * math.sin(angle)
-        dx, dy = goal_x - dog.x, goal_y - dog.y
-        dist = math.hypot(dx, dy)
+        # # --- 1) 计算编队目标点 ---
+        # # angle = 行人运动航向 + 本狗偏置。go2_1 偏置 π ⇒ angle 指向“运动反方向”，
+        # # 故 goal 落在行人正后方 r 米处。注意：formation_heading 会随行人拐弯而摆动
+        # # （虽有 slew 限幅），goal 因此是一个“会绕着行人转”的移动点。
+        # angle = self.formation_heading + FORMATION_OFFSETS[name]
+        # goal_x = self.target_x + self.r * math.cos(angle)
+        # goal_y = self.target_y + self.r * math.sin(angle)
+        # dx, dy = goal_x - dog.x, goal_y - dog.y
+        # dist = math.hypot(dx, dy)      # 狗到“编队点”的距离（不是到行人的距离）
 
-        if dist > self.deadband:
-            yaw_err = normalize_angle(math.atan2(dy, dx) - dog.yaw)
-            if abs(yaw_err) > self.turn_in_place_thresh:
-                lin = 0.0
-            else:
-                lin = clamp(self.k_linear * dist, 0.0, self.max_linear)
-                ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
-                lin = clamp(lin + max(0.0, ff), 0.0, self.max_linear)
-            ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
-        else:
-            # 已在编队点附近：朝行人运动方向对齐，匀速跟随
-            yaw_err = normalize_angle(self.formation_heading - dog.yaw)
-            ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
-            ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
-            lin = clamp(max(0.0, ff), 0.0, self.max_linear)
+        # if dist > self.deadband:
+        #     # --- 2a) 离编队点还远：朝编队点走（点跟随）---
+        #     # 朝向目标 = 指向编队点的方向 atan2(dy,dx)。
+        #     # ⚠️ 隐患：当狗逼近编队点时 (dx,dy)→0，atan2 对微小位置抖动极敏感，方向会
+        #     #    突然乱跳，配合下面的“大误差原地转”会表现为“近处突然大角度转向”。
+        #     #    此外 go2_1 编队点在行人正后方，若狗此刻在行人侧/前方（catch_up 刚按最短弧
+        #     #    追上），朝编队点方向可能背对行人 ⇒ 掉头绕后时相机扫离行人 ⇒ 丢视野。
+        #     yaw_err = normalize_angle(math.atan2(dy, dx) - dog.yaw)
+        #     if abs(yaw_err) > self.turn_in_place_thresh:
+        #         lin = 0.0                      # 朝向误差过大：先原地转对准，不前进
+        #     else:
+        #         # 比例前进 + 行人速度前馈 ff（只取沿狗朝向的正向分量，帮助跟上移动目标）
+        #         lin = clamp(self.k_linear * dist, 0.0, self.max_linear)
+        #         ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
+        #         lin = clamp(lin + max(0.0, ff), 0.0, self.max_linear)
+        #     ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
+        # else:
+        #     # --- 2b) 已在编队点附近（dist ≤ deadband）：保持队形、匀速跟随 ---
+        #     # 此时不再朝“编队点方向”对齐（会因 atan2 奇异乱转），改为对齐“行人运动航向”，
+        #     # 让狗跟着行人同向走；go2_1 在正后方同向 ⇒ 相机稳定看向行人。
+        #     # 前进只用前馈 ff（≈行人速度），角速度与线速度都各减半以求平稳。
+        #     yaw_err = normalize_angle(self.formation_heading - dog.yaw)
+        #     ang = clamp(self.k_angular * yaw_err, -self.max_angular * 0.5, self.max_angular * 0.5)
+        #     ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
+        #     lin = clamp(max(0.0, ff), 0.0, self.max_linear * 0.5)
+        # 把控制解耦成两路，互不干扰：
+        #   角速度 → 机身始终正对行人，前向相机死锁目标，永不丢视野；
+        #   线速度 → 维持“狗到行人的距离”= r（编队半径），远则前进、近则后退。
+        # 不再用“编队点 goal + atan2(goal-狗)”，从根上消除逼近编队点时的方向奇异，
+        # 也不再依赖 formation_heading（行人拐角航向摆动不再干扰跟随）。
+
+        # 1) 朝向：对准行人本身
+        bearing = math.atan2(self.target_y - dog.y, self.target_x - dog.x)
+        yaw_err = normalize_angle(bearing - dog.yaw)
+        ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
+
+        # 2) 线速度：维持到行人的距离 = r
+        rng = math.hypot(self.target_x - dog.x, self.target_y - dog.y)
+        e = rng - self.r                      # >0 太远(前进)  <0 太近(后退)
+        if abs(e) < self.deadband:            # 距离死区，稳态不抖
+            e = 0.0
+        ff = self.target_vx * math.cos(bearing) + self.target_vy * math.sin(bearing)
+        gate = max(math.cos(yaw_err), 0.25)   # 没对准就收着走，但不硬切0(避免原地转卡死)
+        lin = clamp((self.k_linear * e + ff) * gate,
+                    -0.5 * self.max_linear, self.max_linear)
 
         self._emit(dog, lin, ang)
 

@@ -25,8 +25,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 ROBOT_NAME = "go2_1"
 SPAWN_X = "0"
 SPAWN_Y = "-4"
-SPAWN_Z = "0.40"
-SPAWN_YAW = "0"
+SPAWN_Z = "0.50"
+SPAWN_YAW = "1.57"  # 90 deg, face +y
 
 
 def generate_launch_description():
@@ -247,8 +247,8 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "enable_camera",
-                default_value="false",
-                description="Mount the lightweight RGB camera",
+                default_value="true",
+                description="Mount the RGB-D depth camera",
             ),
             robot_state_publisher,
             quadruped_controller,
