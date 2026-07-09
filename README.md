@@ -275,17 +275,14 @@ ros2 run multi_go2_waypoint waypoint_encircle
 控制参数（到点阈值、比例增益、限速等）集中在 `waypoint_encircle.py` 的
 `WaypointEncircle` 类常量里，仿真抖动或绕圈时可微调。
 
-## 多狗模式：三只 Go2 联合动态行人追踪围捕
+## 多狗模式：三只 Go2 联合“拦截式围捕”动态行人追踪
 
-> **现状说明**：三狗联合三角编队**尚未调试成功**，目前一键脚本仅实现**单狗动态追踪**——
-> 由 go2_1 用 RGB-D 相机在线视觉感知（YOLO 检测 + 深度反投影）估计行人位置，
-> `dynamic_encircle` 据此驱动 go2_1 **稳定跟在行人身后**（相机始终锁定行人、维持固定距离）。
-> go2_2/go2_3 的运动控制已实现，但联合三角编队未调通，脚本中暂时注释关闭。
+> **现状说明**：三狗联合“拦截式围捕”已**初步调通**——go2_1 用 RGB-D 相机在线视觉感知
+> （YOLO 检测 + 深度反投影）估计行人位置作为目标源，go2_1 稳定跟在行人身后做感知，
+> go2_2/go2_3 绕到行人前方后**同步冲刺合围**。⚠️ **启动仍不稳定**：多狗顺序拉起时偶发
+> 某只狗 spawn 翻倒、或 YOLO 掉帧致 go2_1 瞬时丢目标，遇到时重启脚本即可（详见
+> `Docs/情况说明0707.txt`）。
 
-目标：不再依赖行人真值，改用 go2_1 的在线感知估计 `/go2_1/target_estimated/odom` 作为
-目标源，实时追踪 `target_seek` 场景里绕房子行走的行人 actor（`walking_target`）。涉及
-`multi_go2_waypoint` 包节点：`target_perception`（视觉感知）、`dynamic_encircle`（运动控制），
-以及 `actor_state_publisher`（真值对照）、`perception_eval`（感知误差评估）。
 
 一键启动（务必先 `conda deactivate`，确认 `which python3` 为 `/usr/bin/python3`）：
 
@@ -294,15 +291,16 @@ cd /home/bit/go2_target_seek_delivery/Scripts
 ./start_three_go2_dynamic_tracking.sh
 ```
 
-脚本会按顺序拉起：target_seek 世界 → go2_1（RGB-D 相机）→ 行人真值桥接
+脚本会按顺序拉起：target_seek 世界 → go2_1（RGB-D 相机）→ go2_2/go2_3 → 行人真值桥接
 `actor_state_publisher` → 目标感知 `target_perception` → 动态追踪控制 `dynamic_encircle`
 （目标源 `/go2_1/target_estimated/odom`）→ rqt 调试图 → `perception_eval` 误差评估。
-go2_1 会直接进入追踪并稳定跟随在行人身后，机身始终对准行人、不会丢失视野。
 
-控制参数（`formation_radius` 编队/跟随距离、`catch_speed`、`catch_radius`、`k_angular`、
-`turn_in_place_thresh` 等）在 `dynamic_encircle.py` 顶部与节点参数里，可按需微调；
+控制参数在 `dynamic_encircle.py` 节点参数里，可按需微调：`ahead_intercept`/`ahead_flank`
+（两冲刺手前向保持距离，当前 15m/12m）、`intercept_offset`/`side_offset`（两条车道外扩量，
+当前 1.5m/3.0m）、`r_final`（完成距离，当前 5m）、`charge_speed`（冲刺速度）、
+`formation_radius`（go2_1 跟随距离，当前 2m）、`catch_speed`/`k_angular` 等；
 环角点 `LOOP_CORNERS` 须与行人 actor 的（加宽后）矩形路线一致。`Ctrl+C` 退出节点会自动补发
-零速度；目标估计缺失超过保活时间时追踪段自动保持静止。
+零速度；目标估计缺失超过保活时间时追捕段自动保持静止。
 
 ## 模型参数说明
 

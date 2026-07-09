@@ -6,7 +6,7 @@
 DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
-YOLO_MODEL=$DELIVERY_ROOT/yolov8m.pt
+YOLO_MODEL=$DELIVERY_ROOT/yolov8n.pt
 
 if [ ! -f "$YOLO_MODEL" ]; then
     echo "ERROR: YOLO model not found: $YOLO_MODEL"
@@ -93,6 +93,9 @@ wait_for_ros_service "/spawn_entity"
 wait_for_topic "/gazebo/model_states"
 wait_for_topic "/clock"
 
+# 延迟 3 秒，确保 Gazebo 世界完全加载
+sleep 3
+
 # 终端 2：启动 go2_1，关闭 3D 雷达，开启 RGB-D 相机（负责目标感知）
 launch_terminal "spawn_go2_1" "
 echo '==== Spawning go2_1 without lidar with RGB-D camera ===='
@@ -104,21 +107,27 @@ wait_for_topic "/go2_1/camera/image_raw"
 wait_for_topic "/go2_1/camera/depth/image_raw"
 wait_for_topic "/go2_1/camera/depth/camera_info"
 
-# # 终端 3：启动 go2_2，关闭 3D 雷达和相机（只参与运动控制）
-# launch_terminal "spawn_go2_2" "
-# echo '==== Spawning go2_2 without lidar without camera ===='
-# ros2 launch go2_config spawn_go2_velodyne_2.launch.py enable_lidar:=false enable_camera:=false use_sim_time:=true
-# "
+# 延迟 3 秒，确保 go2_1 完全加载
+sleep 3
 
-# wait_for_controllers_active "go2_2"
+# 终端 3：启动 go2_2，关闭 3D 雷达和相机（只参与运动控制，前方拦截手）
+launch_terminal "spawn_go2_2" "
+echo '==== Spawning go2_2 without lidar without camera ===='
+ros2 launch go2_config spawn_go2_velodyne_2.launch.py enable_lidar:=false enable_camera:=false use_sim_time:=true
+"
 
-# # 终端 4：启动 go2_3，关闭 3D 雷达和相机（只参与运动控制）
-# launch_terminal "spawn_go2_3" "
-# echo '==== Spawning go2_3 without lidar without camera ===='
-# ros2 launch go2_config spawn_go2_velodyne_3.launch.py enable_lidar:=false enable_camera:=false use_sim_time:=true
-# "
+wait_for_controllers_active "go2_2"
 
-# wait_for_controllers_active "go2_3"
+# 延迟 3 秒，确保 go2_2 完全加载
+sleep 3
+
+# 终端 4：启动 go2_3，关闭 3D 雷达和相机（只参与运动控制，外侧斜插手）
+launch_terminal "spawn_go2_3" "
+echo '==== Spawning go2_3 without lidar without camera ===='
+ros2 launch go2_config spawn_go2_velodyne_3.launch.py enable_lidar:=false enable_camera:=false use_sim_time:=true
+"
+
+wait_for_controllers_active "go2_3"
 
 # 终端 5：启动行人真值状态广播
 launch_terminal "actor_state" "
@@ -131,12 +140,13 @@ wait_for_topic "/walking_target/odom"
 # 终端 6：启动目标感知（go2_1 相机 -> YOLO + 深度估计 -> 目标 odom）
 launch_terminal "target_perception" "
 echo '==== Starting target_perception ===='
-ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -p robot_namespace:=go2_1 -p model_path:=$YOLO_MODEL
+ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -p robot_namespace:=go2_1 -p model_path:=$YOLO_MODEL -p imgsz:=960
 "
 
 wait_for_topic "/go2_1/target_perception/debug_image"
 
 # 终端 7：启动三 go2 动态围捕，目标输入使用 go2_1 感知估计的 odom
+## 替换成真实值目标：-p target_odom_topic:=/walking_target/odom | -p target_odom_topic:=/go2_1/target_estimated/odom
 launch_terminal "dynamic_encircle" "
 echo '==== Starting dynamic_encircle ===='
 ros2 run multi_go2_waypoint dynamic_encircle --ros-args -p use_sim_time:=true -p target_odom_topic:=/go2_1/target_estimated/odom

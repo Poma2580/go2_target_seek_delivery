@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""三 Go2 动态行人追踪与围捕节点（三段式：approach -> catch_up -> formation）。
+"""三 Go2 动态行人追踪与“拦截式围捕”节点。
 
-订阅行人里程计 /walking_target/odom 与三只狗 /go2_N/odom，让三只狗：
-  1. approach   ：走用户预设的安全路点，绕开建筑、抵达行人回路（环）附近。
-  2. catch_up   ：把狗与行人都投影到环上，狗沿环（就近方向、贴角、不穿心）追上行人。
-  3. formation  ：追到行人身边后，做绕行人 1.5m 的旋转三角围捕。
+订阅目标里程计（默认 /walking_target/odom，可切到 /go2_1/target_estimated/odom）
+与三只狗 /go2_N/odom，按固定角色完成动态追踪与合围：
+  1. go2_1：感知手，沿基准矩形回路 catch_up 追上目标，贴近后进入 formation，
+     在目标后方定距跟随并始终正对目标，不参与最终冲刺。
+  2. go2_2/go2_3：冲刺手，状态机为 approach -> to_stage -> staged -> charge -> done；
+     先沿各自外扩车道绕到目标前方，双方都 staged 后同步直线冲刺，冲进 r_final 后冻结。
 
 要点：
-- 编队朝向用行人“运动航向”atan2(vy,vx)，不用 actor 那个在拐角会猛甩的 yaw。
-- catch_up 严格沿矩形环走，结构上不可能穿过中间房子；方向取最短弧、不绕大圈。
-- 狗朝向始终对齐自身前进方向；永不进入 done；行人/自身里程计超时即持续发零速度。
+- catch_up/to_stage 严格沿矩形环或外扩车道走，结构上不穿过中间房子。
+- staged 只表示已到位，冲刺手仍持续跟随移动 stage 点，等待同步屏障统一放行。
+- 目标估计缺失超过保活时间时追捕段停车；Ctrl+C 退出前会给三只狗补发零速度。
 """
 
 import math
@@ -43,6 +45,13 @@ def clamp(value, lo, hi):
 # 角点须与 QY_MODEL/target_seek 里行人 actor 的（加宽后）矩形一致。
 # ---------------------------------------------------------------------------
 LOOP_CORNERS = [(41.0, 4.0), (41.0, 36.0), (-13.0, 36.0), (-13.0, 4.0)]
+
+# 矩形回路的形心，用于求“外侧法向”（点 - 形心 归一化）；行人绕此街区逆时针走，
+# 内侧是建筑，狗只能在外侧街道活动，故斜插手沿外侧法向外移。
+LOOP_CENTER = (
+    sum(x for x, _ in LOOP_CORNERS) / len(LOOP_CORNERS),
+    sum(y for _, y in LOOP_CORNERS) / len(LOOP_CORNERS),
+)
 
 
 class Loop:
@@ -110,12 +119,20 @@ FORMATION_OFFSETS = {
     'go2_3': -math.pi / 3.0,         # -60°
 }
 
+# 拦截式围捕的角色分工：go2_1 后方跟随做感知（不冲刺）；go2_2/go2_3 为“冲刺手”，
+# 沿回路超车绕到行人前方 staging 点、等两只都就位后一起冲刺。
+#   INTERCEPTOR：直接拦在行人前方路径上（弧长在前 ahead_intercept 米）。
+#   SIDE_FLANKER：偏侧、并沿外侧法向外移 side_offset，从外侧街道斜插。
+INTERCEPTOR = 'go2_2'
+SIDE_FLANKER = 'go2_3'
+FLANKERS = (INTERCEPTOR, SIDE_FLANKER)
+
 # 用户手工设计的接近安全路点：每只狗一串 (x, y)，绕开建筑到达环附近。
 # 留空列表 [] 表示该狗跳过 approach、直接进入 catch_up（沿环追人）。
 # go2_1 初始即能感知到行人，直接进入 catch_up，故留空。
 APPROACH_WAYPOINTS = {
     'go2_1': [],
-    'go2_2': [(17.0, -27.0), (10.0, -17.0), (9.0, 5.0)],
+    'go2_2': [(9.0, 5.0)],
     'go2_3': [(41.0, 10.0)],
 }
 
@@ -129,9 +146,17 @@ class DogState:
         self.last_stamp = None
         self.received = False
 
-        # 三段状态机
-        self.phase = 'approach' if APPROACH_WAYPOINTS.get(name) else 'catch_up'
+        # 状态机：
+        #   go2_1(感知手)     catch_up(沿基准回路锚定追人) -> formation(贴近 catch_radius 才切)
+        #   go2_2/go2_3(冲刺手) approach -> to_stage -> staged -> charge -> done
+        if name in FLANKERS:
+            self.phase = 'approach' if APPROACH_WAYPOINTS.get(name) else 'to_stage'
+        else:
+            # 与原版严格对齐：go2_1 空路点 -> 直接 catch_up（回路锚定，绝不穿进内侧建筑），
+            # 只有贴近行人 catch_radius 才切入自由 B 方案 formation。
+            self.phase = 'approach' if APPROACH_WAYPOINTS.get(name) else 'catch_up'
         self.approach_index = 0
+        self.staged = False        # 冲刺手：已到达 staging 点、等待另一只（同步屏障用）
 
         # 上一拍下发的速度（用于限加速度）
         self.prev_lin = 0.0
@@ -159,7 +184,7 @@ class DynamicEncircle(Node):
         super().__init__('multi_go2_dynamic_encircle')
 
         # 参数
-        self.declare_parameter('formation_radius', 3.0)  # 编队半径（绕行人距离）
+        self.declare_parameter('formation_radius', 2.0)  # 编队半径（绕行人距离）
         self.declare_parameter('control_rate', 20.0)
         # 目标里程计话题：默认真值，切到在线感知时传 /go2_1/target_estimated/odom。
         self.declare_parameter('target_odom_topic', '/walking_target/odom')
@@ -183,6 +208,14 @@ class DynamicEncircle(Node):
         self.declare_parameter('catch_speed', 0.6)             # catch_up 恒定巡航速度
         self.declare_parameter('catch_radius', 3.5)            # 进 formation 的距离
         self.declare_parameter('revert_radius', 8.0)           # 退回 catch_up 的距离(滞回)
+        # 拦截式围捕（go2_2/go2_3 的 to_stage -> staged -> charge）
+        self.declare_parameter('ahead_intercept', 15.0)         # 拦截手：绕到行人前方的弧长距离
+        self.declare_parameter('ahead_flank', 12.0)             # 斜插手：偏侧的弧长距离(更偏侧)
+        self.declare_parameter('side_offset', 3.0)             # 斜插手：外侧法向外移量(车道)
+        self.declare_parameter('intercept_offset', 1.5)        # 拦截手：外侧车道外移量(与 go2_1/斜插手分道避撞)
+        self.declare_parameter('r_final', 5.0)                 # 冲进此距离即任务完成
+        self.declare_parameter('stage_arrive_tol', 1.0)        # 到达 staging 点判定容差
+        self.declare_parameter('charge_speed', 0.65)           # 冲刺速度(=max_linear)
 
         self.r = self.get_parameter('formation_radius').value
         self.rate = float(self.get_parameter('control_rate').value)
@@ -206,9 +239,22 @@ class DynamicEncircle(Node):
         self.catch_speed = self.get_parameter('catch_speed').value
         self.catch_radius = self.get_parameter('catch_radius').value
         self.revert_radius = self.get_parameter('revert_radius').value
+        self.ahead_intercept = self.get_parameter('ahead_intercept').value
+        self.ahead_flank = self.get_parameter('ahead_flank').value
+        self.side_offset = self.get_parameter('side_offset').value
+        self.intercept_offset = self.get_parameter('intercept_offset').value
+        self.r_final = self.get_parameter('r_final').value
+        self.stage_arrive_tol = self.get_parameter('stage_arrive_tol').value
+        self.charge_speed = self.get_parameter('charge_speed').value
 
         self.dt = 1.0 / self.rate
         self.loop = Loop(LOOP_CORNERS)
+        # 每只冲刺手一条“同心外扩矩形”车道回路：把基准回路四角整体外扩各自 lane 米。
+        # 直边垂直外移、拐角干净、弧长单调 —— 取代 v3 的“径向逐点外移”（拐角会转圈的根源）。
+        self.lane_loops = {
+            name: Loop(self._expanded_corners(self._lane_offset(name)))
+            for name in FLANKERS
+        }
 
         # 行人状态：target_* 为“本拍实际使用”的目标（可能是新鲜值或 coast 外推值）；
         # last_good_* 为最后一次新鲜估计的快照，coast 时据此外推。
@@ -232,6 +278,8 @@ class DynamicEncircle(Node):
 
         self.timer = self.create_timer(self.dt, self.control_loop)
         self._lost_logged = False
+        self._charge_logged = False      # 「同时冲刺」只打印一次
+        self._capture_logged = False     # 「围捕完成」只打印一次
         self.get_logger().info(
             f'multi_go2_dynamic_encircle 已启动，目标源={self.target_odom_topic}，'
             f'等待行人与里程计...')
@@ -330,6 +378,69 @@ class DynamicEncircle(Node):
         cmd.angular.z = ang
         dog.cmd_pub.publish(cmd)
 
+    # ----- 拦截式围捕：几何与冲刺手状态机 -----
+    def _lane_offset(self, name):
+        """各冲刺手的车道外扩量：go2_2 小、go2_3 大，两条车道横向错开避撞。"""
+        return self.intercept_offset if name == INTERCEPTOR else self.side_offset
+
+    def _expanded_corners(self, d):
+        """把基准矩形回路四角整体外扩 d 米，得到同心大矩形（车道回路的角点）。
+
+        copysign 保证每个角沿各自象限外移（外扩而非缩小），直边平移 d、拐角干净，
+        弧长单调——避免 v3 “径向逐点外移” 在拐角处的非单调打转。
+        """
+        cx, cy = LOOP_CENTER
+        return [(x + math.copysign(d, x - cx), y + math.copysign(d, y - cy))
+                for (x, y) in LOOP_CORNERS]
+
+    def _control_flanker(self, name, dog, dist_to_ped):
+        # --- to_stage / staged：在自己的车道回路上跟到行人前方 ahead 处，并【持续保持】---
+        # staged 不站死：继续跟随随行人前移的 staging 点，行人往前走狗同步走，绝不被追上/走过；
+        # 只是 phase=staged 时不 charge，等两只都就位、屏障在 control_loop 里一起放行。
+        if dog.phase in ('to_stage', 'staged'):
+            lane_loop = self.lane_loops[name]
+            ahead = self.ahead_intercept if name == INTERCEPTOR else self.ahead_flank
+            s_ped = lane_loop.project(self.target_x, self.target_y)   # 行人投影到本车道
+            s_goal = s_ped + ahead                                    # 行人前方(travel_dir=+1)
+            s_dog = lane_loop.project(dog.x, dog.y)
+            delta = lane_loop.signed_arc(s_dog, s_goal)               # 狗->staging 带符号弧长
+            direction = 1.0 if delta >= 0.0 else -1.0
+            step = min(self.catch_lookahead, abs(delta))
+            cx, cy = lane_loop.point_at(s_dog + direction * step)     # 干净车道前瞻点，无逐点外移
+            yaw_err = normalize_angle(math.atan2(cy - dog.y, cx - dog.x) - dog.yaw)
+            gate = max(math.cos(yaw_err), 0.25)                       # 边走边转，禁止硬原地转
+            # 比例限速：离 staging 弧长越近越慢，稳定“跟着行人保持在其前方”，不冲过头也不站死。
+            lin = clamp(self.k_linear * abs(delta), 0.0, self.catch_speed) * gate
+            ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
+            # 首次到位即置 staged（sticky，供屏障判定）；之后继续保持跟随。
+            if dog.phase == 'to_stage':
+                sx, sy = lane_loop.point_at(s_goal)
+                if math.hypot(sx - dog.x, sy - dog.y) < self.stage_arrive_tol:
+                    dog.staged = True
+                    dog.phase = 'staged'
+                    self.get_logger().info(
+                        f'{name}: 就位 staging -> staged（继续保持在行人前方，等待另一只）')
+            self._emit(dog, lin, ang)
+            return
+
+        # --- charge：对准行人直线冲刺，冲进 r_final 即 done ---
+        if dog.phase == 'charge':
+            if dist_to_ped < self.r_final:
+                dog.phase = 'done'
+                self.get_logger().info(f'{name}: 冲进 {self.r_final:.1f}m -> done（冻结）')
+                dog.publish_zero()
+                return
+            bearing = math.atan2(self.target_y - dog.y, self.target_x - dog.x)
+            yaw_err = normalize_angle(bearing - dog.yaw)
+            ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
+            gate = max(math.cos(yaw_err), 0.25)       # 未对准先慢转(似"停下转身")，对准后全速冲
+            lin = clamp(self.charge_speed * gate, 0.0, self.max_linear)
+            self._emit(dog, lin, ang)
+            return
+
+        # --- done：冻结 ---
+        dog.publish_zero()
+
     def control_loop(self):
         # 解析本拍目标：新鲜 / coast 外推 / 真丢失。不再“无目标整段 return 全员零速”——
         # approach 段只走预设路点、不依赖目标，真丢失时仍可推进；catch_up/formation 段
@@ -349,8 +460,24 @@ class DynamicEncircle(Node):
         if fresh:
             self._update_formation_heading()
 
+        # 同步屏障：两只冲刺手都 staged（各自到位）才一起切 charge，保证同时冲刺。
+        if all(self.dogs[n].staged for n in FLANKERS):
+            for n in FLANKERS:
+                if self.dogs[n].phase == 'staged':
+                    self.dogs[n].phase = 'charge'
+            if not getattr(self, '_charge_logged', False):
+                self.get_logger().info('两只冲刺手均就位 -> 同时冲刺 charge')
+                self._charge_logged = True
+
         for name, dog in self.dogs.items():
             self.control_one(name, dog)
+
+        # 围捕完成判定：两只冲刺手都冲进 r_final（done）即算成功，打印一次。
+        if (not self._capture_logged
+                and all(self.dogs[n].phase == 'done' for n in FLANKERS)):
+            self.get_logger().info(
+                f'★ 围捕完成：go2_2/go2_3 均冲进 {self.r_final:.1f}m，任务成功。')
+            self._capture_logged = True
 
     def control_one(self, name, dog):
         # 自身里程计超时：零速
@@ -363,8 +490,9 @@ class DynamicEncircle(Node):
         if dog.phase == 'approach':
             wps = APPROACH_WAYPOINTS.get(name, [])
             if dog.approach_index >= len(wps):
-                dog.phase = 'catch_up'
-                self.get_logger().info(f'{name}: approach 完成 -> catch_up')
+                # 只有冲刺手(go2_2/go2_3)会走 approach；结束后进入车道跟随 to_stage。
+                dog.phase = 'to_stage'
+                self.get_logger().info(f'{name}: approach 完成 -> to_stage')
             else:
                 gx, gy = wps[dog.approach_index]
                 lin, ang, d = self._goto(dog, gx, gy)
@@ -380,7 +508,16 @@ class DynamicEncircle(Node):
 
         dist_to_ped = math.hypot(self.target_x - dog.x, self.target_y - dog.y)
 
-        # ---- 阶段2：catch_up（沿环就近追人，贴角、不穿心）----
+        # ---- 冲刺手（go2_2/go2_3）：to_stage -> staged -> charge -> done ----
+        # 与 go2_1 完全分流：冲刺手在自己的车道回路上跟到行人前方 staging、两只都就位后
+        # 一起冲刺围捕。go2_1 走下面原版的 catch_up -> formation。
+        if name in FLANKERS:
+            self._control_flanker(name, dog, dist_to_ped)
+            return
+
+        # ---- 阶段2：catch_up（沿基准回路就近追人，贴角、不穿心）——仅 go2_1（与原版对齐）----
+        # 把狗与行人都投影到矩形回路上，沿回路最短弧贴边追；回路在建筑外沿，结构上不可能
+        # 穿进内侧建筑。贴近行人 catch_radius 才切入自由 B 方案 formation。
         if dog.phase == 'catch_up':
             if dist_to_ped < self.catch_radius:
                 dog.phase = 'formation'
@@ -404,63 +541,9 @@ class DynamicEncircle(Node):
                 self._emit(dog, lin, ang)
                 return
 
-        # ============================ 阶段3：formation ============================
-        # 目标：让每只狗贴到“行人 + 固定角度偏置 + 半径 r”的编队点上，绕着行人成三角。
-        # go2_1 的偏置是 π（行人正后方 r 米处），朝运动方向走时前向相机正好看行人背影。
-        #
-        # 原“被甩远退回 catch_up”的滞回已被注释掉（下面几行）——注意：这样一来 formation
-        # 是“只进不出”的终态，一旦某拍编队点算歪把狗带偏，也不会再回 catch_up 纠正。
-        # if dist_to_ped > self.revert_radius:
-        #     dog.phase = 'catch_up'
-        #     self.get_logger().info(f'{name}: 被甩开 -> catch_up')
-        #     dog.publish_zero()
-        #     return
-
-        # if self.formation_heading is None:
-        #     # 编队点方位依赖“行人运动航向”；行人若从未动过就没有航向，先原地等。
-        #     dog.publish_zero()
-        #     return
-
-        # # --- 1) 计算编队目标点 ---
-        # # angle = 行人运动航向 + 本狗偏置。go2_1 偏置 π ⇒ angle 指向“运动反方向”，
-        # # 故 goal 落在行人正后方 r 米处。注意：formation_heading 会随行人拐弯而摆动
-        # # （虽有 slew 限幅），goal 因此是一个“会绕着行人转”的移动点。
-        # angle = self.formation_heading + FORMATION_OFFSETS[name]
-        # goal_x = self.target_x + self.r * math.cos(angle)
-        # goal_y = self.target_y + self.r * math.sin(angle)
-        # dx, dy = goal_x - dog.x, goal_y - dog.y
-        # dist = math.hypot(dx, dy)      # 狗到“编队点”的距离（不是到行人的距离）
-
-        # if dist > self.deadband:
-        #     # --- 2a) 离编队点还远：朝编队点走（点跟随）---
-        #     # 朝向目标 = 指向编队点的方向 atan2(dy,dx)。
-        #     # ⚠️ 隐患：当狗逼近编队点时 (dx,dy)→0，atan2 对微小位置抖动极敏感，方向会
-        #     #    突然乱跳，配合下面的“大误差原地转”会表现为“近处突然大角度转向”。
-        #     #    此外 go2_1 编队点在行人正后方，若狗此刻在行人侧/前方（catch_up 刚按最短弧
-        #     #    追上），朝编队点方向可能背对行人 ⇒ 掉头绕后时相机扫离行人 ⇒ 丢视野。
-        #     yaw_err = normalize_angle(math.atan2(dy, dx) - dog.yaw)
-        #     if abs(yaw_err) > self.turn_in_place_thresh:
-        #         lin = 0.0                      # 朝向误差过大：先原地转对准，不前进
-        #     else:
-        #         # 比例前进 + 行人速度前馈 ff（只取沿狗朝向的正向分量，帮助跟上移动目标）
-        #         lin = clamp(self.k_linear * dist, 0.0, self.max_linear)
-        #         ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
-        #         lin = clamp(lin + max(0.0, ff), 0.0, self.max_linear)
-        #     ang = clamp(self.k_angular * yaw_err, -self.max_angular, self.max_angular)
-        # else:
-        #     # --- 2b) 已在编队点附近（dist ≤ deadband）：保持队形、匀速跟随 ---
-        #     # 此时不再朝“编队点方向”对齐（会因 atan2 奇异乱转），改为对齐“行人运动航向”，
-        #     # 让狗跟着行人同向走；go2_1 在正后方同向 ⇒ 相机稳定看向行人。
-        #     # 前进只用前馈 ff（≈行人速度），角速度与线速度都各减半以求平稳。
-        #     yaw_err = normalize_angle(self.formation_heading - dog.yaw)
-        #     ang = clamp(self.k_angular * yaw_err, -self.max_angular * 0.5, self.max_angular * 0.5)
-        #     ff = self.target_vx * math.cos(dog.yaw) + self.target_vy * math.sin(dog.yaw)
-        #     lin = clamp(max(0.0, ff), 0.0, self.max_linear * 0.5)
-        # 把控制解耦成两路，互不干扰：
-        #   角速度 → 机身始终正对行人，前向相机死锁目标，永不丢视野；
-        #   线速度 → 维持“狗到行人的距离”= r（编队半径），远则前进、近则后退。
-        # 不再用“编队点 goal + atan2(goal-狗)”，从根上消除逼近编队点时的方向奇异，
-        # 也不再依赖 formation_heading（行人拐角航向摆动不再干扰跟随）。
+        # ============================ go2_1：formation（B 方案跟随）============================
+        # 贴近行人 catch_radius 后进入本段：机身正对行人、维持距离 r，前向相机死锁目标做
+        # 感知，作为围捕后方一角，不参与冲刺。
 
         # 1) 朝向：对准行人本身
         bearing = math.atan2(self.target_y - dog.y, self.target_x - dog.x)

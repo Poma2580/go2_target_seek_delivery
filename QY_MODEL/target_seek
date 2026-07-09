@@ -1525,6 +1525,8 @@
       </link>
       <pose>-3 -3.7 0 0 -0 3.14</pose>
     </model>
+    <!-- Temporarily hide lamp_post_192. Uncomment this model to restore it. -->
+    <!--
     <model name='lamp_post_192'>
       <static>1</static>
       <link name='link'>
@@ -1573,6 +1575,7 @@
       </link>
       <pose>12 3.7 0 0 -0 0</pose>
     </model>
+    -->
     <model name='lamp_post_193'>
       <static>1</static>
       <link name='link'>
@@ -1621,6 +1624,8 @@
       </link>
       <pose>21 -3.7 0 0 -0 3.14</pose>
     </model>
+    <!-- Temporarily hide lamp_post_194. Uncomment this model to restore it. -->
+    <!--
     <model name='lamp_post_194'>
       <static>1</static>
       <link name='link'>
@@ -1669,6 +1674,7 @@
       </link>
       <pose>30 3.7 0 0 -0 0</pose>
     </model>
+    -->
     <model name='lamp_post_195'>
       <static>1</static>
       <link name='link'>
@@ -2347,6 +2353,8 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
+      <!-- Temporarily hide lamp_post_192 state together with the model definition. -->
+      <!--
       <model name='lamp_post_192'>
         <pose>12 3.7 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -2357,6 +2365,7 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
+      -->
       <model name='lamp_post_193'>
         <pose>21 -3.7 0 0 -0 3.14</pose>
         <scale>1 1 1</scale>
@@ -2367,6 +2376,8 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
+      <!-- Temporarily hide lamp_post_194 state together with the model definition. -->
+      <!--
       <model name='lamp_post_194'>
         <pose>30 3.7 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -2377,6 +2388,7 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
+      -->
       <model name='lamp_post_195'>
         <pose>58 -3.7 0 0 -0 3.14</pose>
         <scale>1 1 1</scale>

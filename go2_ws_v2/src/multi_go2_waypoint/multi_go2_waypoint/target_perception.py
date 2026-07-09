@@ -3,7 +3,7 @@
 
 链路（最小闭环的第 4~7 步）：
   RGB + Depth(对齐) --YOLO--> person bbox
-  bbox 中心像素 (u,v) + 深度中值 Z --反投影--> camera_depth_optical_frame 下 3D 点
+  bbox 中心像素 (u,v) + bbox 内 ROI 稳健深度 Z --反投影--> camera_depth_optical_frame 下 3D 点
   --tf2--> 目标系(默认 go2_1/odom ≈ 世界系) 下的全局位置
   --发布--> /go2_1/target_pose_estimated (PoseStamped)
             /go2_1/target_estimated/odom (Odometry，twist 用相邻帧差分+低通)
@@ -11,7 +11,7 @@
 设计要点：
 - target_estimated/odom 的字段与 actor_state_publisher 的 /walking_target/odom 完全同构，
   后续把 dynamic_encircle 的订阅从真值切到这里即可完成“真值->估计”替换。
-- 深度取 bbox 中心小窗口中值，抗空洞/噪声；深度无效则丢弃该帧（下游超时即安全停车）。
+- 深度优先取 bbox 内人体 ROI 的低分位数，减少背景深度污染；ROI 无效时回退中心窗口。
 - 找不到 person / 查不到 TF：节流告警并跳过，不发布伪造位姿。
 
 坐标/单位约定：
@@ -24,8 +24,6 @@
 运行（先 conda deactivate，确认 which python3 为 /usr/bin/python3）：
   ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true
 """
-
-import math
 
 import numpy as np
 
@@ -65,6 +63,12 @@ class TargetPerception(Node):
         self.declare_parameter('imgsz', 960)               # 推理分辨率，上采样提升小目标召回
         self.declare_parameter('device', 'cuda:0')        # 无 GPU 改 'cpu'
         self.declare_parameter('depth_window', 5)         # 中值采样半窗口(像素)
+        self.declare_parameter('depth_percentile', 30.0)  # ROI 内取偏近分位，减少背景污染
+        self.declare_parameter('min_depth_samples', 20)
+        self.declare_parameter('roi_x_min', 0.25)
+        self.declare_parameter('roi_x_max', 0.75)
+        self.declare_parameter('roi_y_min', 0.20)
+        self.declare_parameter('roi_y_max', 0.70)
         self.declare_parameter('max_depth', 25.0)         # 超过视为无效(与相机 far 一致)
         self.declare_parameter('min_depth', 0.3)
         self.declare_parameter('sync_slop', 0.05)         # rgb/depth 时间同步容差(s)
@@ -91,6 +95,12 @@ class TargetPerception(Node):
         self.imgsz = int(self.get_parameter('imgsz').value)
         self.device = self.get_parameter('device').value
         self.win = int(self.get_parameter('depth_window').value)
+        self.depth_percentile = float(self.get_parameter('depth_percentile').value)
+        self.min_depth_samples = int(self.get_parameter('min_depth_samples').value)
+        self.roi_x_min = float(self.get_parameter('roi_x_min').value)
+        self.roi_x_max = float(self.get_parameter('roi_x_max').value)
+        self.roi_y_min = float(self.get_parameter('roi_y_min').value)
+        self.roi_y_max = float(self.get_parameter('roi_y_max').value)
         self.max_depth = float(self.get_parameter('max_depth').value)
         self.min_depth = float(self.get_parameter('min_depth').value)
         slop = float(self.get_parameter('sync_slop').value)
@@ -183,7 +193,7 @@ class TargetPerception(Node):
         一帧进入后的处理顺序是：
         1. ROS Image -> OpenCV/numpy；
         2. YOLO 在 RGB 图上找 person；
-        3. 取 bbox 中心附近的深度中值；
+        3. 取 bbox 内人体 ROI 的稳健深度，必要时回退中心窗口；
         4. 用相机内参把像素点反投影成相机系 3D 点；
         5. 用 TF 转成 target_frame 下的全局点；
         6. 发布 PoseStamped/Odometry，并可选发布带框 debug 图。
@@ -217,14 +227,13 @@ class TargetPerception(Node):
             return
 
         x1, y1, x2, y2, conf = best
-        # 用检测框中心作为目标像素。这个假设简单有效：人站立时 bbox 中心通常落在躯干附近，
-        # 深度比脚底/边缘更稳定；如果中心刚好是空洞，_sample_depth 会用周围窗口补救。
+        # 用检测框中心作为反投影像素，深度则优先从 bbox 内 ROI 鲁棒采样。
         u = int(round((x1 + x2) / 2.0))
         v = int(round((y1 + y2) / 2.0))
 
-        Z = self._sample_depth(depth, u, v)
+        Z, depth_source = self._sample_depth_from_bbox(depth, (x1, y1, x2, y2), u, v)
         if Z is None:
-            self._warn(f'bbox 中心深度无效 (u={u}, v={v})。')
+            self._warn(f'bbox 深度无效 (u={u}, v={v})。')
             if self.dbg_pub is not None:
                 self._publish_debug(rgb, (x1, y1, x2, y2, conf, None), rgb_msg.header)
             return
@@ -271,13 +280,14 @@ class TargetPerception(Node):
 
         # 成功时节流打印估计 odom，让启动终端持续看到结果（也兼作轻量诊断）
         self.get_logger().info(
-            f'估计行人全局位置 x={gx:+.2f} y={gy:+.2f}  距离 Z={Z:.2f}m  '
-            f'conf={conf:.2f}  速度 vx={self.vx:+.2f} vy={self.vy:+.2f}',
+            f'估计行人全局位置 x={gx:+.2f} y={gy:+.2f}  '
+            f'距离 Z={Z:.2f}m/{depth_source}  conf={conf:.2f}  '
+            f'速度 vx={self.vx:+.2f} vy={self.vy:+.2f}',
             throttle_duration_sec=0.5)
 
         if self.dbg_pub is not None:
             self._publish_debug(rgb, (x1, y1, x2, y2, conf, Z), rgb_msg.header,
-                                gx=gx, gy=gy)
+                                gx=gx, gy=gy, depth_source=depth_source)
 
     # -----------------------------------------------------------------
     def _pick_person(self, results):
@@ -333,12 +343,39 @@ class TargetPerception(Node):
             return None
         return float(np.median(valid))
 
-    def _publish(self, gx, gy, gz, stamp):
-        """发布目标估计结果。
+    def _sample_depth_from_bbox(self, depth, bbox, u, v):
+        """优先在 bbox 内人体 ROI 取深度，样本不足时回退中心窗口。"""
+        h, w = depth.shape[:2]
+        x1, y1, x2, y2 = bbox
 
-        gx/gy/gz 已经是 target_frame 下的位置。速度没有来自传感器，而是用本节点
-        连续两次发布的位置差分估算，再用一阶低通减少抖动。
-        """
+        bx0 = max(0, min(w, int(round(x1))))
+        bx1 = max(0, min(w, int(round(x2))))
+        by0 = max(0, min(h, int(round(y1))))
+        by1 = max(0, min(h, int(round(y2))))
+        if bx1 <= bx0 or by1 <= by0:
+            return self._sample_depth(depth, u, v), 'center'
+
+        bw = bx1 - bx0
+        bh = by1 - by0
+        rx0 = bx0 + int(round(bw * self.roi_x_min))
+        rx1 = bx0 + int(round(bw * self.roi_x_max))
+        ry0 = by0 + int(round(bh * self.roi_y_min))
+        ry1 = by0 + int(round(bh * self.roi_y_max))
+        rx0, rx1 = max(0, min(w, rx0)), max(0, min(w, rx1))
+        ry0, ry1 = max(0, min(h, ry0)), max(0, min(h, ry1))
+
+        if rx1 > rx0 and ry1 > ry0:
+            patch = depth[ry0:ry1, rx0:rx1].reshape(-1)
+            valid = patch[np.isfinite(patch) &
+                          (patch > self.min_depth) & (patch < self.max_depth)]
+            if valid.size >= self.min_depth_samples:
+                pct = max(0.0, min(100.0, self.depth_percentile))
+                return float(np.percentile(valid, pct)), 'roi'
+
+        return self._sample_depth(depth, u, v), 'center'
+
+    def _publish(self, gx, gy, gz, stamp):
+        """发布 ROI 深度反投影后的目标估计结果。"""
         now = self.get_clock().now()
 
         # 用相邻帧位置差分自算世界系速度，再低通（复用 actor_state_publisher 写法）
@@ -347,8 +384,6 @@ class TargetPerception(Node):
             if dt > 1e-4:
                 raw_vx = (gx - self.last_x) / dt
                 raw_vy = (gy - self.last_y) / dt
-                # alpha 越大越相信当前差分速度，响应更快但更抖；
-                # alpha 越小越平滑，但目标突然变速时会有滞后。
                 self.vx = self.alpha * raw_vx + (1.0 - self.alpha) * self.vx
                 self.vy = self.alpha * raw_vy + (1.0 - self.alpha) * self.vy
         self.last_x, self.last_y, self.last_stamp = gx, gy, now
@@ -356,25 +391,24 @@ class TargetPerception(Node):
         pose = PoseStamped()
         pose.header.stamp = stamp
         pose.header.frame_id = self.target_frame
-        pose.pose.position.x = gx
-        pose.pose.position.y = gy
-        pose.pose.position.z = gz
+        pose.pose.position.x = float(gx)
+        pose.pose.position.y = float(gy)
+        pose.pose.position.z = float(gz)
         pose.pose.orientation.w = 1.0
-        self.pose_pub.publish(pose)
 
         odom = Odometry()
         odom.header.stamp = stamp
         odom.header.frame_id = self.target_frame
-        # child_frame_id 表示这个 odom 描述的是“估计目标”这个子坐标体的状态；
-        # 这里不真的发布 target_estimated 的 TF，只是保持 Odometry 消息语义完整。
         odom.child_frame_id = 'target_estimated'
         odom.pose.pose = pose.pose
         odom.twist.twist.linear.x = self.vx
         odom.twist.twist.linear.y = self.vy
         odom.twist.twist.linear.z = 0.0
+
+        self.pose_pub.publish(pose)
         self.odom_pub.publish(odom)
 
-    def _publish_debug(self, rgb, det, header, gx=None, gy=None):
+    def _publish_debug(self, rgb, det, header, gx=None, gy=None, depth_source=None):
         """发布带检测框的调试图。
 
         det 为 None 时表示这一帧没有检测到人；否则 det 里包含 bbox、置信度和
@@ -389,6 +423,8 @@ class TargetPerception(Node):
             label = f'person {conf:.2f}'
             if Z is not None:
                 label += f' Z={Z:.2f}m'
+            if depth_source is not None:
+                label += f' {depth_source}'
             if gx is not None:
                 label += f' ({gx:.1f},{gy:.1f})'
             cv2.putText(img, label, (int(x1), max(0, int(y1) - 6)),
