@@ -123,3 +123,16 @@ BIT：
     缺陷与不足：
     1.优化后误差略有下降，但仍约有 2~3m 位置误差、1~2m/s 速度误差，尚不足以稳定支撑三狗在线围捕。
     2.后续优先处理实时性：只处理最新帧、丢弃过期帧，并考虑从“最大 bbox”改为基于上一帧位置的目标锁定。
+
+========================================= 07.09 修改 ========================================================================
+LQC:
+    Finished:
+    1.ROS2 src package "Target_search" is completed now, stored at /go2_target_seek_delivery/go2_ws_v2/src/target_search/.
+        This package contained a target searching algorithm script driven by Yolo8 (pt file should be placed at the src path, along with /target_search/).
+        This algorithm takes /go2_1/camera/image_raw and /go2_1/camera/depth/image_raw as visual input.
+        With the global coordinates of go2_1 published by /go2_1/odom, this algorithm is able to calculate the global coordinates of the target.
+        The selected target is defined by parameter in the target_detector, by  target_class and target_class_id.
+        The output target coordinates are carried by the topic target_search/target_pose, and the image output with bounding box is /target_search/*image.
+        Run script by ros2 run: target_search target_detector --ros-args -p detection_rate:=5.0 
+        See the returning result by run: ros2 topic echo /target_search/target_pose
+        
