@@ -1,0 +1,36 @@
+target_search:
+  ros__parameters:
+    rgb_topic: "/go2_1/camera/image_raw"
+    depth_topic: "/go2_1/camera/depth/image_raw"
+    odom_topic: "/go2_1/odom"
+    
+    camera_link_frame: "camera_link"
+    base_link_frame: "base_link"
+    odom_frame: "odom"
+    map_frame: "map"
+    
+    target_class: "airplane"
+    target_class_id: 4
+    confidence_threshold: 0.3
+    
+    image_width: 640
+    image_height: 480
+    fov_rad: 1.047
+    depth_min: 0.05
+    depth_max: 10.0
+    
+    yolo_model_path: ""
+    yolo_model_type: "yolov8"
+    publish_visualization: true
+    use_compressed: false
+    detection_rate: 10.0
+    
+    camera_offset_x: 0.28
+    camera_offset_y: 0.0
+    camera_offset_z: 0.12
+    rgb_offset_x: 0.02
+    rgb_offset_y: -0.02
+    rgb_offset_z: 0.0
+    depth_offset_x: 0.02
+    depth_offset_y: 0.02
+    depth_offset_z: 0.0
