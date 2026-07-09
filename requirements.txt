@@ -1,0 +1,29 @@
+# go2_target_seek_delivery 的 Python 依赖说明。
+#
+# 本项目是 ROS 2 Humble 项目，请特别注意：
+# - 运行本仓库的 ROS 节点时不要使用 conda。
+# - 运行前先执行 `conda deactivate`，并确认 `which python3` 为 /usr/bin/python3。
+# - rclpy、cv_bridge、message_filters、tf2_ros、tf2_geometry_msgs 以及各类
+#   ROS msg 包由 ROS/apt 提供，不应通过 pip 安装。
+#
+# pip 依赖安装命令：
+#   python3 -m pip install -r requirements.txt
+#
+# 如系统/ROS 依赖缺失，请单独通过 apt 安装：
+#   sudo apt install ffmpeg python3-opencv \
+#     ros-humble-rclpy ros-humble-cv-bridge ros-humble-message-filters \
+#     ros-humble-tf2-ros ros-humble-tf2-geometry-msgs \
+#     ros-humble-gazebo-msgs
+#
+# Torch/CUDA 说明：
+#   ultralytics 依赖 torch/torchvision。若使用 GPU，请根据本机 CUDA/驱动版本，
+#   从 https://pytorch.org/ 安装匹配的 PyTorch 版本。
+#   当前开发机使用的是 torch 2.10.0+cu128 和 torchvision 0.25.0+cu128。
+#
+# OpenCV 说明：
+#   代码只使用 cv2 的基础功能。这里将 OpenCV 固定在 4.13 以下，以继续使用
+#   NumPy 1.x；这通常更适合 ROS 2 Humble/cv_bridge 环境。
+
+numpy==1.26.4
+opencv-python==4.10.0.84
+ultralytics==8.4.82
