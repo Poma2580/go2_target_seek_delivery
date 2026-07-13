@@ -1,19 +1,24 @@
 ===================================== 本地启动命令简洁版 ========================================
 Gazebo + target_seek + Go2：
 
+【目前已测试成功】
+1. 单狗 2D 雷达：forest / qy / airport 三个 scene 启动、键盘控制、SLAM。
+2. 多狗 2D 雷达：三只 Go2 顺序导入、独立键盘控制。
+3. 多狗 3D 雷达：三只 Go2 + Velodyne 点云 + RGB 相机链路，/go2_i/velodyne_points 可发布。
+
 pkill -f gzserver
 pkill -f gzclient
 rm -rf ~/.gazebo/paging/city_terrain
 
 ====================================== 编译 ==================================================
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 source install/setup.bash
 
 ======================================单狗：启动世界 + 键盘控制 + SLAM ===========================
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -38,7 +43,7 @@ ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=airport gui:=true 
 
 键盘控制：
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -48,7 +53,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 SLAM：
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -60,7 +65,7 @@ ros2 launch go2_config slam.launch.py sim:=true rviz:=true
 
 公共环境（每个终端都先执行一次）：
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -73,7 +78,7 @@ ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
 
 
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -97,7 +102,7 @@ ros2 launch go2_config teleop_three_go2.launch.py
 
 公共环境（每个终端都先执行一次）：
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -110,8 +115,12 @@ ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
 
 # 终端 2/3/4：逐只导入带 3D Velodyne 的狗。
 # 务必等上一只的两个控制器都 active、且 /go2_i/velodyne_points 出现后，再启动下一只。
+# 检查示例：
+# ros2 control list_controllers -c /go2_1/controller_manager
+# ros2 topic list | grep /go2_1/velodyne_points
+# ros2 topic hz /go2_1/velodyne_points
 
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -124,7 +133,7 @@ ros2 launch go2_config spawn_go2_velodyne_2.launch.py
 ros2 launch go2_config spawn_go2_velodyne_3.launch.py
 
 # 终端 5：一次性弹出 3 个 xterm 键盘窗口（go2_1 / go2_2 / go2_3）
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
@@ -135,7 +144,7 @@ export GAZEBO_MODEL_DATABASE_URI=""
 ros2 launch go2_config teleop_three_go2.launch.py
 
 # 终端 6：RViz 同时查看三份点云
-export DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+export DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
