@@ -32,6 +32,10 @@ SPAWN_YAW = "1.57"  # 90 deg, face +y
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_sim_time_param = ParameterValue(use_sim_time, value_type=bool)
+    spawn_x = LaunchConfiguration("spawn_x")
+    spawn_y = LaunchConfiguration("spawn_y")
+    spawn_z = LaunchConfiguration("spawn_z")
+    spawn_yaw = LaunchConfiguration("spawn_yaw")
 
     config_pkg_share = get_package_share_directory("go2_config")
     descr_pkg_share = get_package_share_directory("go2_description")
@@ -189,17 +193,17 @@ def generate_launch_description():
             "-topic",
             f"/{ROBOT_NAME}/robot_description",
             "-x",
-            SPAWN_X,
+            spawn_x,
             "-y",
-            SPAWN_Y,
+            spawn_y,
             "-z",
-            SPAWN_Z,
+            spawn_z,
             "-R",
             "0",
             "-P",
             "0",
             "-Y",
-            SPAWN_YAW,
+            spawn_yaw,
         ],
     )
 
@@ -239,6 +243,26 @@ def generate_launch_description():
                 "use_ground_truth_odom",
                 default_value="true",
                 description="Use Gazebo ground-truth odometry for this robot",
+            ),
+            DeclareLaunchArgument(
+                "spawn_x",
+                default_value=SPAWN_X,
+                description="Gazebo spawn x position (m)",
+            ),
+            DeclareLaunchArgument(
+                "spawn_y",
+                default_value=SPAWN_Y,
+                description="Gazebo spawn y position (m)",
+            ),
+            DeclareLaunchArgument(
+                "spawn_z",
+                default_value=SPAWN_Z,
+                description="Gazebo spawn z position (m)",
+            ),
+            DeclareLaunchArgument(
+                "spawn_yaw",
+                default_value=SPAWN_YAW,
+                description="Gazebo spawn yaw (rad)",
             ),
             DeclareLaunchArgument(
                 "enable_lidar",

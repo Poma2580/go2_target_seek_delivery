@@ -1,0 +1,13 @@
+==================================================
+2026-07-15：多场景三狗与 uav1 启动
+==================================================
+
+一、完成内容
+1. start_three_go2_velodyne.sh 支持 city（默认）/ forest / airport；启动世界后等待 /spawn_entity、/clock、/uav1/camera/image_raw，并在世界和狗之间加入启动缓冲。
+2. 三只 Go2 默认关闭 3D 雷达和 RGB-D，相应可通过 --lidar、--camera、--all-sensors 开启。
+3. spawn_go2_velodyne_1/2/3.launch.py 新增 spawn_x、spawn_y、spawn_z、spawn_yaw 参数，手动调用时仍使用原默认值。
+4. forest/airport 脚本启动时采用近距离三角形出生点：go2_1=(0,-4)、go2_2=(2,-4)、go2_3=(0,-6)，z=0.50、yaw=0；city 保持原默认布局。
+
+二、验证
+1. 三份 launch 已通过 Python 语法检查，启动脚本已通过 bash -n 与参数帮助检查。
+2. ROS 实测前需 conda deactivate，并确认 which python3 为 /usr/bin/python3。

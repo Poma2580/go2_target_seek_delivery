@@ -1,12 +1,12 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.07.01**
+**Latest Updated 2026.07.15**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
 - 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
-- 3D 多狗模式：同一场景里导入 3 只带 3D Velodyne 的 Go2，各自独立键盘控制，并可用 RViz 查看 3D 点云。
+- 3D 多狗模式：同一场景里导入 3 只 Go2，可按需开启 3D Velodyne 和 RGB-D，相互独立控制并可用 RViz 查看数据。
 - 多狗围捕模式：三只 Go2 沿预设 waypoint 自动行进，在 `target_seek` 场景里对静态目标 SUV 完成等边三角形围捕。
 - 动态追踪模式：go2_1 用 RGB-D 相机在线视觉感知（YOLO+深度）估计行人位置并稳定跟随（单狗已实现；三狗三角编队尚未调通）。
 
@@ -193,57 +193,41 @@ ros2 launch go2_config teleop_three_go2.launch.py
 键盘窗口与单狗相同（i 前进、, 后退、j 左转、l 右转、k 停）。
 键盘只对当前鼠标焦点所在的 xterm 窗口生效，要控制哪只狗，先点一下对应窗口再按键。
 
-## 多狗模式：三只 Go2 + 3D Velodyne + RGB 相机
+## 多场景三狗：可选 3D Velodyne / RGB-D
 
-本模式复用同一个 `target_seek` 世界和三狗键盘控制链路，每只 Go2 装 3D Velodyne。
-
-每个终端先执行：
-
-```bash
-cd $DELIVERY_ROOT/go2_ws_v2
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-```
-
-终端 1：只启动 `target_seek` 世界：
+脚本支持 `city`（默认）、`forest`、`airport` 三个场景；每个场景均预置 `uav1`。它会等待
+世界、`/uav1/camera/image_raw` 就绪并缓冲后，再依次导入三只 Go2，等待每只控制器 active。
 
 ```bash
-ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+conda deactivate
+which python3  # 应为 /usr/bin/python3
+cd /home/bit/go2_target_seek_delivery/Scripts
+
+./start_three_go2_velodyne.sh                 # city
+./start_three_go2_velodyne.sh forest           # 森林
+./start_three_go2_velodyne.sh airport          # 机场
+./start_three_go2_velodyne.sh forest --lidar
+./start_three_go2_velodyne.sh airport --all-sensors
 ```
 
-终端 2/3/4：逐只顺序导入带 3D Velodyne 的 Go2，等上一只稳定后再启动下一只：
+默认关闭三只 Go2 的 3D 雷达和 RGB-D 相机；`--lidar`、`--camera`、`--all-sensors` 可按需开启。
+city 保持原有默认出生点；forest/airport 使用紧凑三角形：go2_1 `(0,-4)`、go2_2 `(2,-4)`、
+go2_3 `(0,-6)`，高度均为 `0.50 m`。
+
+uav1 检查：
 
 ```bash
-ros2 launch go2_config spawn_go2_velodyne_1.launch.py
-ros2 launch go2_config spawn_go2_velodyne_2.launch.py
-ros2 launch go2_config spawn_go2_velodyne_3.launch.py
+ros2 topic list | grep /uav1
+ros2 topic hz /uav1/camera/image_raw
+ros2 topic hz /uav1/camera/depth/image_raw
 ```
 
-终端 5：弹出 3 个 xterm 键盘窗口：
+按需另开终端启动键盘或 RViz：
 
 ```bash
 ros2 launch go2_config teleop_three_go2.launch.py
-```
-
-终端 6：按需用 RViz 查看三份点云：
-
-```bash
 ros2 launch go2_config view_three_go2_velodyne.launch.py
 ```
-
-终端 7：按需用 RViz/RQT 查看三个相机视角：
-
-显示方式：
-   - RViz：同终端6的指令，在上一个RViz面板中加入三个 Image 面板出画面。
-```bash
-ros2 launch go2_config view_three_go2_velodyne.launch.py
-```
-   - rqt_image_view：
-  ```bash
-       ros2 run rqt_image_view rqt_image_view /go2_1/camera/image_raw
-       ros2 run rqt_image_view rqt_image_view /go2_2/camera/image_raw
-       ros2 run rqt_image_view rqt_image_view /go2_3/camera/image_raw
-  ```
 
 ## 多狗模式：三只 Go2 联合 Waypoint 静态围捕
 
@@ -279,9 +263,7 @@ ros2 run multi_go2_waypoint waypoint_encircle
 
 > **现状说明**：三狗联合“拦截式围捕”已**初步调通**——go2_1 用 RGB-D 相机在线视觉感知
 > （YOLO 检测 + 深度反投影）估计行人位置作为目标源，go2_1 稳定跟在行人身后做感知，
-> go2_2/go2_3 绕到行人前方后**同步冲刺合围**。⚠️ **启动仍不稳定**：多狗顺序拉起时偶发
-> 某只狗 spawn 翻倒、或 YOLO 掉帧致 go2_1 瞬时丢目标，遇到时重启脚本即可（详见
-> `Docs/情况说明0707.txt`）。
+> go2_2/go2_3 绕到行人前方后**同步冲刺合围**。
 
 
 一键启动（务必先 `conda deactivate`，确认 `which python3` 为 `/usr/bin/python3`）：
@@ -295,12 +277,6 @@ cd /home/bit/go2_target_seek_delivery/Scripts
 `actor_state_publisher` → 目标感知 `target_perception` → 动态追踪控制 `dynamic_encircle`
 （目标源 `/go2_1/target_estimated/odom`）→ rqt 调试图 → `perception_eval` 误差评估。
 
-控制参数在 `dynamic_encircle.py` 节点参数里，可按需微调：`ahead_intercept`/`ahead_flank`
-（两冲刺手前向保持距离，当前 15m/12m）、`intercept_offset`/`side_offset`（两条车道外扩量，
-当前 1.5m/3.0m）、`r_final`（完成距离，当前 5m）、`charge_speed`（冲刺速度）、
-`formation_radius`（go2_1 跟随距离，当前 2m）、`catch_speed`/`k_angular` 等；
-环角点 `LOOP_CORNERS` 须与行人 actor 的（加宽后）矩形路线一致。`Ctrl+C` 退出节点会自动补发
-零速度；目标估计缺失超过保活时间时追捕段自动保持静止。
 
 ## 模型参数说明
 
@@ -311,10 +287,12 @@ cd /home/bit/go2_target_seek_delivery/Scripts
 URDF/xacro robot name: go2
 主本体 link: trunk
 base_link 到 trunk: 固定关节，xyz=0 0 0, rpy=0 0 0
-当前 3D 多狗默认出生点:
-  go2_1: x=0,  y=-4,  z=0.40, yaw=0
-  go2_2: x=15, y=-35, z=0.40, yaw=0
-  go2_3: x=60, y=10,  z=0.40, yaw=0
+city 场景中，3D 多狗默认出生点:
+  go2_1: x=0,  y=-4,  z=0.50, yaw=1.57
+  go2_2: x=10, y=-17, z=0.50, yaw=0
+  go2_3: x=60, y=10,  z=0.50, yaw=0
+forest / airport 通过 start_three_go2_velodyne.sh 启动时:
+  go2_1: x=0, y=-4; go2_2: x=2, y=-4; go2_3: x=0, y=-6; z=0.50, yaw=0
 机身碰撞盒尺寸: 0.3762 x 0.0935 x 0.114 m
 机身质量: 6.921 kg
 ```
