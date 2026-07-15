@@ -124,15 +124,26 @@ BIT：
     1.优化后误差略有下降，但仍约有 2~3m 位置误差、1~2m/s 速度误差，尚不足以稳定支撑三狗在线围捕。
     2.后续优先处理实时性：只处理最新帧、丢弃过期帧，并考虑从“最大 bbox”改为基于上一帧位置的目标锁定。
 
+
+
 ========================================= 07.09 修改 ========================================================================
 LQC:
-    Finished:
-    1.ROS2 src package "Target_search" is completed now, stored at /go2_target_seek_delivery/go2_ws_v2/src/target_search/.
-        This package contained a target searching algorithm script driven by Yolo8 (pt file should be placed at the src path, along with /target_search/).
-        This algorithm takes /go2_1/camera/image_raw and /go2_1/camera/depth/image_raw as visual input.
-        With the global coordinates of go2_1 published by /go2_1/odom, this algorithm is able to calculate the global coordinates of the target.
-        The selected target is defined by parameter in the target_detector, by  target_class and target_class_id.
-        The output target coordinates are carried by the topic target_search/target_pose, and the image output with bounding box is /target_search/*image.
-        Run script by ros2 run: target_search target_detector --ros-args -p detection_rate:=5.0 
-        See the returning result by run: ros2 topic echo /target_search/target_pose
+    已完成：
+    1.已完成 ROS2 功能包 Target_search，路径为 /go2_target_seek_delivery/go2_ws_v2/src/target_search/。
+        该包包含基于 YOLOv8 的目标搜索算法；模型 pt 文件需放在 src 路径下，与 target_search 目录同级。
+        算法订阅 /go2_1/camera/image_raw 和 /go2_1/camera/depth/image_raw 作为视觉输入，
+        结合 /go2_1/odom 发布的 go2_1 全局坐标，计算目标的全局坐标。
+        待检测目标通过 target_detector 的 target_class 和 target_class_id 参数配置。
+        目标坐标发布到 target_search/target_pose，带检测框图像发布到 /target_search/*image。
+        启动命令：ros2 run target_search target_detector --ros-args -p detection_rate:=5.0
+        查看结果：ros2 topic echo /target_search/target_pose
         
+========================================= 07.14 修改 ========================================================================
+BIT：
+    已完成：
+    1.target_perception.py 改为“同步回调仅缓存最新 RGB-D 对 + 定时器推理”，避免 YOLO 阻塞后处理积压旧图。
+    2.新增过期帧丢弃，默认 inference_rate=8.0 Hz、max_image_age=0.30 s；保留 ROI 深度估计链路。
+    3.实测位置估计误差明显下降：perception_eval 连续统计 mean 约 0.21 m、RMSE 约 0.50 m，部分瞬时误差降至 0.01~0.17 m。
+
+    缺陷与不足：
+    1.位置差分速度仍会受检测框和深度抖动影响，偶发较大速度误差；下一步优先优化速度估计。

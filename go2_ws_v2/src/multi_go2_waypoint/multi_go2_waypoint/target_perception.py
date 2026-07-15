@@ -72,6 +72,8 @@ class TargetPerception(Node):
         self.declare_parameter('max_depth', 25.0)         # 超过视为无效(与相机 far 一致)
         self.declare_parameter('min_depth', 0.3)
         self.declare_parameter('sync_slop', 0.05)         # rgb/depth 时间同步容差(s)
+        self.declare_parameter('inference_rate', 8.0)      # 定时推理频率上限(Hz)
+        self.declare_parameter('max_image_age', 0.30)     # 超过这个时间戳的图像直接丢弃(s)
         self.declare_parameter('vel_lpf_alpha', 0.3)      # 速度低通系数
         self.declare_parameter('tf_timeout', 0.1)         # 单次 TF 查询超时(s)
         self.declare_parameter('publish_debug', True)
@@ -104,6 +106,8 @@ class TargetPerception(Node):
         self.max_depth = float(self.get_parameter('max_depth').value)
         self.min_depth = float(self.get_parameter('min_depth').value)
         slop = float(self.get_parameter('sync_slop').value)
+        self.inference_rate = float(self.get_parameter('inference_rate').value)
+        self.max_image_age = float(self.get_parameter('max_image_age').value)
         self.alpha = float(self.get_parameter('vel_lpf_alpha').value)
         self.tf_timeout = float(self.get_parameter('tf_timeout').value)
         self.publish_debug = bool(self.get_parameter('publish_debug').value)
@@ -133,6 +137,10 @@ class TargetPerception(Node):
         self.vx = 0.0
         self.vy = 0.0
         self._warn_throttle = self.get_clock()
+        # RGB-D 同步回调只保留最新的一对，定时器负责真正的重推理
+        self._latest_rgbd = None
+        self._latest_pair_id = 0
+        self._processed_pair_id = -1
 
         # ---- TF ----
         # Buffer 保存 TF 树里的历史变换；TransformListener 负责订阅 /tf 和 /tf_static
@@ -162,6 +170,12 @@ class TargetPerception(Node):
             [rgb_sub, depth_sub], queue_size=10, slop=slop)
         self.sync.registerCallback(self._rgbd_cb)
 
+        if self.inference_rate <= 0.0:
+            raise ValueError(f'inference_rate 必须 > 0.0，当前={self.inference_rate}')
+
+        self.infer_timer = self.create_timer(1.0 / self.inference_rate, self._process_latest_rgbd)
+
+
         self.get_logger().info(
             f'target_perception 已启动：\n'
             f'  rgb   = {rgb_topic}\n'
@@ -188,16 +202,35 @@ class TargetPerception(Node):
         self.get_logger().warn(text, throttle_duration_sec=2.0)
 
     def _rgbd_cb(self, rgb_msg, depth_msg):
-        """RGB-D 同步回调：整条感知链路都在这里串起来。
+        """RGB-D 同步回调：只保留最新匹配，避免慢推理造成旧图积压。"""
+        self._latest_pair_id += 1
+        self._latest_rgbd = (self._latest_pair_id, rgb_msg, depth_msg)
 
-        一帧进入后的处理顺序是：
-        1. ROS Image -> OpenCV/numpy；
-        2. YOLO 在 RGB 图上找 person；
-        3. 取 bbox 内人体 ROI 的稳健深度，必要时回退中心窗口；
-        4. 用相机内参把像素点反投影成相机系 3D 点；
-        5. 用 TF 转成 target_frame 下的全局点；
-        6. 发布 PoseStamped/Odometry，并可选发布带框 debug 图。
-        """
+    def _process_latest_rgbd(self):
+        """定时处理尚未处理过的最新的 RGB-D 图像对。"""
+        latest = self._latest_rgbd
+        if latest is None:
+            return
+
+        pair_id, rgb_msg, depth_msg = latest
+        if pair_id == self._processed_pair_id:
+            return  # 已处理过了
+
+        # 先标记已取走，避免同一帧在下一次定时器又被处理
+        self._processed_pair_id = pair_id
+
+        stamp = rclpy.time.Time.from_msg(depth_msg.header.stamp)
+        age = (self.get_clock().now() - stamp).nanoseconds * 1e-9
+
+        # 只丢弃确实过期的帧；负值可能来自启动阶段的仿真时间初始化。
+        if age > self.max_image_age:
+            self._warn(f'丢弃过期图像，age={age:.3f}s > max_image_age={self.max_image_age:.3f}s')
+            return
+
+        self._process_rgbd_pair(rgb_msg, depth_msg)
+
+    def _process_rgbd_pair(self, rgb_msg, depth_msg):
+        """对最新一对 RGB-D 图像执行 YOLO 检测 + 深度反投影 + TF 转全局，并发布 PoseStamped/Odometry。"""
         if self.K is None:
             self._warn('尚未收到 camera_info，无法反投影。')
             return
