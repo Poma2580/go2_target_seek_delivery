@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'waypoint_encircle = multi_go2_waypoint.waypoint_encircle:main',
+            'waypoint_forest = multi_go2_waypoint.waypoint_forest:main',
             'actor_state_publisher = multi_go2_waypoint.actor_state_publisher:main',
             'dynamic_encircle = multi_go2_waypoint.dynamic_encircle:main',
             'target_perception = multi_go2_waypoint.target_perception:main',
