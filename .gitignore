@@ -10,3 +10,7 @@ __pycache__/
 Docs/本地启动.txt
 # YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
 *.pt
+/Docs/WAT多场景多狗.txt
+/Docs/WAT世界及模型修改以及说明.txt
+/Docs/WAT无人机启动.txt
+/Docs/计划_waypoint_encircle多场景改造_0718.txt

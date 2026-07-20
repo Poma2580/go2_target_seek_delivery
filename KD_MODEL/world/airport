@@ -30,9 +30,11 @@
       <pose>0 0 0 0 0 0</pose>
       <link name="link">
         <visual name="grass_visual">
+          <!-- Visual layers sit below the common collision surface (z = 0.01). -->
+          <pose>0 0 0.008 0 0 0</pose>
           <geometry>
             <box>
-              <size>360 120 0.02</size>
+              <size>360 120 0.001</size>
             </box>
           </geometry>
           <material>
@@ -53,12 +55,13 @@
     <!-- Two horizontal strips: runway above, taxiway below. -->
     <model name="runway_04_22">
       <static>true</static>
-      <pose>0 18 0.025 0 0 0</pose>
+      <pose>0 18 0.005 0 0 0</pose>
       <link name="link">
         <visual name="runway_visual">
+          <pose>0 0 0.0065 0 0 0</pose>
           <geometry>
             <box>
-              <size>300 14 0.01</size>
+              <size>300 14 0.001</size>
             </box>
           </geometry>
           <material>
@@ -81,12 +84,12 @@
 
     <model name="runway_centerline">
       <static>true</static>
-      <pose>0 18 0.04 0 0 0</pose>
+      <pose>0 18 0.0155 0 0 0</pose>
       <link name="link">
         <visual name="line">
           <geometry>
             <box>
-              <size>260 0.8 0.01</size>
+              <size>260 0.8 0.001</size>
             </box>
           </geometry>
           <material>
@@ -99,12 +102,12 @@
 
     <model name="runway_left_shoulder">
       <static>true</static>
-      <pose>0 27 0.03 0 0 0</pose>
+      <pose>0 27 0.0115 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>305 2.5 0.01</size>
+              <size>305 2.5 0.001</size>
             </box>
           </geometry>
           <material>
@@ -117,12 +120,12 @@
 
     <model name="runway_right_shoulder">
       <static>true</static>
-      <pose>0 9 0.03 0 0 0</pose>
+      <pose>0 9 0.0115 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>305 2.5 0.01</size>
+              <size>305 2.5 0.001</size>
             </box>
           </geometry>
           <material>
@@ -135,12 +138,13 @@
 
     <model name="parallel_taxiway">
       <static>true</static>
-      <pose>0 -10 0.026 0 0 0</pose>
+      <pose>0 -10 0.005 0 0 0</pose>
       <link name="link">
         <visual name="taxiway_visual">
+          <pose>0 0 0.0065 0 0 0</pose>
           <geometry>
             <box>
-              <size>300 12 0.01</size>
+              <size>300 12 0.001</size>
             </box>
           </geometry>
           <material>
@@ -160,12 +164,12 @@
 
     <model name="taxiway_yellow_line">
       <static>true</static>
-      <pose>0 -10 0.04 0 0 0</pose>
+      <pose>0 -10 0.0155 0 0 0</pose>
       <link name="link">
         <visual name="line">
           <geometry>
             <box>
-              <size>275 0.6 0.01</size>
+              <size>275 0.6 0.001</size>
             </box>
           </geometry>
           <material>
@@ -178,12 +182,13 @@
 
     <model name="north_runway_exit">
       <static>true</static>
-      <pose>-95 3.5 0.027 0 0 0</pose>
+      <pose>-95 3.5 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>16 31 0.01</size>
+              <size>16 31 0.001</size>
             </box>
           </geometry>
           <material>
@@ -203,12 +208,13 @@
 
     <model name="south_runway_exit">
       <static>true</static>
-      <pose>65 3.5 0.027 0 0 0</pose>
+      <pose>65 3.5 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>16 31 0.01</size>
+              <size>16 31 0.001</size>
             </box>
           </geometry>
           <material>
@@ -228,12 +234,13 @@
 
     <model name="center_runway_exit">
       <static>true</static>
-      <pose>0 3.5 0.027 0 0 0</pose>
+      <pose>0 3.5 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>16 31 0.01</size>
+              <size>16 31 0.001</size>
             </box>
           </geometry>
           <material>
@@ -254,12 +261,13 @@
     <!-- Apron and terminal are concentrated below the taxiway. -->
     <model name="main_apron">
       <static>true</static>
-      <pose>15 -37 0.026 0 0 0</pose>
+      <pose>15 -37 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
           <geometry>
             <box>
-              <size>210 22 0.01</size>
+              <size>210 22 0.001</size>
             </box>
           </geometry>
           <material>
@@ -279,12 +287,13 @@
 
     <model name="terminal_connector_1">
       <static>true</static>
-      <pose>-35 -24 0.028 0 0 0</pose>
+      <pose>-35 -24 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>14 26 0.01</size>
+              <size>14 26 0.001</size>
             </box>
           </geometry>
           <material>
@@ -304,12 +313,13 @@
 
     <model name="terminal_connector_2">
       <static>true</static>
-      <pose>80 -24 0.028 0 0 0</pose>
+      <pose>80 -24 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>14 26 0.01</size>
+              <size>14 26 0.001</size>
             </box>
           </geometry>
           <material>
@@ -354,12 +364,13 @@
 
     <model name="right_service_road">
       <static>true</static>
-      <pose>145 -35 0.027 0 0 0</pose>
+      <pose>145 -35 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>14 70 0.01</size>
+              <size>14 70 0.001</size>
             </box>
           </geometry>
           <material>
@@ -379,12 +390,13 @@
 
     <model name="apron_to_service_road">
       <static>true</static>
-      <pose>92 -48 0.028 0 0 0</pose>
+      <pose>92 -48 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
           <geometry>
             <box>
-              <size>90 10 0.01</size>
+              <size>90 10 0.001</size>
             </box>
           </geometry>
           <material>
@@ -404,12 +416,13 @@
 
     <model name="fuel_depot_pad">
       <static>true</static>
-      <pose>0 52 0.028 0 0 0</pose>
+      <pose>0 52 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
           <geometry>
             <box>
-              <size>70 28 0.01</size>
+              <size>70 28 0.001</size>
             </box>
           </geometry>
           <material>
@@ -429,12 +442,13 @@
 
     <model name="fire_station_pad">
       <static>true</static>
-      <pose>125 52 0.028 0 0 0</pose>
+      <pose>125 52 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
           <geometry>
             <box>
-              <size>90 28 0.01</size>
+              <size>90 28 0.001</size>
             </box>
           </geometry>
           <material>
@@ -454,12 +468,12 @@
 
     <model name="robot_start_zone">
       <static>true</static>
-      <pose>155 -55 0.045 0 0 0</pose>
+      <pose>155 -55 0.0155 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>16 16 0.01</size>
+              <size>16 16 0.001</size>
             </box>
           </geometry>
           <material>
@@ -513,7 +527,7 @@
     <include>
       <uri>model://fire_truck</uri>
       <name>fire_truck_2</name>
-      <pose>82 545 0 0 0 0</pose>
+      <pose>82 45 0 0 0 0</pose>
     </include>
 
     <include>
@@ -582,34 +596,17 @@
       <pose>90 -24 0 0 0 0</pose>
     </include>
 
-    <include>
-      <uri>model://oak_tree</uri>
-      <name>tree_northwest_1</name>
-      <pose>-165 62 0 0 0 0</pose>
-    </include>
-
-    <include>
-      <uri>model://oak_tree</uri>
-      <name>tree_northeast_1</name>
-      <pose>165 62 0 0 0 0</pose>
-    </include>
-
-    <include>
-      <uri>model://pine_tree</uri>
-      <name>tree_southwest_1</name>
-      <pose>-165 -62 0 0 0 0</pose>
-    </include>
-
-    <include>
-      <uri>model://pine_tree</uri>
-      <name>tree_southeast_1</name>
-      <pose>165 -62 0 0 0 0</pose>
-    </include>
 
     <include>
       <uri>model://uav1_iris_depth_camera</uri>
       <pose>-15 -2 50 0 0 0</pose>
     </include>
 
+    <include>
+      <uri>model://pickup</uri>
+      <name>airpor_cart_target</name>
+      <pose>80 -25 0 0 0 1.5</pose>
+      <static>true</static>
+    </include>
   </world>
 </sdf>

@@ -201,7 +201,7 @@ ros2 launch go2_config teleop_three_go2.launch.py
 ```bash
 conda deactivate
 which python3  # 应为 /usr/bin/python3
-cd /home/bit/go2_target_seek_delivery/Scripts
+cd $DELIVERY_ROOT/Scripts
 
 ./start_three_go2_velodyne.sh                 # city
 ./start_three_go2_velodyne.sh forest           # 森林
@@ -214,14 +214,6 @@ cd /home/bit/go2_target_seek_delivery/Scripts
 city 保持原有默认出生点；forest/airport 使用紧凑三角形：go2_1 `(0,-4)`、go2_2 `(2,-4)`、
 go2_3 `(0,-6)`，高度均为 `0.50 m`。
 
-uav1 检查：
-
-```bash
-ros2 topic list | grep /uav1
-ros2 topic hz /uav1/camera/image_raw
-ros2 topic hz /uav1/camera/depth/image_raw
-```
-
 按需另开终端启动键盘或 RViz：
 
 ```bash
@@ -231,33 +223,42 @@ ros2 launch go2_config view_three_go2_velodyne.launch.py
 
 ## 多狗模式：三只 Go2 联合 Waypoint 静态围捕
 
-让三只 Go2（go2_1 / go2_2 / go2_3）沿各自预设的 waypoint 自动行进，最终在目标 SUV
-（`target_x=42, target_y=-20, target_yaw=-0.5`）周围按等边三角形（半径 `r=2m`）完成围捕，
-各自对准内侧目标后停车。控制节点为 `multi_go2_waypoint` 包的 `multi_go2_waypoint_encircle`。
+让 Go2 沿场景配置的中途 waypoint 自动行进，最终在静态目标周围均匀围捕，并各自对准目标中心后停车。
+控制节点为 `multi_go2_waypoint` 包的 `multi_go2_waypoint_encircle`。围捕终点会按目标位置、围捕半径和
+机器狗数量自动解算，并按总行进距离最小分配给各狗。
 
 
-一键启动 `target_seek` 世界和三只 Go2：
+一键启动所需场景和三只 Go2：
 
 ```bash
-cd /home/bit/go2_target_seek_delivery/Scripts
-./start_three_go2_velodyne.sh
+cd $DELIVERY_ROOT/Scripts
+./start_three_go2_velodyne.sh          # city / target_seek（默认）
+./start_three_go2_velodyne.sh forest
+./start_three_go2_velodyne.sh airport
 ```
 
-脚本会启动 Gazebo 世界，依次导入 go2_1 / go2_2 / go2_3，并等待每只狗的
-`joint_group_effort_controller` 与 `joint_states_controller` 都 active 后再启动下一只。
-当前脚本按运动控制调试配置显式关闭 lidar/camera，不暂停 Gazebo 物理。
+脚本会启动 Gazebo 世界，依次导入 go2_1 / go2_2 / go2_3
 
 另开终端启动围捕控制节点（首次需先 `colcon build --symlink-install` 并 `source install/setup.bash`）：
 
 ```bash
+# city（默认）：围捕 target_seek 中的 SUV (42, -20)
 ros2 run multi_go2_waypoint waypoint_encircle
+
+# 机场：围捕 airport 世界中的 airpor_cart_target (80, -25)
+ros2 run multi_go2_waypoint waypoint_encircle --ros-args -p scene:=airport
+
+# 森林：默认目标为占位坐标 (0, 0)，应按实际目标位置覆盖
+ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
+  -p scene:=forest -p target_x:=12.0 -p target_y:=-8.0 -p target_yaw:=0.0
 ```
 
-三只狗会依次走完 waypoint，在 SUV 周围围成三角形并对准内侧目标后停车；节点日志打印
-“所有机器狗已完成围捕”即成功。`Ctrl+C` 退出节点时会自动给三只狗补发零速度，狗会停住。
+可选参数：`target_x`、`target_y`、`target_yaw`、`encircle_radius` 可覆盖场景默认目标和围捕半径；
+例如 `-p encircle_radius:=3.0`。`num_dogs` 默认为 `3`，可以设为较小的数量；当前三份场景配置仅定义了
+`go2_1` 至 `go2_3` 的出生点和中途路点。如需启动 4 只或更多机器狗，须先在 `waypoint_encircle.py` 的
+`SCENES` 中补充对应机器狗的 `spawn` 与 `approach` 配置。
 
-控制参数（到点阈值、比例增益、限速等）集中在 `waypoint_encircle.py` 的
-`WaypointEncircle` 类常量里，仿真抖动或绕圈时可微调。
+
 
 ## 多狗模式：三只 Go2 联合“拦截式围捕”动态行人追踪
 
@@ -269,7 +270,7 @@ ros2 run multi_go2_waypoint waypoint_encircle
 一键启动（务必先 `conda deactivate`，确认 `which python3` 为 `/usr/bin/python3`）：
 
 ```bash
-cd /home/bit/go2_target_seek_delivery/Scripts
+cd $DELIVERY_ROOT/Scripts
 ./start_three_go2_dynamic_tracking.sh
 ```
 

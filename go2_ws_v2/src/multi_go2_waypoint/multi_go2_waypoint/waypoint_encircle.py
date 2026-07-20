@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """多 Go2 联合 waypoint 围捕控制节点。
 
-控制 go2_1 / go2_2 / go2_3 三只机器狗，各自沿预设 waypoint 序列行进，
-最终在目标 SUV 周围按等边三角形（半径 r=2.0）完成围捕，并对准指定朝向后停车。
+控制多只 Go2 各自沿场景配置的中途 waypoint 行进，最终在目标周围均匀围捕，
+并对准目标中心后停车。
 
 前提：waypoint 为世界系绝对坐标，要求 /go2_N/odom 是世界系里程计
 （用 spawn launch 的 use_ground_truth_odom:=true 启动）。
 """
 
+import itertools
 import math
 
 import rclpy
+from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
@@ -18,28 +20,52 @@ from nav_msgs.msg import Odometry
 
 
 # ---------------------------------------------------------------------------
-# 目标与几何参数（仅用于记录/说明，实际控制使用下面的 waypoint 序列）
+# 场景配置
+#
+# target: (x, y, yaw)，yaw 用于确定围捕点的起始方位。
+# approach: 中途引导点；终点由运行时根据 target、radius 和 num_dogs 自动计算。
 # ---------------------------------------------------------------------------
-TARGET_X = 42.0
-TARGET_Y = -20.0
-TARGET_YAW = -0.5
-ENCIRCLE_RADIUS = 2.0
-
-# 每只狗的 waypoint 序列，每项为 (x, y, yaw)，yaw 为 None 表示中途路点（到点即切下一个）。
-WAYPOINTS = {
-    'go2_1': [
-        (21.0, 0.0, None),
-        (38.0, -8.0, None),
-        (39.245, -18.041, -0.500),
-    ],
-    'go2_2': [
-        (30.0, -30.0, None),
-        (41.953, -21.999, 1.594),
-    ],
-    'go2_3': [
-        (45.0, 0.0, None),
-        (43.707, -18.957, -2.594),
-    ],
+SCENES = {
+    'city': {
+        'target': (42.0, -20.0, -0.5),
+        'radius': 2.0,
+        'spawn': {
+            'go2_1': (0.0, -4.0),
+            'go2_2': (10.0, -17.0),
+            'go2_3': (60.0, 10.0),
+        },
+        'approach': {
+            'go2_1': [(21.0, 0.0), (38.0, -8.0)],
+            'go2_2': [(30.0, -30.0)],
+            'go2_3': [(45.0, 0.0)],
+        },
+    },
+    'forest': {
+        # 占位目标；在 forest 世界中部署实际目标后，按其位置修改或用 ROS 参数覆盖。
+        'target': (0.0, 0.0, 0.0),
+        'radius': 2.0,
+        'spawn': {
+            'go2_1': (0.0, -4.0),
+            'go2_2': (2.0, -4.0),
+            'go2_3': (0.0, -6.0),
+        },
+        'approach': {
+            'go2_1': [],
+            'go2_2': [],
+            'go2_3': [],
+        },
+    },
+    'airport': {
+        # KD_MODEL/world/airport 中 airpor_cart_target（pickup）的位姿。
+        'target': (80.0, -25.0, -1.0),
+        'radius': 3.0,
+        'spawn': {
+            'go2_1': (0.0, -4.0),
+            'go2_2': (2.0, -4.0),
+            'go2_3': (0.0, -6.0),
+        },
+        'approach': {'go2_1': [], 'go2_2': [], 'go2_3': []},
+    },
 }
 
 
@@ -60,6 +86,48 @@ def normalize_angle(angle):
 
 def clamp(value, lo, hi):
     return max(lo, min(hi, value))
+
+
+def solve_encircle_points(target_x, target_y, radius, num_dogs, target_yaw=0.0,
+                          start_angle=None):
+    """均匀求解目标周围的围捕终点，每个终点朝向目标中心。"""
+    if num_dogs < 1:
+        raise ValueError('num_dogs 必须大于 0。')
+    if radius <= 0.0:
+        raise ValueError('encircle_radius 必须大于 0。')
+
+    if start_angle is None:
+        start_angle = normalize_angle(target_yaw + math.pi)
+
+    points = []
+    for index in range(num_dogs):
+        angle = normalize_angle(start_angle + 2.0 * math.pi * index / num_dogs)
+        point_x = target_x + radius * math.cos(angle)
+        point_y = target_y + radius * math.sin(angle)
+        point_yaw = normalize_angle(angle + math.pi)
+        points.append((point_x, point_y, point_yaw))
+    return points
+
+
+def assign_encircle_points(dog_refs, points):
+    """按总行进距离最小，将围捕终点一一分配给各狗。"""
+    if len(dog_refs) != len(points):
+        raise ValueError('dog_refs 与 points 的数量必须一致。')
+
+    names = [reference[0] for reference in dog_refs]
+    best_permutation = None
+    best_cost = float('inf')
+    for permutation in itertools.permutations(points):
+        cost = sum(
+            math.hypot(permutation[index][0] - dog_refs[index][1],
+                       permutation[index][1] - dog_refs[index][2])
+            for index in range(len(names))
+        )
+        if cost < best_cost:
+            best_cost = cost
+            best_permutation = permutation
+
+    return dict(zip(names, best_permutation))
 
 
 # ---------------------------------------------------------------------------
@@ -110,14 +178,69 @@ class WaypointEncircle(Node):
     def __init__(self):
         super().__init__('multi_go2_waypoint_encircle')
 
-        self.dogs = [
-            DogController(self, name, list(wps))
-            for name, wps in WAYPOINTS.items()
+        self.declare_parameter('scene', 'city')
+        self.declare_parameter('num_dogs', 3)
+        optional_float = ParameterDescriptor(dynamic_typing=True)
+        self.declare_parameter('target_x', descriptor=optional_float)
+        self.declare_parameter('target_y', descriptor=optional_float)
+        self.declare_parameter('target_yaw', descriptor=optional_float)
+        self.declare_parameter('encircle_radius', descriptor=optional_float)
+
+        scene_name = self.get_parameter('scene').value
+        if scene_name not in SCENES:
+            available_scenes = ', '.join(SCENES)
+            raise ValueError(
+                f'未知场景 {scene_name!r}，可选值为：{available_scenes}。')
+
+        scene = SCENES[scene_name]
+        num_dogs = self.get_parameter('num_dogs').value
+        if num_dogs < 1:
+            raise ValueError('num_dogs 必须大于 0。')
+
+        default_target_x, default_target_y, default_target_yaw = scene['target']
+        target_x = self._parameter_or_default('target_x', default_target_x)
+        target_y = self._parameter_or_default('target_y', default_target_y)
+        target_yaw = self._parameter_or_default('target_yaw', default_target_yaw)
+        radius = self._parameter_or_default('encircle_radius', scene['radius'])
+
+        dog_names = [f'go2_{index + 1}' for index in range(num_dogs)]
+        missing_dog_configs = [
+            name for name in dog_names
+            if name not in scene['spawn'] or name not in scene['approach']
         ]
+        if missing_dog_configs:
+            raise ValueError(
+                f'场景 {scene_name!r} 未配置 {", ".join(missing_dog_configs)} 的 '
+                '出生点和中途路点；请先补充 SCENES 配置。')
+
+        points = solve_encircle_points(
+            target_x, target_y, radius, num_dogs, target_yaw)
+        dog_refs = []
+        for name in dog_names:
+            approach = scene['approach'][name]
+            reference_x, reference_y = (
+                approach[-1] if approach else scene['spawn'][name])
+            dog_refs.append((name, reference_x, reference_y))
+
+        assigned_points = assign_encircle_points(dog_refs, points)
+        self.dogs = []
+        for name in dog_names:
+            waypoints = [(*point, None) for point in scene['approach'][name]]
+            waypoints.append(assigned_points[name])
+            self.dogs.append(DogController(self, name, waypoints))
 
         self.timer = self.create_timer(self.CONTROL_PERIOD, self.control_loop)
         self._all_done_logged = False
+        self.get_logger().info(
+            f'多狗围捕已配置：scene={scene_name}, num_dogs={num_dogs}, '
+            f'target=({target_x:.3f}, {target_y:.3f}, {target_yaw:.3f}), '
+            f'radius={radius:.3f}。')
         self.get_logger().info('multi_go2_waypoint_encircle 已启动，等待里程计...')
+
+    def _parameter_or_default(self, name, default):
+        """未传入的可选 ROS 参数使用场景默认值。"""
+        value = self.get_parameter(name).value
+        return default if value is None else float(value)
 
     def control_loop(self):
         for dog in self.dogs:
