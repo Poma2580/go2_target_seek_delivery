@@ -1,0 +1,298 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Shared Map1
+        - /Selected Assignment Paths1
+        - /Actual Paths1
+      Splitter Ratio: 0.55
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Name: Tool Properties
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.45
+      Cell Size: 5
+      Class: rviz_default_plugins/Grid
+      Color: 120; 120; 120
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 80
+      Reference Frame: map
+      Value: true
+    - Alpha: 0.80
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Shared Map
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Update Topic:
+        Depth: 10
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map_updates
+      Use Timestamp: false
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 0.35
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+      Tree: {}
+      Update Interval: 0
+      Value: true
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/RobotModel
+          Description Source: Topic
+          Description Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/robot_description
+          Enabled: true
+          Name: go2_1
+          TF Prefix: ""
+          Update Interval: 0
+          Value: true
+          Visual Enabled: true
+        - Class: rviz_default_plugins/RobotModel
+          Description Source: Topic
+          Description Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/robot_description
+          Enabled: true
+          Name: go2_2
+          TF Prefix: ""
+          Update Interval: 0
+          Value: true
+          Visual Enabled: true
+        - Class: rviz_default_plugins/RobotModel
+          Description Source: Topic
+          Description Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/robot_description
+          Enabled: true
+          Name: go2_3
+          TF Prefix: ""
+          Update Interval: 0
+          Value: true
+          Visual Enabled: true
+      Enabled: true
+      Name: Robots
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Path
+          Color: 230; 38; 38
+          Enabled: true
+          Head Diameter: 0.25
+          Head Length: 0.18
+          Length: 0.25
+          Line Style: Lines
+          Line Width: 0.08
+          Name: go2_1 internal last plan
+          Pose Style: None
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/plan
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 25; 190; 50
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.08
+          Name: go2_2 internal last plan
+          Pose Style: None
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/plan
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 38; 88; 240
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.08
+          Name: go2_3 internal last plan
+          Pose Style: None
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/plan
+          Value: true
+      Enabled: false
+      Name: Nav2 Internal Last Plans
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Path
+          Color: 230; 38; 38
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.10
+          Name: go2_1 selected plan
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/selected_plan
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 25; 190; 50
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.10
+          Name: go2_2 selected plan
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/selected_plan
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 38; 88; 240
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.10
+          Name: go2_3 selected plan
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/selected_plan
+          Value: true
+      Enabled: true
+      Name: Selected Assignment Paths
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Path
+          Color: 255; 120; 120
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.12
+          Name: go2_1 actual
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/actual_path
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 105; 255; 125
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.12
+          Name: go2_2 actual
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/actual_path
+          Value: true
+        - Class: rviz_default_plugins/Path
+          Color: 105; 145; 255
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.12
+          Name: go2_3 actual
+          Pose Style: None
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/actual_path
+          Value: true
+      Enabled: true
+      Name: Actual Paths
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Marker Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /encircle_markers
+      Name: Encircle Target and Goals
+      Namespaces:
+        encircle_goals: true
+        encircle_labels: true
+        encircle_target: true
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 32; 34; 37
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Angle: 0
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Airport Top View
+      Near Clip Distance: 0.01
+      Scale: 2.0
+      Target Frame: map
+      Value: TopDownOrtho (rviz)
+      X: 0
+      Y: 0
+    Saved: ~
+Window Geometry:
+  Height: 960
+  Width: 1500
+  X: 40
+  Y: 40

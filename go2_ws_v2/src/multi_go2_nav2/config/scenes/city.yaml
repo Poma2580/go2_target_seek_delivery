@@ -1,0 +1,27 @@
+schema_version: 1
+scene: city
+
+world:
+  path: QY_MODEL/target_seek
+
+# 城市场景尚未生成与 airport 同标准的静态 PGM；Nav2 启动前需补齐。
+map: null
+
+target: {x: 42.0, y: -20.0, yaw: -0.5}
+encircle:
+  radius: 2.0
+  radius_step: 0.25
+  max_radius_expansion: 3.0
+  candidate_start_angle: 3.141592653589793
+planning: {planner_id: GridBased, action_server_timeout: 90.0}
+
+robots:
+  go2_1:
+    spawn: {x: 0.0, y: -4.0, z: 0.50, yaw: 1.57}
+    color: [0.90, 0.15, 0.15]
+  go2_2:
+    spawn: {x: 10.0, y: -17.0, z: 0.50, yaw: 0.0}
+    color: [0.10, 0.75, 0.20]
+  go2_3:
+    spawn: {x: 60.0, y: 10.0, z: 0.40, yaw: 0.0}
+    color: [0.15, 0.35, 0.95]

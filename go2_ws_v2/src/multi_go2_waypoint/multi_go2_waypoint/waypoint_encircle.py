@@ -10,13 +10,24 @@
 
 import itertools
 import math
+from pathlib import Path
 
 import rclpy
+from ament_index_python.packages import get_package_share_directory
 from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+
+from multi_go2_waypoint.grid_astar import (
+    GridMap,
+    PlanningError,
+    astar,
+    grid_path_to_waypoints,
+    path_length_world,
+    simplify_grid_path,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +196,11 @@ class WaypointEncircle(Node):
         self.declare_parameter('target_y', descriptor=optional_float)
         self.declare_parameter('target_yaw', descriptor=optional_float)
         self.declare_parameter('encircle_radius', descriptor=optional_float)
+        self.declare_parameter('planner_mode', 'manual')
+        self.declare_parameter('map_yaml', '')
+        self.declare_parameter('inflation_radius', 0.55)
+        self.declare_parameter('max_waypoint_spacing', 1.5)
+        self.declare_parameter('max_goal_radius_expansion', 3.0)
 
         scene_name = self.get_parameter('scene').value
         if scene_name not in SCENES:
@@ -202,6 +218,27 @@ class WaypointEncircle(Node):
         target_y = self._parameter_or_default('target_y', default_target_y)
         target_yaw = self._parameter_or_default('target_yaw', default_target_yaw)
         radius = self._parameter_or_default('encircle_radius', scene['radius'])
+        planner_mode = str(self.get_parameter('planner_mode').value).lower()
+        if planner_mode not in ('manual', 'astar'):
+            raise ValueError('planner_mode 只能为 manual 或 astar。')
+
+        self.scene_name = scene_name
+        self.target_x = target_x
+        self.target_y = target_y
+        self.target_yaw = target_yaw
+        self.requested_radius = radius
+        self.planner_mode = planner_mode
+        self.planning_complete = planner_mode == 'manual'
+        self.planning_failed = False
+        self.grid_map = None
+        self.max_waypoint_spacing = float(
+            self.get_parameter('max_waypoint_spacing').value)
+        self.max_goal_radius_expansion = float(
+            self.get_parameter('max_goal_radius_expansion').value)
+        if self.max_waypoint_spacing <= 0.0:
+            raise ValueError('max_waypoint_spacing 必须大于零。')
+        if self.max_goal_radius_expansion < 0.0:
+            raise ValueError('max_goal_radius_expansion 不能小于零。')
 
         dog_names = [f'go2_{index + 1}' for index in range(num_dogs)]
         missing_dog_configs = [
@@ -213,26 +250,53 @@ class WaypointEncircle(Node):
                 f'场景 {scene_name!r} 未配置 {", ".join(missing_dog_configs)} 的 '
                 '出生点和中途路点；请先补充 SCENES 配置。')
 
-        points = solve_encircle_points(
-            target_x, target_y, radius, num_dogs, target_yaw)
-        dog_refs = []
-        for name in dog_names:
-            approach = scene['approach'][name]
-            reference_x, reference_y = (
-                approach[-1] if approach else scene['spawn'][name])
-            dog_refs.append((name, reference_x, reference_y))
+        if planner_mode == 'manual':
+            points = solve_encircle_points(
+                target_x, target_y, radius, num_dogs, target_yaw)
+            dog_refs = []
+            for name in dog_names:
+                approach = scene['approach'][name]
+                reference_x, reference_y = (
+                    approach[-1] if approach else scene['spawn'][name])
+                dog_refs.append((name, reference_x, reference_y))
 
-        assigned_points = assign_encircle_points(dog_refs, points)
-        self.dogs = []
-        for name in dog_names:
-            waypoints = [(*point, None) for point in scene['approach'][name]]
-            waypoints.append(assigned_points[name])
-            self.dogs.append(DogController(self, name, waypoints))
+            assigned_points = assign_encircle_points(dog_refs, points)
+            self.dogs = []
+            for name in dog_names:
+                waypoints = [(*point, None) for point in scene['approach'][name]]
+                waypoints.append(assigned_points[name])
+                self.dogs.append(DogController(self, name, waypoints))
+        else:
+            map_yaml_value = str(self.get_parameter('map_yaml').value)
+            if map_yaml_value:
+                map_yaml = Path(map_yaml_value).expanduser()
+            else:
+                if scene_name != 'airport':
+                    raise ValueError(
+                        '非 airport 场景使用 A* 时必须显式传入 map_yaml。')
+                package_share = Path(
+                    get_package_share_directory('multi_go2_waypoint'))
+                map_yaml = package_share / 'maps' / 'airport.yaml'
+            inflation_radius = float(
+                self.get_parameter('inflation_radius').value)
+            if inflation_radius < 0.0:
+                raise ValueError('inflation_radius 不能小于零。')
+            raw_map = GridMap.from_yaml(map_yaml)
+            self.grid_map = raw_map.inflated(inflation_radius)
+            self.dogs = [
+                DogController(self, name, [])
+                for name in dog_names
+            ]
+            self.get_logger().info(
+                f'A* 地图已加载：{map_yaml}，{raw_map.width}x{raw_map.height}，'
+                f'resolution={raw_map.resolution:.3f} m，'
+                f'inflation_radius={inflation_radius:.3f} m。')
 
         self.timer = self.create_timer(self.CONTROL_PERIOD, self.control_loop)
         self._all_done_logged = False
         self.get_logger().info(
-            f'多狗围捕已配置：scene={scene_name}, num_dogs={num_dogs}, '
+            f'多狗围捕已配置：scene={scene_name}, planner={planner_mode}, '
+            f'num_dogs={num_dogs}, '
             f'target=({target_x:.3f}, {target_y:.3f}, {target_yaw:.3f}), '
             f'radius={radius:.3f}。')
         self.get_logger().info('multi_go2_waypoint_encircle 已启动，等待里程计...')
@@ -243,12 +307,80 @@ class WaypointEncircle(Node):
         return default if value is None else float(value)
 
     def control_loop(self):
+        if self.planning_failed:
+            for dog in self.dogs:
+                dog.publish_zero()
+            return
+
+        if not self.planning_complete:
+            if not all(dog.odom_received for dog in self.dogs):
+                return
+            try:
+                self._prepare_astar_waypoints()
+            except (PlanningError, ValueError) as error:
+                self.planning_failed = True
+                for dog in self.dogs:
+                    dog.publish_zero()
+                self.get_logger().error(f'A* 规划失败，所有机器狗保持停止：{error}')
+            return
+
         for dog in self.dogs:
             self.control_one(dog)
 
         if all(d.state == 'done' for d in self.dogs) and not self._all_done_logged:
             self.get_logger().info('所有机器狗已完成围捕，持续发布零速度。')
             self._all_done_logged = True
+
+    def _find_feasible_encircle_points(self):
+        """在膨胀地图上同步扩大围捕半径，保持等边三角形结构。"""
+        resolution = self.grid_map.resolution
+        max_steps = int(math.floor(
+            self.max_goal_radius_expansion / resolution + 1e-9))
+        for step in range(max_steps + 1):
+            radius = self.requested_radius + step * resolution
+            points = solve_encircle_points(
+                self.target_x, self.target_y, radius, len(self.dogs),
+                self.target_yaw)
+            if all(self.grid_map.is_free_world(x, y) for x, y, _ in points):
+                if step:
+                    self.get_logger().warning(
+                        f'请求的围捕半径 {self.requested_radius:.3f} m 在膨胀地图上'
+                        f'不可用，已自动扩大为 {radius:.3f} m。')
+                return points, radius
+        raise PlanningError(
+            f'从围捕半径 {self.requested_radius:.3f} m 扩大 '
+            f'{self.max_goal_radius_expansion:.3f} m 后仍找不到全部自由的围捕点。')
+
+    def _prepare_astar_waypoints(self):
+        """从首次真实 odom 生成三条静态 A* 路径，并交给原航点控制器。"""
+        points, actual_radius = self._find_feasible_encircle_points()
+        dog_refs = [(dog.name, dog.x, dog.y) for dog in self.dogs]
+        assigned_points = assign_encircle_points(dog_refs, points)
+        planned = {}
+        for dog in self.dogs:
+            goal_x, goal_y, goal_yaw = assigned_points[dog.name]
+            start_cell = self.grid_map.world_to_grid(dog.x, dog.y)
+            goal_cell = self.grid_map.world_to_grid(goal_x, goal_y)
+            result = astar(self.grid_map, start_cell, goal_cell)
+            simplified = simplify_grid_path(self.grid_map, result.cells)
+            waypoints = grid_path_to_waypoints(
+                self.grid_map, simplified, (dog.x, dog.y),
+                (goal_x, goal_y), goal_yaw, self.max_waypoint_spacing)
+            planned[dog.name] = waypoints
+            length = path_length_world(waypoints, (dog.x, dog.y))
+            self.get_logger().info(
+                f'{dog.name} A* 完成：展开 {result.expanded} 个栅格，'
+                f'原始路径 {len(result.cells)} 点，简化折线 {len(simplified)} 点，'
+                f'控制航点 {len(waypoints)} 个，长度 {length:.2f} m。')
+
+        # 三条路径全部成功后再统一启用，避免部分机器狗提前运动。
+        for dog in self.dogs:
+            dog.waypoints = planned[dog.name]
+            dog.current_waypoint_index = 0
+            dog.state = 'tracking'
+        self.planning_complete = True
+        self.get_logger().info(
+            f'全部 A* 路径准备完成，实际围捕半径 {actual_radius:.3f} m，开始执行。')
 
     def control_one(self, dog):
         # 1. 已完成：持续发零速
@@ -322,8 +454,9 @@ def main(args=None):
         pass
     finally:
         # 退出前发一次零速度，防止狗继续运动
-        for dog in node.dogs:
-            dog.publish_zero()
+        if rclpy.ok():
+            for dog in node.dogs:
+                dog.publish_zero()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

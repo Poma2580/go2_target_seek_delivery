@@ -1,0 +1,14 @@
+<!--
+  Conservative Go2 behavior tree. Replan at 1 Hz and follow the path, but
+  fail safely instead of running wheeled-base Spin/BackUp recovery loops.
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="NavigateWithSafeReplanning">
+      <RateController hz="1.0">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+      </RateController>
+      <FollowPath path="{path}" controller_id="FollowPath"/>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>

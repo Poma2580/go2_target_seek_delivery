@@ -34,6 +34,7 @@ DELIVERY_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
+NAV2_SOURCE=$WS/src/multi_go2_nav2
 
 SCENE=city
 ENABLE_LIDAR=false
@@ -76,23 +77,55 @@ done
 case "$SCENE" in
     city|qy|target_seek)
         SCENE=city
-        WORLD_PATH=$QY_MODEL_ROOT/target_seek
         ;;
-    forest)
-        WORLD_PATH=$KD_MODEL_ROOT/world/forestV3.world
-        ;;
-    airport)
-        WORLD_PATH=$KD_MODEL_ROOT/world/airport
-        ;;
+    forest|airport) ;;
 esac
 
-if [ "$SCENE" = "forest" ] || [ "$SCENE" = "airport" ]; then
-    # 原点附近的紧凑三角形：彼此相距 2 m，避免出生时模型重叠。
-    SCENE_SPAWN_X=("0" "2" "0")
-    SCENE_SPAWN_Y=("-4" "-4" "-6")
-    SCENE_SPAWN_Z=("0.50" "0.50" "0.50")
-    SCENE_SPAWN_YAW=("0" "0" "0")
+SCENE_CONFIG=$NAV2_SOURCE/config/scenes/${SCENE}.yaml
+CONFIG_READER=$NAV2_SOURCE/multi_go2_nav2/scene_config_dump.py
+if [ ! -f "$SCENE_CONFIG" ] || [ ! -f "$CONFIG_READER" ]; then
+    echo "ERROR: 缺少场景配置或读取程序：$SCENE_CONFIG" >&2
+    exit 1
 fi
+
+if ! CONFIG_OUTPUT=$(PYTHONPATH="$NAV2_SOURCE" /usr/bin/python3 -m \
+    multi_go2_nav2.scene_config_dump \
+    --config "$SCENE_CONFIG" \
+    --repository-root "$DELIVERY_ROOT" \
+    --format spawn-tsv); then
+    echo "ERROR: 读取场景配置失败：$SCENE_CONFIG" >&2
+    exit 1
+fi
+
+mapfile -t CONFIG_ROWS <<< "$CONFIG_OUTPUT"
+if [ "${#CONFIG_ROWS[@]}" -ne 4 ]; then
+    echo "ERROR: 场景配置读取结果应为 4 行，实际为 ${#CONFIG_ROWS[@]} 行。" >&2
+    exit 1
+fi
+
+IFS=$'\t' read -r WORLD_KEY WORLD_PATH <<< "${CONFIG_ROWS[0]}"
+if [ "$WORLD_KEY" != "world" ]; then
+    echo "ERROR: 场景配置没有返回 world 路径。" >&2
+    exit 1
+fi
+
+SCENE_SPAWN_X=()
+SCENE_SPAWN_Y=()
+SCENE_SPAWN_Z=()
+SCENE_SPAWN_YAW=()
+for robot_index in 1 2 3; do
+    IFS=$'\t' read -r robot_name spawn_x spawn_y spawn_z spawn_yaw \
+        <<< "${CONFIG_ROWS[$robot_index]}"
+    expected_name="go2_${robot_index}"
+    if [ "$robot_name" != "$expected_name" ]; then
+        echo "ERROR: 期望 ${expected_name}，配置读取结果为 ${robot_name}。" >&2
+        exit 1
+    fi
+    SCENE_SPAWN_X+=("$spawn_x")
+    SCENE_SPAWN_Y+=("$spawn_y")
+    SCENE_SPAWN_Z+=("$spawn_z")
+    SCENE_SPAWN_YAW+=("$spawn_yaw")
+done
 
 if ! command -v gnome-terminal >/dev/null 2>&1; then
     echo "ERROR: 未找到 gnome-terminal。请安装后再运行。" >&2
@@ -171,12 +204,13 @@ echo '${robot_name} controllers are active.'
 }
 
 echo "场景：${SCENE}"
+echo "场景配置：${SCENE_CONFIG}"
 echo "Go2 传感器：lidar=${ENABLE_LIDAR}, camera=${ENABLE_CAMERA}"
-if [ "$SCENE" = "city" ]; then
-    echo "Go2 出生点：使用各 launch 的默认位置"
-else
-    echo "Go2 出生点：go2_1=(0,-4,0.50,0), go2_2=(2,-4,0.50,0), go2_3=(0,-6,0.50,0)"
-fi
+echo "Go2 出生点："
+for robot_index in 1 2 3; do
+    position_index=$((robot_index - 1))
+    echo "  go2_${robot_index}=(${SCENE_SPAWN_X[$position_index]}, ${SCENE_SPAWN_Y[$position_index]}, ${SCENE_SPAWN_Z[$position_index]}, yaw=${SCENE_SPAWN_YAW[$position_index]})"
+done
 
 launch_terminal "go2_world_${SCENE}" "
 echo '==== Starting ${SCENE} world with uav1 ===='
@@ -192,18 +226,13 @@ sleep 5
 
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
-    spawn_arguments=""
-    spawn_description="launch 默认出生点"
-
-    if [ "$SCENE" != "city" ]; then
-        position_index=$((robot_index - 1))
-        spawn_x=${SCENE_SPAWN_X[$position_index]}
-        spawn_y=${SCENE_SPAWN_Y[$position_index]}
-        spawn_z=${SCENE_SPAWN_Z[$position_index]}
-        spawn_yaw=${SCENE_SPAWN_YAW[$position_index]}
-        spawn_arguments="spawn_x:=${spawn_x} spawn_y:=${spawn_y} spawn_z:=${spawn_z} spawn_yaw:=${spawn_yaw}"
-        spawn_description="(${spawn_x}, ${spawn_y}, ${spawn_z}, yaw=${spawn_yaw})"
-    fi
+    position_index=$((robot_index - 1))
+    spawn_x=${SCENE_SPAWN_X[$position_index]}
+    spawn_y=${SCENE_SPAWN_Y[$position_index]}
+    spawn_z=${SCENE_SPAWN_Z[$position_index]}
+    spawn_yaw=${SCENE_SPAWN_YAW[$position_index]}
+    spawn_arguments="spawn_x:=${spawn_x} spawn_y:=${spawn_y} spawn_z:=${spawn_z} spawn_yaw:=${spawn_yaw}"
+    spawn_description="(${spawn_x}, ${spawn_y}, ${spawn_z}, yaw=${spawn_yaw})"
 
     launch_terminal "spawn_${robot_name}" "
 echo '==== Spawning ${robot_name}: ${spawn_description}, lidar=${ENABLE_LIDAR}, camera=${ENABLE_CAMERA} ===='

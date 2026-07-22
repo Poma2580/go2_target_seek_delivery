@@ -1,13 +1,13 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.07.15**
+**Latest Updated 2026.07.21**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
 - 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只 Go2，可按需开启 3D Velodyne 和 RGB-D，相互独立控制并可用 RViz 查看数据。
-- 多狗围捕模式：三只 Go2 沿预设 waypoint 自动行进，在 `target_seek` 场景里对静态目标 SUV 完成等边三角形围捕。
+- 多狗围捕模式：三只 Go2 使用命名空间 Nav2 在共享地图上连续导航，并对静态目标完成等边三角形围捕。
 - 动态追踪模式：go2_1 用 RGB-D 相机在线视觉感知（YOLO+深度）估计行人位置并稳定跟随（单狗已实现；三狗三角编队尚未调通）。
 
 ## 版本要求
@@ -68,6 +68,9 @@ sudo apt install -y \
   ros-humble-teleop-twist-keyboard \
   ros-humble-velodyne-description \
   ros-humble-velodyne-gazebo-plugins \
+  libassimp-dev \
+  libignition-math6-dev \
+  libtinyxml2-dev \
   python3-colcon-common-extensions \
   xterm
 ```
@@ -211,8 +214,9 @@ cd $DELIVERY_ROOT/Scripts
 ```
 
 默认关闭三只 Go2 的 3D 雷达和 RGB-D 相机；`--lidar`、`--camera`、`--all-sensors` 可按需开启。
-city 保持原有默认出生点；forest/airport 使用紧凑三角形：go2_1 `(0,-4)`、go2_2 `(2,-4)`、
-go2_3 `(0,-6)`，高度均为 `0.50 m`。
+三个场景的 world、出生位姿、目标和围捕半径统一保存在
+`go2_ws_v2/src/multi_go2_nav2/config/scenes/*.yaml`。脚本直接读取 YAML，不再依赖 launch 内重复
+填写的默认出生点。
 
 按需另开终端启动键盘或 RViz：
 
@@ -221,44 +225,96 @@ ros2 launch go2_config teleop_three_go2.launch.py
 ros2 launch go2_config view_three_go2_velodyne.launch.py
 ```
 
-## 多狗模式：三只 Go2 联合 Waypoint 静态围捕
+## 多狗模式：三只 Go2 纯 Nav2 静态围捕
 
-让 Go2 沿场景配置的中途 waypoint 自动行进，最终在静态目标周围均匀围捕，并各自对准目标中心后停车。
-控制节点为 `multi_go2_waypoint` 包的 `multi_go2_waypoint_encircle`。围捕终点会按目标位置、围捕半径和
-机器狗数量自动解算，并按总行进距离最小分配给各狗。
+airport 当前使用一个共享 `/map` 和三套命名空间隔离的 Nav2。每套 Nav2 使用 SmacPlanner2D、
+Regulated Pure Pursuit Controller 和 velocity smoother，实现整条路径连续跟踪。自定义协调器只生成
+围捕候选点、调用 Nav2 路径 action 做三狗目标分配，再并行发送 `NavigateToPose`；它不实现 A*，
+也不直接发布速度。
 
-
-一键启动所需场景和三只 Go2：
+终端 1 启动 airport 和三只 Go2：
 
 ```bash
 cd $DELIVERY_ROOT/Scripts
-./start_three_go2_velodyne.sh          # city / target_seek（默认）
-./start_three_go2_velodyne.sh forest
 ./start_three_go2_velodyne.sh airport
 ```
 
-脚本会启动 Gazebo 世界，依次导入 go2_1 / go2_2 / go2_3
-
-另开终端启动围捕控制节点（首次需先 `colcon build --symlink-install` 并 `source install/setup.bash`）：
+终端 2 启动共享地图、三套 Nav2、围捕协调器和 RViz：
 
 ```bash
-# city（默认）：围捕 target_seek 中的 SUV (42, -20)
-ros2 run multi_go2_waypoint waypoint_encircle
-
-# 机场：围捕 airport 世界中的 airpor_cart_target (80, -25)
-ros2 run multi_go2_waypoint waypoint_encircle --ros-args -p scene:=airport
-
-# 森林：默认目标为占位坐标 (0, 0)，应按实际目标位置覆盖
-ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
-  -p scene:=forest -p target_x:=12.0 -p target_y:=-8.0 -p target_yaw:=0.0
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch multi_go2_nav2 multi_go2_nav2.launch.py
 ```
 
-可选参数：`target_x`、`target_y`、`target_yaw`、`encircle_radius` 可覆盖场景默认目标和围捕半径；
-例如 `-p encircle_radius:=3.0`。`num_dogs` 默认为 `3`，可以设为较小的数量；当前三份场景配置仅定义了
-`go2_1` 至 `go2_3` 的出生点和中途路点。如需启动 4 只或更多机器狗，须先在 `waypoint_encircle.py` 的
-`SCENES` 中补充对应机器狗的 `spawn` 与 `approach` 配置。
+修改机场参数只需编辑 `multi_go2_nav2/config/scenes/airport.yaml`。出生位姿、目标位姿和围捕半径
+改变后不需要重新生成地图；只有 world 的静态 collision、地图边界、分辨率或高度切片改变时才需
+重新运行 `world_to_grid`。
+
+RViz 固定 frame 为 `map`，会在同一地图上显示最终 `/go2_i/selected_plan`、
+`/go2_i/actual_path`、三只狗模型、目标和分配终点。候选查询会覆盖的 `/go2_i/plan` 默认关闭。
+若只想检查 Nav2 而暂不执行围捕：
+
+```bash
+ros2 launch multi_go2_nav2 multi_go2_nav2.launch.py start_coordinator:=false
+```
+
+旧 `multi_go2_waypoint` 自研 A*/waypoint 控制代码作为历史对照保留，但 airport 纯 Nav2 运行时不要
+同时启动它，否则会与 Nav2 竞争 `/go2_i/cmd_vel`。完整设计、实施记录和验收命令见 `Docs/1.txt`。
+
+### 从 airport world 离线生成原始栅格地图
+
+`world_to_grid` 会先通过 `gz sdf -p` 展开 world 中的模型引用，再读取所有 `collision`（不读取
+`visual`），把与 Go2 高度切片相交的三维世界 AABB 保守投影到二维栅格。当前 airport 地图范围为
+`[-180,-75] → [180,75] m`，分辨率为 `0.20 m/cell`，高度切片为 `0.03–0.80 m`。
+该地图表示原始碰撞体，不包含机器人半径或安全距离膨胀。
+
+airport 引用了 Gazebo 官方模型，正式生成前请确保模型完整位于 `~/.gazebo/models`。编译并重新生成：
+
+```bash
+cd $DELIVERY_ROOT/go2_ws_v2
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install --packages-select world_to_grid multi_go2_waypoint
+source install/setup.bash
+
+ros2 run world_to_grid world_to_grid \
+  --world "$KD_MODEL_ROOT/world/airport" \
+  --output-prefix "$DELIVERY_ROOT/go2_ws_v2/src/multi_go2_waypoint/maps/airport" \
+  --bounds -180 -75 180 75 \
+  --resolution 0.20 \
+  --z-min 0.03 \
+  --z-max 0.80 \
+  --border-cells 1 \
+  --ignore-model uav1_iris_depth_camera
+```
+
+命令生成 `airport.pgm`、`airport.yaml`、逐碰撞体诊断表 `airport_collisions.csv` 和
+`airport_preview.svg`。其中 PGM/YAML 会随 `multi_go2_waypoint` 安装到
+`share/multi_go2_waypoint/maps`，YAML 内使用相对图像路径，生成后需重新构建该包。
+额外模型搜索目录可重复使用 `--model-path PATH` 指定，也会与 `GAZEBO_MODEL_PATH` 合并。
+
+可用 Nav2 map_server 验证安装后的地图：
+
+```bash
+MAP_YAML="$(ros2 pkg prefix multi_go2_waypoint)/share/multi_go2_waypoint/maps/airport.yaml"
+ros2 run nav2_map_server map_server --ros-args -p yaml_filename:="$MAP_YAML"
+
+# 在另一个已 source 的终端执行
+ros2 lifecycle set /map_server configure
+ros2 lifecycle set /map_server activate
+ros2 topic echo /map nav_msgs/msg/OccupancyGrid --once \
+  --qos-reliability reliable --qos-durability transient_local --field info
+```
 
 
+森林场景也可以支持一键启动静态围捕:
+
+```bash
+# 森林：围捕飞机残骸
+cd $DELIVERY_ROOT/Scripts
+./start_three_go2_forest.sh
+```
 
 ## 多狗模式：三只 Go2 联合“拦截式围捕”动态行人追踪
 
