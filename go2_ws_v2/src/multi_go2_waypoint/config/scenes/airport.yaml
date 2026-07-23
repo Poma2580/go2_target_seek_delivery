@@ -7,7 +7,6 @@ world:
 map:
   package: multi_go2_waypoint
   yaml: maps/airport.yaml
-  frame_id: map
 
 target:
   x: 80.0
@@ -15,22 +14,16 @@ target:
   yaw: -1.0
 
 encircle:
-  radius: 5.0
-  radius_step: 0.25
-  max_radius_expansion: 3.0
-  candidate_start_angle: 3.141592653589793
-
-planning:
-  planner_id: GridBased
-  action_server_timeout: 90.0
+  # 保持旧版 A* 的请求半径；在膨胀地图中不可行时会自动向外扩张。
+  radius: 3.0
 
 robots:
   go2_1:
     spawn: {x: 60.0, y: -4.0, z: 0.50, yaw: 0.0}
-    color: [0.90, 0.15, 0.15]
+    sensors: {lidar: false, camera: false}
   go2_2:
     spawn: {x: 70.0, y: 10.0, z: 0.50, yaw: 0.0}
-    color: [0.10, 0.75, 0.20]
+    sensors: {lidar: false, camera: false}
   go2_3:
     spawn: {x: 95.0, y: -25.0, z: 0.50, yaw: 0.0}
-    color: [0.15, 0.35, 0.95]
+    sensors: {lidar: false, camera: false}

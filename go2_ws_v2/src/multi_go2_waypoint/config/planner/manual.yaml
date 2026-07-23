@@ -1,0 +1,19 @@
+schema_version: 1
+
+# 人工模式使用这些中途 waypoint；每个 waypoint 均为 [world_x, world_y]（m）。
+# 最终围捕点始终由场景 target、encircle.radius 与三狗分配逻辑自动计算。
+manual:
+  city:
+    go2_1: [[21.0, 0.0], [38.0, -8.0]]
+    go2_2: [[30.0, -30.0]]
+    go2_3: [[45.0, 0.0]]
+  forest:
+    # 这里只保留中途避障点；最终围捕点由 forest.yaml 的
+    # target/encircle 参数自动生成。
+    go2_1: [[15.0, 25.0], [10.0, 31.0]]
+    go2_2: [[-3.0, 42.0], [3.0, 40.0]]
+    go2_3: [[27.0, 38.0], [12.0, 42.0]]
+  airport:
+    go2_1: []
+    go2_2: []
+    go2_3: []

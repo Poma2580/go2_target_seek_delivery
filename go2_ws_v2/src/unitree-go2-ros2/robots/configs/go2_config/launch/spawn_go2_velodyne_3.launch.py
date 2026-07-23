@@ -2,31 +2,127 @@
 
 namespace is baked into the URDF plugins at xacro time (robot_namespace:=/go2_3),
 so gazebo_ros2_control's controller_manager lands at /go2_3/controller_manager.
-3D Velodyne lidar (no camera) -> /go2_3/velodyne_points. Run gazebo_target_seek_world.launch.py first.
+3D Velodyne lidar (no camera) -> /go2_3/velodyne_points.
+Run gazebo_target_seek_world.launch.py first.
 """
 
+import math
 import os
+from pathlib import Path
 
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
-    RegisterEventHandler,
-    TimerAction,
+    OpaqueFunction,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition
-from launch.event_handlers import OnProcessExit
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 
 ROBOT_NAME = "go2_3"
-SPAWN_X = "60"
-SPAWN_Y = "10"
-SPAWN_Z = "0.40"
-SPAWN_YAW = "0"
+VALID_SCENES = ("city", "forest", "airport")
+
+
+def _mapping(value, field):
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{field} must be a YAML mapping")
+    return value
+
+
+def _finite_number(value, field):
+    if isinstance(value, bool):
+        raise RuntimeError(f"{field} must be numeric")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(f"{field} must be numeric") from error
+    if not math.isfinite(number):
+        raise RuntimeError(f"{field} must be finite")
+    return number
+
+
+def _configure_scene(context):
+    scene = LaunchConfiguration("scene").perform(context).strip().lower()
+    if scene not in VALID_SCENES:
+        raise RuntimeError(
+            f"scene must be one of {', '.join(VALID_SCENES)}, got {scene!r}"
+        )
+
+    configured_path = LaunchConfiguration("scene_config").perform(context).strip()
+    if configured_path:
+        config_path = Path(configured_path).expanduser().resolve()
+    else:
+        config_path = Path(
+            get_package_share_directory("multi_go2_waypoint")
+        ) / "config" / "scenes" / f"{scene}.yaml"
+
+    try:
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as error:
+        raise RuntimeError(
+            f"failed to read scene config {config_path}: {error}"
+        ) from error
+
+    root = _mapping(config, "root")
+    if root.get("schema_version") != 1:
+        raise RuntimeError("scene config schema_version must be 1")
+    if root.get("scene") != scene:
+        raise RuntimeError(
+            f"scene config declares {root.get('scene')!r}, expected {scene!r}"
+        )
+
+    robots = _mapping(root.get("robots"), "robots")
+    robot = _mapping(robots.get(ROBOT_NAME), f"robots.{ROBOT_NAME}")
+    spawn = _mapping(robot.get("spawn"), f"robots.{ROBOT_NAME}.spawn")
+    sensors = _mapping(robot.get("sensors"), f"robots.{ROBOT_NAME}.sensors")
+
+    resolved = {}
+    for argument, key in (
+        ("spawn_x", "x"),
+        ("spawn_y", "y"),
+        ("spawn_z", "z"),
+        ("spawn_yaw", "yaw"),
+    ):
+        yaml_value = _finite_number(
+            spawn.get(key), f"robots.{ROBOT_NAME}.spawn.{key}"
+        )
+        override = LaunchConfiguration(argument).perform(context).strip()
+        value = (
+            _finite_number(override, argument)
+            if override
+            else yaml_value
+        )
+        if argument == "spawn_z" and value <= 0.0:
+            raise RuntimeError("spawn_z must be greater than zero")
+        resolved[argument] = f"{value:g}"
+
+    for argument, key in (
+        ("enable_lidar", "lidar"),
+        ("enable_camera", "camera"),
+    ):
+        yaml_value = sensors.get(key)
+        if not isinstance(yaml_value, bool):
+            raise RuntimeError(
+                f"robots.{ROBOT_NAME}.sensors.{key} must be boolean"
+            )
+        override = LaunchConfiguration(argument).perform(context).strip().lower()
+        if override == "auto":
+            value = yaml_value
+        elif override in ("true", "false"):
+            value = override == "true"
+        else:
+            raise RuntimeError(f"{argument} must be auto, true or false")
+        resolved[argument] = "true" if value else "false"
+
+    return [
+        SetLaunchConfiguration(name, value)
+        for name, value in resolved.items()
+    ]
 
 
 def generate_launch_description():
@@ -245,35 +341,46 @@ def generate_launch_description():
                 description="Use Gazebo ground-truth odometry for this robot",
             ),
             DeclareLaunchArgument(
+                "scene",
+                default_value="city",
+                description="Scene whose YAML provides spawn and sensor defaults",
+            ),
+            DeclareLaunchArgument(
+                "scene_config",
+                default_value="",
+                description="Optional scene YAML path overriding the installed file",
+            ),
+            DeclareLaunchArgument(
                 "spawn_x",
-                default_value=SPAWN_X,
-                description="Gazebo spawn x position (m)",
+                default_value="",
+                description="Gazebo spawn x override (m); empty uses scene YAML",
             ),
             DeclareLaunchArgument(
                 "spawn_y",
-                default_value=SPAWN_Y,
-                description="Gazebo spawn y position (m)",
+                default_value="",
+                description="Gazebo spawn y override (m); empty uses scene YAML",
             ),
             DeclareLaunchArgument(
                 "spawn_z",
-                default_value=SPAWN_Z,
-                description="Gazebo spawn z position (m)",
+                default_value="",
+                description="Gazebo spawn z override (m); empty uses scene YAML",
             ),
             DeclareLaunchArgument(
                 "spawn_yaw",
-                default_value=SPAWN_YAW,
-                description="Gazebo spawn yaw (rad)",
+                default_value="",
+                description="Gazebo spawn yaw override; empty uses scene YAML",
             ),
             DeclareLaunchArgument(
                 "enable_lidar",
-                default_value="false",
-                description="Mount the 3D Velodyne lidar",
+                default_value="auto",
+                description="auto reads scene YAML; true/false overrides it",
             ),
             DeclareLaunchArgument(
                 "enable_camera",
-                default_value="true",
-                description="Mount the RGB-D depth camera",
+                default_value="auto",
+                description="auto reads scene YAML; true/false overrides it",
             ),
+            OpaqueFunction(function=_configure_scene),
             robot_state_publisher,
             quadruped_controller,
             state_estimator,

@@ -1,0 +1,22 @@
+schema_version: 1
+scene: city
+
+world:
+  path: QY_MODEL/target_seek
+
+# city 尚未提供与 airport 同标准的离线栅格地图。使用 A* 时请通过 map_yaml 指定地图。
+map: null
+
+target: {x: 42.0, y: -20.0, yaw: -0.5}
+encircle: {radius: 3.0}
+
+robots:
+  go2_1:
+    spawn: {x: 0.0, y: -4.0, z: 0.50, yaw: 1.57}
+    sensors: {lidar: false, camera: false}
+  go2_2:
+    spawn: {x: 10.0, y: -17.0, z: 0.50, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+  go2_3:
+    spawn: {x: 60.0, y: 10.0, z: 0.40, yaw: 0.0}
+    sensors: {lidar: false, camera: false}

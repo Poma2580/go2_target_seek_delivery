@@ -4,9 +4,9 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Shared Map1
-        - /Selected Assignment Paths1
-        - /Actual Paths1
+        - /AStar Map1
+        - /AStar Planned Paths1
+        - /AStar Actual Paths1
       Splitter Ratio: 0.55
   - Class: rviz_common/Selection
     Name: Selection
@@ -25,26 +25,26 @@ Visualization Manager:
       Name: Grid
       Plane: XY
       Plane Cell Count: 80
-      Reference Frame: map
+      Reference Frame: world
       Value: true
     - Alpha: 0.80
       Class: rviz_default_plugins/Map
       Color Scheme: map
       Draw Behind: true
       Enabled: true
-      Name: Shared Map
+      Name: AStar Map
       Topic:
         Depth: 1
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map
+        Value: /astar_map
       Update Topic:
         Depth: 10
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map_updates
+        Value: /astar_map_updates
       Use Timestamp: false
       Value: true
     - Class: rviz_default_plugins/TF
@@ -111,96 +111,47 @@ Visualization Manager:
         - Class: rviz_default_plugins/Path
           Color: 230; 38; 38
           Enabled: true
-          Head Diameter: 0.25
-          Head Length: 0.18
-          Length: 0.25
-          Line Style: Lines
-          Line Width: 0.08
-          Name: go2_1 internal last plan
-          Pose Style: None
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2_1/plan
-          Value: true
-        - Class: rviz_default_plugins/Path
-          Color: 25; 190; 50
-          Enabled: true
-          Line Style: Lines
-          Line Width: 0.08
-          Name: go2_2 internal last plan
-          Pose Style: None
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2_2/plan
-          Value: true
-        - Class: rviz_default_plugins/Path
-          Color: 38; 88; 240
-          Enabled: true
-          Line Style: Lines
-          Line Width: 0.08
-          Name: go2_3 internal last plan
-          Pose Style: None
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2_3/plan
-          Value: true
-      Enabled: false
-      Name: Nav2 Internal Last Plans
-    - Class: rviz_common/Group
-      Displays:
-        - Class: rviz_default_plugins/Path
-          Color: 230; 38; 38
-          Enabled: true
           Line Style: Lines
           Line Width: 0.10
-          Name: go2_1 selected plan
+          Name: go2_1 AStar plan
           Pose Style: None
           Topic:
             Depth: 1
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_1/selected_plan
+            Value: /go2_1/astar_plan
           Value: true
         - Class: rviz_default_plugins/Path
           Color: 25; 190; 50
           Enabled: true
           Line Style: Lines
           Line Width: 0.10
-          Name: go2_2 selected plan
+          Name: go2_2 AStar plan
           Pose Style: None
           Topic:
             Depth: 1
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_2/selected_plan
+            Value: /go2_2/astar_plan
           Value: true
         - Class: rviz_default_plugins/Path
           Color: 38; 88; 240
           Enabled: true
           Line Style: Lines
           Line Width: 0.10
-          Name: go2_3 selected plan
+          Name: go2_3 AStar plan
           Pose Style: None
           Topic:
             Depth: 1
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_3/selected_plan
+            Value: /go2_3/astar_plan
           Value: true
       Enabled: true
-      Name: Selected Assignment Paths
+      Name: AStar Planned Paths
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Path
@@ -215,7 +166,7 @@ Visualization Manager:
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_1/actual_path
+            Value: /go2_1/astar_actual_path
           Value: true
         - Class: rviz_default_plugins/Path
           Color: 105; 255; 125
@@ -229,7 +180,7 @@ Visualization Manager:
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_2/actual_path
+            Value: /go2_2/astar_actual_path
           Value: true
         - Class: rviz_default_plugins/Path
           Color: 105; 145; 255
@@ -243,10 +194,10 @@ Visualization Manager:
             Durability Policy: Transient Local
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /go2_3/actual_path
+            Value: /go2_3/astar_actual_path
           Value: true
       Enabled: true
-      Name: Actual Paths
+      Name: AStar Actual Paths
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Marker Topic:
@@ -254,17 +205,17 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /encircle_markers
-      Name: Encircle Target and Goals
+        Value: /astar_encircle_markers
+      Name: AStar Target and Goals
       Namespaces:
-        encircle_goals: true
-        encircle_labels: true
-        encircle_target: true
+        astar_goal_labels: true
+        astar_goals: true
+        astar_target: true
       Value: true
   Enabled: true
   Global Options:
     Background Color: 32; 34; 37
-    Fixed Frame: map
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -286,7 +237,7 @@ Visualization Manager:
       Name: Airport Top View
       Near Clip Distance: 0.01
       Scale: 2.0
-      Target Frame: map
+      Target Frame: world
       Value: TopDownOrtho (rviz)
       X: 0
       Y: 0

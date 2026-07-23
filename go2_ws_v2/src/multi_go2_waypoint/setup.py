@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import setup
 
 package_name = 'multi_go2_waypoint'
@@ -14,6 +16,15 @@ setup(
             'maps/airport.pgm',
             'maps/airport.yaml',
         ]),
+        ('share/' + package_name + '/config/scenes',
+         glob('config/scenes/*.yaml')),
+        ('share/' + package_name + '/config/planner',
+         glob('config/planner/*.yaml')),
+        ('share/' + package_name + '/config/controller',
+         glob('config/controller/*.yaml')),
+        ('share/' + package_name + '/config/visualization',
+         glob('config/visualization/*.yaml')),
+        ('share/' + package_name + '/rviz', glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,11 +36,11 @@ setup(
     entry_points={
         'console_scripts': [
             'waypoint_encircle = multi_go2_waypoint.waypoint_encircle:main',
-            'waypoint_forest = multi_go2_waypoint.waypoint_forest:main',
             'actor_state_publisher = multi_go2_waypoint.actor_state_publisher:main',
             'dynamic_encircle = multi_go2_waypoint.dynamic_encircle:main',
             'target_perception = multi_go2_waypoint.target_perception:main',
             'perception_eval = multi_go2_waypoint.perception_eval:main',
+            'astar_visualizer = multi_go2_waypoint.astar_visualizer:main',
         ],
     },
 )

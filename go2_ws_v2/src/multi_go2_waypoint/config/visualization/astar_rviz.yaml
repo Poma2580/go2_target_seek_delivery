@@ -1,0 +1,10 @@
+schema_version: 1
+
+visualization:
+  # 旧版 A* 和 ground-truth odom 都直接使用 Gazebo 全局坐标数值。
+  frame_id: world
+  trajectory_sample_distance: 0.05
+  max_trajectory_points: 10000
+  trajectory_publish_rate: 2.0
+  # 为 RViz 的三只 RobotModel 提供 world -> go2_i/odom 的单位静态 TF。
+  publish_world_to_odom_tf: true
