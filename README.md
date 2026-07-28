@@ -64,6 +64,8 @@ sudo apt install -y \
   ros-humble-robot-localization \
   ros-humble-xacro \
   ros-humble-nav2-bringup \
+  ros-humble-pointcloud-to-laserscan \
+  ros-humble-rtabmap-ros \
   ros-humble-slam-toolbox \
   ros-humble-teleop-twist-keyboard \
   ros-humble-velodyne-description \
@@ -112,12 +114,15 @@ source ~/.bashrc
 echo $DELIVERY_ROOT
 ```
 
-后续新开的终端会自动获得这些变量。运行任何 ROS 命令前先执行 `conda deactivate`，并确认 `which python3` 输出 `/usr/bin/python3`。
+后续新开的终端会自动获得这些变量。
 
 ## 第 4 步：编译
 
+编译及运行任何 ROS 命令前先退出 conda，并确认系统使用的是 `/usr/bin/python3`：
 
 ```bash
+conda deactivate
+which python3  # 必须输出 /usr/bin/python3
 cd $DELIVERY_ROOT/go2_ws_v2
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
@@ -159,6 +164,27 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ros2 launch go2_config slam.launch.py sim:=true rviz:=true
 ```
 
+## 单狗 go2_1：RTAB-Map 在线建图与 Nav2 静态目标导航
+
+该模式仅启动 target_seek 世界中的一只 go2_1：Velodyne 点云转换为
+LaserScan，RTAB-Map 使用 Gazebo 真值里程计在线建图，Nav2 仅接受静态
+`NavigateToPose` 目标。
+
+启动世界、go2_1、建图与导航：
+
+```bash
+cd "$DELIVERY_ROOT"
+chmod +x Scripts/start_go2_1_mapping_nav.sh Scripts/send_go2_1_static_goal.sh
+./Scripts/start_go2_1_mapping_nav.sh
+```
+
+新终端发送静态指定目标导航：
+
+```bash
+cd "$DELIVERY_ROOT"
+./Scripts/send_go2_1_static_goal.sh 5 0 0
+./Scripts/send_go2_1_static_goal.sh 20 16 0
+```
 
 ## 多狗模式：三只 Go2 + 2D 雷达
 

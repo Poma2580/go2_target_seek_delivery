@@ -1,0 +1,33 @@
+rtabmap:
+  ros__parameters:
+    use_sim_time: true
+
+    frame_id: go2_1/base_link
+    odom_frame_id: go2_1/odom
+    map_frame_id: map
+
+    subscribe_scan: true
+    subscribe_scan_cloud: false
+    subscribe_depth: false
+    subscribe_rgb: false
+    subscribe_rgbd: false
+    subscribe_stereo: false
+    subscribe_odom_info: false
+
+    publish_tf: false
+    wait_for_transform: 0.5
+    approx_sync: true
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos_scan: 2
+    qos_odom: 2
+
+    Grid/3D: "false"
+    Grid/FromScan: "true"
+    Grid/CellSize: "0.05"
+    Grid/RangeMax: "20.0"
+    Grid/RayTracing: "true"
+
+    Reg/Strategy: "1"
+    Mem/IncrementalMemory: "true"
+    Mem/InitWMWithAllNodes: "false"

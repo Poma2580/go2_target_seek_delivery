@@ -7,15 +7,25 @@ go2_ws_v2/log/
 .claude/
 __pycache__/
 *.pyc
-Docs/本地启动.txt
+/Docs/本地启动.txt
+/Docs/Git开发手册.txt
+/Plan
 # YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
 *.pt
-/Docs/WAT多场景多狗.txt
-/Docs/WAT世界及模型修改以及说明.txt
-/Docs/WAT无人机启动.txt
-/Docs/计划_waypoint_encircle多场景改造_0718.txt
-/Docs/1.txt
-/Docs/Airport world 离线栅格地图与多 Go2 A* 静态围捕方案.txt
-/Docs/Nav2方案.txt
 # 暂时停止跟踪 Nav2 多 Go2 包
 /go2_ws_v2/src/multi_go2_nav2/
+/go2_ws_v2/src/go2_mapping_nav/runtime/maps/*
+!/go2_ws_v2/src/go2_mapping_nav/runtime/maps/.gitkeep
+/go2_ws_v2/src/go2_mapping_nav/runtime/logs/*
+!/go2_ws_v2/src/go2_mapping_nav/runtime/logs/.gitkeep
+
+# 复制来的小朱老师建图包
+/update_package
+
+# 旧图片
+Figure/2Dmap_airport.png
+Figure/A_star_Nav.png
+Figure/BEV_airport.png
+
+# 离线建图包
+/go2_ws_v2/src/world_to_grid

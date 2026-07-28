@@ -1,9 +1,8 @@
 #!/bin/bash
-# Usage:
-# cd /home/bit/go2_target_seek_delivery/Scripts
-# ./start_three_go2_dynamic_tracking.sh
+# Usage: ./start_three_go2_dynamic_tracking.sh
 
-DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DELIVERY_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
