@@ -27,8 +27,7 @@ git add -A
 把当前所有改动加入“暂存区”，包括修改过的文件、新文件、删除的文件。暂存区可以理解为“准备放进下一次 commit 的清单”。
 
 git commit -m "..."
-把暂存区里的内容打包成一个本地提交。-m 后面是提交说明。你这次生成的是：
-50ac457 修复多狗导入姿态翻滚+关闭雷达可视化、更新0611文档
+把暂存区里的内容打包成一个本地提交。-m 后面是提交说明
 
 git push origin main
 把本地 main 分支的新提交推送到远程仓库 origin 的 main 分支，也就是 GitHub 上。
@@ -84,3 +83,26 @@ git pull origin main
 git fetch --tags
 然后确认：
 git log --oneline --decorate -5
+======================= 每次从个人分支提交后转到main ================================================
+推送 xhk_v1 后切换到 main：
+git pull --ff-only origin main
+git merge --ff-only xhk_v1
+git push origin main
+
+
+======================= 从main拉取最新分支并切换到自己分支 =======================================
+
+# 先确认工作区是否干净
+git status
+
+# 获取远端最新分支信息
+git fetch origin
+
+# 切换到 xhk 分支
+git switch xhk_v1
+
+# 拉取并快进到远端最新版本
+git pull --ff-only origin xhk_v1
+
+# 确认当前版本：
+git branch --show-current

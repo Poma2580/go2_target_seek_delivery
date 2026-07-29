@@ -1,9 +1,9 @@
 bt_navigator:
   ros__parameters:
     use_sim_time: true
-    global_frame: go2_1/map
-    robot_base_frame: go2_1/base_link
-    odom_topic: /go2_1/odom
+    global_frame: go2_2/map
+    robot_base_frame: go2_2/base_link
+    odom_topic: /go2_2/odom
     bt_loop_duration: 10
     default_server_timeout: 20
     plugin_lib_names:
@@ -109,8 +109,8 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: true
-      global_frame: go2_1/odom
-      robot_base_frame: go2_1/base_link
+      global_frame: go2_2/odom
+      robot_base_frame: go2_2/base_link
       update_frequency: 5.0
       publish_frequency: 2.0
       rolling_window: true
@@ -124,7 +124,7 @@ local_costmap:
         enabled: true
         observation_sources: scan
         scan:
-          topic: /go2_1/scan
+          topic: /go2_2/scan
           data_type: LaserScan
           clearing: true
           marking: true
@@ -142,8 +142,8 @@ global_costmap:
   global_costmap:
     ros__parameters:
       use_sim_time: true
-      global_frame: go2_1/map
-      robot_base_frame: go2_1/base_link
+      global_frame: go2_2/map
+      robot_base_frame: go2_2/base_link
       update_frequency: 2.0
       publish_frequency: 1.0
       resolution: 0.05
@@ -152,14 +152,14 @@ global_costmap:
       plugins: [static_layer, obstacle_layer, inflation_layer]
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
-        map_topic: /go2_1/map
+        map_topic: /go2_2/map
         map_subscribe_transient_local: true
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
         observation_sources: scan
         scan:
-          topic: /go2_1/scan
+          topic: /go2_2/scan
           data_type: LaserScan
           clearing: true
           marking: true
@@ -209,8 +209,8 @@ behavior_server:
       plugin: nav2_behaviors/DriveOnHeading
     wait:
       plugin: nav2_behaviors/Wait
-    global_frame: go2_1/odom
-    robot_base_frame: go2_1/base_link
+    global_frame: go2_2/odom
+    robot_base_frame: go2_2/base_link
     transform_tolerance: 0.1
     simulate_ahead_time: 2.0
     max_rotational_vel: 0.3
@@ -238,7 +238,7 @@ velocity_smoother:
     min_velocity: [0.0, 0.0, -1.0]
     max_accel: [0.5, 0.0, 0.5]
     max_decel: [-0.5, 0.0, -0.5]
-    odom_topic: /go2_1/odom
+    odom_topic: /go2_2/odom
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0

@@ -1,10 +1,10 @@
-go2_1/rtabmap:
+go2_2/rtabmap:
   ros__parameters:
     use_sim_time: true
 
-    frame_id: go2_1/base_link
-    odom_frame_id: go2_1/odom
-    map_frame_id: go2_1/map
+    frame_id: go2_2/base_link
+    odom_frame_id: go2_2/odom
+    map_frame_id: go2_2/map
 
     subscribe_scan: true
     subscribe_scan_cloud: false

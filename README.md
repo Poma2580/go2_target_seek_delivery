@@ -237,12 +237,29 @@ cd $DELIVERY_ROOT/Scripts
 ./start_three_go2_velodyne.sh airport          # 机场
 ./start_three_go2_velodyne.sh forest --lidar
 ./start_three_go2_velodyne.sh airport --all-sensors
+./start_three_go2_velodyne.sh city --all-sensors --mapping-nav
 ```
 
 默认关闭三只 Go2 的 3D 雷达和 RGB-D 相机；`--lidar`、`--camera`、`--all-sensors` 可按需开启。
 三个场景的出生位姿、传感器默认值、目标和围捕半径统一保存在
 `go2_ws_v2/src/multi_go2_waypoint/config/scenes/*.yaml`。脚本只选择 world 并传递 `scene`；
 每只狗的 spawn launch 会读取相应 YAML，命令行传感器选项优先于 YAML 默认值。
+
+增加 `--mapping-nav` 后，脚本会自动为三只 Go2 开启 3D Velodyne，等待各自的点云和里程计
+topic 就绪，再分别启动独立的 RTAB-Map 与 Nav2。三套地图使用独立 frame 和数据库：
+`go2_1/map`、`go2_2/map`、`go2_3/map`。可通过 `USE_RVIZ=false` 关闭三个 RViz：
+
+```bash
+USE_RVIZ=false ./start_three_go2_velodyne.sh city --mapping-nav
+```
+
+三狗导航目标可指定机器人，省略 `--robot` 时默认发送给 `go2_1`：
+
+```bash
+./Scripts/send_go2_1_static_goal.sh --robot go2_1 5 0 0
+./Scripts/send_go2_1_static_goal.sh --robot go2_2 5 0 0
+./Scripts/send_go2_1_static_goal.sh --robot go2_3 5 0 0
+```
 
 按需另开终端启动键盘或 RViz：
 

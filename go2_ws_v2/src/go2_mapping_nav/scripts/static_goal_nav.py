@@ -41,7 +41,7 @@ class StaticGoalNavigator(Node):
         numeric_parameter = ParameterDescriptor(dynamic_typing=True)
         self.declare_parameter("action_name", "/go2_1/navigate_to_pose")
         self.declare_parameter("map_topic", "/go2_1/map")
-        self.declare_parameter("global_frame", "map")
+        self.declare_parameter("global_frame", "go2_1/map")
         self.declare_parameter("robot_frame", "go2_1/base_link")
         for name, default in (
             ("goal_x", 0.0),

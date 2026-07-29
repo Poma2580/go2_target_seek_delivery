@@ -2,12 +2,27 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <x> <y> [yaw] [segment_length]" >&2
+    echo "Usage: $0 [--robot go2_1|go2_2|go2_3] <x> <y> [yaw] [segment_length]" >&2
 }
 
 is_number() {
     [[ $1 =~ ^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$ ]]
 }
+
+ROBOT_NAME=go2_1
+if (( $# >= 1 )) && [[ $1 == "--robot" ]]; then
+    if (( $# < 2 )); then
+        usage
+        exit 2
+    fi
+    ROBOT_NAME=$2
+    shift 2
+fi
+
+if [[ ! $ROBOT_NAME =~ ^go2_[123]$ ]]; then
+    echo "ERROR: robot must be go2_1, go2_2, or go2_3." >&2
+    exit 2
+fi
 
 if (( $# < 2 || $# > 4 )); then
     usage
@@ -47,8 +62,10 @@ source "${WORKSPACE}/install/setup.bash"
 set -u
 
 exec ros2 run go2_mapping_nav static_goal_nav.py --ros-args \
-    -p action_name:=/go2_1/navigate_to_pose \
-    -p global_frame:=map \
+    -p action_name:=/${ROBOT_NAME}/navigate_to_pose \
+    -p map_topic:=/${ROBOT_NAME}/map \
+    -p global_frame:=${ROBOT_NAME}/map \
+    -p robot_frame:=${ROBOT_NAME}/base_link \
     -p goal_x:="${GOAL_X}" \
     -p goal_y:="${GOAL_Y}" \
     -p goal_yaw:="${GOAL_YAW}" \

@@ -1,4 +1,4 @@
-"""Launch online RTAB-Map mapping and Nav2 static-goal navigation for go2_1.
+"""Launch online RTAB-Map mapping and Nav2 static-goal navigation for go2_2.
 
 The Gazebo world and robot are intentionally started by a separate launcher so
 this file never starts teleoperation, perception, tracking, or other robots.
@@ -62,10 +62,10 @@ def generate_launch_description():
 
     config_share = get_package_share_directory("go2_mapping_nav")
     rtabmap_config = os.path.join(
-        config_share, "config", "rtabmap", "go2_1_mapping.yaml"
+        config_share, "config", "rtabmap", "go2_2_mapping.yaml"
     )
-    nav2_config = os.path.join(config_share, "config", "nav2", "go2_1_nav2.yaml")
-    rviz_config = os.path.join(config_share, "rviz", "go2_1_mapping_nav.rviz")
+    nav2_config = os.path.join(config_share, "config", "nav2", "go2_2_nav2.yaml")
+    rviz_config = os.path.join(config_share, "rviz", "go2_2_mapping_nav.rviz")
 
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_sim_time_parameter = ParameterValue(use_sim_time, value_type=bool)
@@ -79,7 +79,7 @@ def generate_launch_description():
     configured_nav2_params = ParameterFile(
         RewrittenYaml(
             source_file=nav2_config,
-            root_key="go2_1",
+            root_key="go2_2",
             param_rewrites={"use_sim_time": use_sim_time},
             convert_types=True,
         ),
@@ -98,7 +98,7 @@ def generate_launch_description():
 
     nav2_nodes = GroupAction(
         [
-            PushRosNamespace("go2_1"),
+            PushRosNamespace("go2_2"),
             Node(
                 package="nav2_controller",
                 executable="controller_server",
@@ -162,7 +162,7 @@ def generate_launch_description():
                     Node(
                         package="nav2_lifecycle_manager",
                         executable="lifecycle_manager",
-                        namespace="go2_1",
+                        namespace="go2_2",
                         name="lifecycle_manager_navigation",
                         output="screen",
                         parameters=[
@@ -194,19 +194,19 @@ def generate_launch_description():
                     / "go2_mapping_nav"
                     / "runtime"
                     / "maps"
-                    / "go2_1_mapping.db"
+                    / "go2_2_mapping.db"
                 )
                 if delivery_root
-                else str(runtime_root / "runtime" / "maps" / "go2_1_mapping.db"),
+                else str(runtime_root / "runtime" / "maps" / "go2_2_mapping.db"),
             ),
             DeclareLaunchArgument(
-                "cloud_topic", default_value="/go2_1/velodyne_points"
+                "cloud_topic", default_value="/go2_2/velodyne_points"
             ),
-            DeclareLaunchArgument("scan_topic", default_value="/go2_1/scan"),
-            DeclareLaunchArgument("odom_topic", default_value="/go2_1/odom"),
-            DeclareLaunchArgument("map_topic", default_value="/go2_1/map"),
-            DeclareLaunchArgument("cmd_vel_topic", default_value="/go2_1/cmd_vel"),
-            DeclareLaunchArgument("raw_cmd_vel_topic", default_value="/go2_1/raw_cmd_nav_vel"),
+            DeclareLaunchArgument("scan_topic", default_value="/go2_2/scan"),
+            DeclareLaunchArgument("odom_topic", default_value="/go2_2/odom"),
+            DeclareLaunchArgument("map_topic", default_value="/go2_2/map"),
+            DeclareLaunchArgument("cmd_vel_topic", default_value="/go2_2/cmd_vel"),
+            DeclareLaunchArgument("raw_cmd_vel_topic", default_value="/go2_2/raw_cmd_nav_vel"),
             DeclareLaunchArgument("publish_map_to_odom_tf", default_value="true"),
             DeclareLaunchArgument(
                 "publish_base_footprint_tf", default_value="false"
@@ -215,12 +215,12 @@ def generate_launch_description():
             Node(
                 package="pointcloud_to_laserscan",
                 executable="pointcloud_to_laserscan_node",
-                name="go2_1_pointcloud_to_laserscan",
+                name="go2_2_pointcloud_to_laserscan",
                 output="screen",
                 parameters=[
                     {
                         "use_sim_time": use_sim_time_parameter,
-                        "target_frame": "go2_1/velodyne",
+                        "target_frame": "go2_2/velodyne",
                         "transform_tolerance": 0.1,
                         "min_height": 0.33,
                         "max_height": 0.57,
@@ -239,7 +239,7 @@ def generate_launch_description():
             Node(
                 package="rtabmap_slam",
                 executable="rtabmap",
-                namespace="go2_1",
+                namespace="go2_2",
                 name="rtabmap",
                 output="screen",
                 parameters=[
@@ -258,15 +258,15 @@ def generate_launch_description():
             Node(
                 package="tf2_ros",
                 executable="static_transform_publisher",
-                name="go2_1_map_to_odom",
+                name="go2_2_map_to_odom",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("publish_map_to_odom_tf")),
-                arguments=["0", "0", "0", "0", "0", "0", "go2_1/map", "go2_1/odom"],
+                arguments=["0", "0", "0", "0", "0", "0", "go2_2/map", "go2_2/odom"],
             ),
             Node(
                 package="tf2_ros",
                 executable="static_transform_publisher",
-                name="go2_1_base_footprint_to_base_link",
+                name="go2_2_base_footprint_to_base_link",
                 output="screen",
                 condition=IfCondition(
                     LaunchConfiguration("publish_base_footprint_tf")
@@ -278,15 +278,15 @@ def generate_launch_description():
                     "0",
                     "0",
                     "0",
-                    "go2_1/base_footprint",
-                    "go2_1/base_link",
+                    "go2_2/base_footprint",
+                    "go2_2/base_link",
                 ],
             ),
             nav2_nodes,
             Node(
                 package="rviz2",
                 executable="rviz2",
-                name="go2_1_mapping_nav_rviz",
+                name="go2_2_mapping_nav_rviz",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("use_rviz")),
                 arguments=["-d", rviz_config],
