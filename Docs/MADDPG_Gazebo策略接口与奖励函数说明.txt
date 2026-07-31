@@ -1,0 +1,419 @@
+MADDPG follower 策略接口与奖励函数说明
+版本目的：用于 Python 预训练 + Gazebo 微调，尽量保证两个环境中的观测、动作、奖励和约束语义一致。
+
+
+一、总体训练路线
+
+1. 先在 Python 环境中预训练 follower 策略。
+2. 再把 Python 预训练模型作为初始模型，放到 Gazebo 环境中继续微调。
+3. Python 和 Gazebo 必须使用同一套策略接口：
+   - 输入观测含义一致；
+   - 输出动作含义一致；
+   - 奖励函数含义一致；
+   - 速度、角速度、加速度、倒车限制一致；
+   - episode 步数、成功条件、是否提前终止一致。
+
+这样做的目的不是让 Python 环境完全等同 Gazebo，而是让策略学到的“输入-输出语义”不变。
+
+
+二、输入观测
+
+当前建议继续使用 28 维观测。
+
+原因：
+旧版本中的 2 维命令速度：
+  v_cmd
+  w_cmd
+
+现在被 2 维真实运动状态替换：
+  real_v_body_x
+  real_w_z
+
+因此观测语义改变，但总维度不变，仍然是 28 维。这样可以减少训练代码和模型结构的改动，同时解决 v_cmd/w_cmd 与 Gazebo 真实运动不一致的问题。
+
+
+观测索引如下：
+
+obs[0:2]
+  自身真实线速度，转换到自身坐标系：
+  [v_body_x, v_body_y] / follower_max_linear
+
+obs[2:4]
+  自身航向：
+  [sin(yaw), cos(yaw)]
+
+obs[4:6]
+  leader/go1 相对位置，转换到自身坐标系：
+  R_body * (leader_pos - self_pos) / POS_SCALE
+
+obs[6:8]
+  leader/go1 相对速度，转换到自身坐标系：
+  R_body * (leader_vel - self_vel) / follower_max_linear
+
+obs[8:10]
+  target/行人相对位置，转换到自身坐标系：
+  R_body * (target_pos - self_pos) / POS_SCALE
+
+obs[10:12]
+  target/行人相对速度，转换到自身坐标系：
+  R_body * (target_vel - self_vel) / follower_max_linear
+
+obs[12:14]
+  自己目标槽位相对位置，转换到自身坐标系：
+  R_body * (slot_pos - self_pos) / POS_SCALE
+
+obs[14:16]
+  自己目标槽位相对速度，转换到自身坐标系：
+  R_body * (slot_vel - self_vel) / follower_max_linear
+
+obs[16:18]
+  另一台 follower 相对位置，转换到自身坐标系：
+  R_body * (other_follower_pos - self_pos) / POS_SCALE
+
+obs[18:20]
+  左/右角色标志：
+  go2_left  = [1, 0]
+  go3_right = [0, 1]
+
+obs[20]
+  当前槽位距离误差：
+  ||slot_pos - self_pos|| / POS_SCALE
+
+obs[21]
+  leader 与 target 的距离：
+  ||target_pos - leader_pos|| / POS_SCALE
+
+obs[22]
+  编队横向尺寸：
+  side_dist / DIST_PARAM_SCALE
+
+obs[23]
+  leader 跟随 target 的设定距离：
+  leader_follow_dist / DIST_PARAM_SCALE
+
+obs[24:26]
+  真实运动状态：
+  obs[24] = 当前真实前向速度 v_body_x / follower_max_linear
+  obs[25] = 当前真实角速度 w_z / follower_max_angular
+
+  注意：
+  这里不再使用 v_cmd 和 w_cmd。
+  Python 环境中，真实速度来自环境内部运动状态。
+  Gazebo 环境中，真实速度应来自 /go2_x/odom。
+
+obs[26:28]
+  上一步 MADDPG 动作：
+  [last_action_linear_accel, last_action_angular_accel]
+
+
+三、为什么不用 v_cmd / w_cmd 作为观测
+
+旧版本中使用过：
+  obs[25] = v_cmd / follower_max_linear
+  obs[26] = w_cmd / follower_max_angular
+
+这个设计在 Python 环境中问题不明显，因为 Python 运动学模型里 cmd 基本等于实际运动。
+
+但在 Gazebo 中：
+  cmd_vel 是控制器希望机器狗执行的速度；
+  odom 是机器狗真实执行出来的速度。
+
+由于 Go2 有步态、接触、摩擦、延迟、侧滑、侧翻等问题，cmd_vel 和 odom 可能差异很大。
+
+例如：
+  cmd w = +0.30
+  odom w = -1.00
+
+如果策略观测的是 cmd w，它会以为自己正在左转。
+如果策略观测的是 odom w，它才能知道机体实际在右转或打滑。
+
+因此，后续统一使用真实速度反馈：
+  real_v_body_x
+  real_w_z
+
+
+四、输出动作
+
+输出动作为 2 维连续动作，范围均为 [-1, 1]：
+
+action[0]
+  线加速度比例
+
+action[1]
+  角加速度比例
+
+动作不是直接速度，而是加速度比例。
+
+控制器按如下方式积分得到速度命令：
+
+  v_cmd = v_cmd + action[0] * follower_accel_lin * dt
+  w_cmd = w_cmd + action[1] * follower_accel_ang * dt
+
+然后限幅：
+
+  v_cmd ∈ [0, follower_max_linear]
+  w_cmd ∈ [-follower_max_angular, follower_max_angular]
+
+再发布到：
+
+  /go2_2/cmd_vel
+  /go2_3/cmd_vel
+
+
+五、约束
+
+建议固定使用一组更适合 Gazebo Go2 的保守参数：
+
+  follower_max_linear  = 0.60 m/s
+  follower_max_angular = 0.80 rad/s
+  follower_accel_lin   = 0.40 m/s^2
+  follower_accel_ang   = 0.60 rad/s^2
+
+约束：
+
+1. 不允许倒车：
+   v_cmd >= 0
+
+2. 限制线速度：
+   0 <= v_cmd <= 0.60
+
+3. 限制角速度：
+   -0.80 <= w_cmd <= 0.80
+
+4. 限制线加速度：
+   每一步速度变化由 follower_accel_lin * dt 限制。
+   若 dt = 0.1 s，则每步最大线速度变化为 0.04 m/s。
+
+5. 限制角加速度：
+   每一步角速度变化由 follower_accel_ang * dt 限制。
+   若 dt = 0.1 s，则每步最大角速度变化为 0.06 rad/s。
+
+6. 大角速度时可降低线速度：
+   当 |w_cmd| 较大时，适当降低 v_cmd，避免机器狗高速急转导致侧滑或侧翻。
+
+
+六、奖励函数设计
+
+奖励函数只保留 5 类奖励，避免过于复杂：
+
+  R = R_slot + R_progress + R_formation + R_safe + R_smooth
+
+1. 槽位跟踪奖励 R_slot
+
+  e_slot = ||p_i - p_i_slot||
+  R_slot = -w1 * e_slot
+
+作用：
+  直接鼓励 follower 靠近自己的预设槽位。
+
+
+2. 槽位收敛进度奖励 R_progress
+
+  R_progress = w2 * (e_slot_prev - e_slot)
+
+作用：
+  只要当前误差比上一帧小，就给正奖励。
+  这可以鼓励机器人主动向槽位收敛，而不是只依赖最终位置奖励。
+
+
+3. 动态队形保持奖励 R_formation
+
+该项只在机器人接近槽位后逐渐打开：
+
+  hold_gate = gate(e_slot)
+
+其中：
+  远离槽位时 hold_gate 接近 0；
+  接近槽位后 hold_gate 接近 1。
+
+动态保持奖励由两部分组成：
+
+  e_vel = ||v_i - v_i_slot|| / follower_max_linear
+  e_yaw = |yaw_i - yaw_formation|
+
+  R_formation = -hold_gate * (w3 * e_vel + w4 * e_yaw)
+
+作用：
+  先让机器人到槽位；
+  到槽位附近后，再要求它跟随移动槽位，并保持编队前向。
+
+
+4. 多机器人安全奖励 R_safe
+
+  d_ij = ||p_i - p_j||
+
+当：
+
+  d_ij < d_safe
+
+给予惩罚：
+
+  R_safe = -w5 * (d_safe - d_ij)
+
+作用：
+  避免 go2/go3 在靠近槽位或换位过程中发生碰撞。
+
+
+5. 运动平滑奖励 R_smooth
+
+  R_smooth = -w6 * ||a_t - a_{t-1}||^2
+
+其中：
+  a_t     = 当前 MADDPG 输出动作
+  a_{t-1} = 上一步 MADDPG 输出动作
+
+作用：
+  减少线加速度和角加速度的突变；
+  减少左一下右一下的抖动；
+  让 Gazebo 中的 Go2 更容易稳定执行。
+
+
+当前代码中的奖励权重为：
+
+  SLOT_ERROR_W      = 7.00
+  SLOT_PROGRESS_W   = 8.00
+  FORMATION_VEL_W   = 2.50
+  FORMATION_YAW_W   = 1.50
+  SAFE_W            = 4.00
+  SMOOTH_W          = 0.40
+
+其中 FORMATION_VEL_W 和 FORMATION_YAW_W 属于同一类奖励 R_formation。
+
+
+七、episode 与成功条件
+
+建议：
+
+  max_steps = 250
+  success_hold_steps = 50
+  训练时不因为成功而提前终止
+
+成功条件：
+
+  mean_slot_error < 0.35 m
+  max_slot_error  < 0.55 m
+  max_yaw_error   < 0.50 rad
+  连续保持 50 steps
+
+不提前终止的原因：
+如果到槽位就结束，策略容易学成“碰一下槽位就完事”。
+继续跑完整个 episode，可以强迫策略学习：
+
+  到槽位后继续保持编队前进。
+
+
+八、课程学习设置
+
+课程学习贴近 Gazebo 中慢速行人的设定。动态目标速度不再设置得很快，主要围绕 0.25 m/s 左右变化。
+
+难度逐步增加的顺序是：
+
+  行人路径变化
+  go2/go3 初始位置变化
+  go2/go3 初始航向变化
+  队形尺寸变化
+
+设计原则：
+  不在同一个阶段同时大幅增加太多难度，避免再次出现 stage2 直接崩掉的问题。
+
+Stage 1：
+  目标：先学会基础槽位几何关系。
+  目标轨迹：低速直行。
+  目标速度：0.18 ~ 0.25 m/s。
+  队形尺寸：固定。
+  side_dist = 1.20
+  leader_follow_dist = 1.80
+  go2/go3 初始位置：目标附近，距离槽位有一定偏移。
+  go2/go3 初始航向：随机。
+
+Stage 2：
+  目标：扩大 go2/go3 初始位置随机性，但不加入轨迹扰动。
+  目标轨迹：直行。
+  目标速度：0.20 ~ 0.28 m/s。
+  队形尺寸：固定。
+  初始位置范围：比 stage1 更大。
+  初始航向：随机。
+
+Stage 3：
+  目标：开始加入慢速行人的小幅路径扰动。
+  目标轨迹：直行 + 小幅平滑随机扰动。
+  目标速度：0.20 ~ 0.28 m/s。
+  队形尺寸：固定。
+  初始位置范围：继续增大。
+
+Stage 4：
+  目标：学习平滑左转，同时加入小范围队形尺寸变化。
+  目标轨迹：平滑左转 + 小幅扰动。
+  目标速度：0.20 ~ 0.30 m/s。
+  队形尺寸：小范围随机。
+  side_dist ∈ [1.10, 1.30]
+  leader_follow_dist ∈ [1.70, 1.90]
+
+Stage 5：
+  目标：最终泛化，为 Gazebo 微调做准备。
+  目标轨迹：混合慢速轨迹，包括直行扰动、平滑左转、直行后左转、正弦随机轨迹。
+  目标速度：0.18 ~ 0.30 m/s。
+  队形尺寸：中等范围随机。
+  side_dist ∈ [1.00, 1.40]
+  leader_follow_dist ∈ [1.60, 2.10]
+
+目标轨迹扰动采用平滑随机扰动，而不是直接白噪声跳变。这样更接近真实行人轨迹变化，也不会让预训练任务变得过于尖锐。
+
+
+九、Gazebo 训练前必须保持一致的内容
+
+进入 Gazebo 微调前，必须确认以下内容和 Python 环境一致：
+
+1. obs 维度一致，目前建议为 28 维。
+2. obs 每一维语义一致，尤其真实速度项必须来自 odom。
+3. action 是加速度比例，不是直接速度。
+4. v_cmd/w_cmd 的积分方式一致。
+5. 速度、角速度、加速度限幅一致。
+6. 奖励函数计算使用真实 odom 状态。
+7. 成功条件一致。
+8. episode 最大步数一致。
+9. 训练时不提前终止。
+
+
+十、下一步工作
+
+当前 Python 环境和 Gazebo 控制器的 28 维观测接口已经对齐。
+
+Gazebo 控制器文件：
+
+  go2_ws_v2/src/multi_go2_waypoint/multi_go2_waypoint/maddpg_follower_slot_controller.py
+
+已完成：
+
+1. MADDPG 输入维度保持 28。
+2. obs[24] 使用 go2_x/odom 计算得到的真实前向速度 real_v_body_x。
+3. obs[25] 使用 go2_x/odom 的真实角速度 angular.z。
+4. 不再把控制器内部 v_cmd/w_cmd 作为 obs[24]/obs[25]。
+5. 输出动作仍为线加速度比例和角加速度比例。
+6. 控制器内部积分得到 v_cmd/w_cmd 后发布 /cmd_vel。
+7. 默认 follower 约束为：
+
+   follower_max_linear  = 0.60 m/s
+   follower_max_angular = 0.80 rad/s
+   follower_accel_lin   = 0.40 m/s^2
+   follower_accel_ang   = 0.60 rad/s^2
+
+8. debug_policy 输出中会显示：
+
+   real=(real_v_body_x, real_wz)
+
+用于确认策略看到的真实速度与 Gazebo odom 是否一致。
+
+接下来应做：
+
+1. 重新编译 go2_ws_v2，使 ROS2 使用更新后的控制器。
+2. 写 Gazebo rollout 脚本/节点，只测试不训练。
+3. 确认 Gazebo 中：
+   - obs 正确；
+   - action 正确；
+   - cmd_vel 正确；
+   - odom 真实速度正确；
+   - slot_error 正确；
+   - reward 正确。
+4. 等 Python 预训练完成后，先用 rollout 测试预训练模型。
+5. 最后用 Python 模型在 Gazebo 中微调。

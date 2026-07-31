@@ -3,7 +3,8 @@
 # cd /home/bit/go2_target_seek_delivery/Scripts
 # ./start_three_go2_dynamic_tracking.sh
 
-DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+#DELIVERY_ROOT=/home/bit/go2_target_seek_delivery
+DELIVERY_ROOT=/home/wangantong/KD_all/go2_target_seek_delivery
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
@@ -140,7 +141,7 @@ wait_for_topic "/walking_target/odom"
 # 终端 6：启动目标感知（go2_1 相机 -> YOLO + 深度估计 -> 目标 odom）
 launch_terminal "target_perception" "
 echo '==== Starting target_perception ===='
-ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -p robot_namespace:=go2_1 -p model_path:=$YOLO_MODEL -p imgsz:=640 -p inference_rate:=8.0 -p max_image_age:=0.30
+ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -p robot_namespace:=go2_1 -p model_path:=$YOLO_MODEL -p device:=cuda:0 -p imgsz:=640 -p inference_rate:=8.0 -p max_image_age:=0.30
 "
 
 wait_for_topic "/go2_1/target_perception/debug_image"
