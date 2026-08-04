@@ -17,7 +17,7 @@ from launch.actions import (
     TimerAction,
 )
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import IfElseSubstitution, LaunchConfiguration
 from launch_ros.actions import Node, PushRosNamespace
 from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from nav2_common.launch import RewrittenYaml
@@ -68,6 +68,7 @@ def generate_launch_description():
     rviz_config = os.path.join(config_share, "rviz", "go2_1_mapping_nav.rviz")
 
     use_sim_time = LaunchConfiguration("use_sim_time")
+    use_merged_map = LaunchConfiguration("use_merged_map")
     use_sim_time_parameter = ParameterValue(use_sim_time, value_type=bool)
     cloud_topic = LaunchConfiguration("cloud_topic")
     scan_topic = LaunchConfiguration("scan_topic")
@@ -76,11 +77,30 @@ def generate_launch_description():
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     raw_cmd_vel_topic = LaunchConfiguration("raw_cmd_vel_topic")
     database_path = LaunchConfiguration("database_path")
+    nav_global_frame = IfElseSubstitution(
+        condition=use_merged_map,
+        if_value="merged_map",
+        else_value="go2_1/map",
+    )
+    nav_map_topic = IfElseSubstitution(
+        condition=use_merged_map,
+        if_value="/merged_map",
+        else_value="/go2_1/map",
+    )
     configured_nav2_params = ParameterFile(
         RewrittenYaml(
             source_file=nav2_config,
             root_key="go2_1",
-            param_rewrites={"use_sim_time": use_sim_time},
+            param_rewrites={
+                "use_sim_time": use_sim_time,
+                "bt_navigator.ros__parameters.global_frame": nav_global_frame,
+                "global_costmap.global_costmap.ros__parameters.global_frame": (
+                    nav_global_frame
+                ),
+                "global_costmap.global_costmap.ros__parameters.static_layer.map_topic": (
+                    nav_map_topic
+                ),
+            },
             convert_types=True,
         ),
         allow_substs=True,
@@ -183,7 +203,8 @@ def generate_launch_description():
         missing_root_warning
         + [
             DeclareLaunchArgument("use_sim_time", default_value="true"),
-            DeclareLaunchArgument("use_rviz", default_value="true"),
+            DeclareLaunchArgument("use_merged_map", default_value="false"),
+            DeclareLaunchArgument("use_rviz", default_value="false"),
             DeclareLaunchArgument("delete_db_on_start", default_value="true"),
             DeclareLaunchArgument(
                 "database_path",

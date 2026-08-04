@@ -20,12 +20,13 @@ usage() {
   --lidar                  三只 Go2 开启 3D Velodyne
   --camera                 三只 Go2 开启 RGB-D 相机
   --all-sensors            同时开启 3D Velodyne 和 RGB-D 相机
-  --mapping-nav            在三只 Go2 传感器就绪后启动独立建图与导航
+  --mapping-nav            启动三套建图/导航、已知位姿地图融合和统一 RViz
   -h, --help               显示本帮助
 
 可选环境变量：
   USE_GAZEBO_GUI=false     关闭 Gazebo GUI，减轻三套导航启动时的 CPU 压力
-  USE_RVIZ=false           使用 --mapping-nav 时关闭三套 RViz
+  USE_RVIZ=false           使用 --mapping-nav 时关闭统一融合 RViz
+  MERGED_MAP_TIMEOUT=120   等待 /merged_map 首条消息的秒数
 
 示例：
   ./start_three_go2_velodyne.sh
@@ -47,6 +48,7 @@ ENABLE_CAMERA=auto
 MAPPING_NAV=false
 SCENE_SET=false
 USE_GAZEBO_GUI=${USE_GAZEBO_GUI:-true}
+MERGED_MAP_TIMEOUT=${MERGED_MAP_TIMEOUT:-120}
 
 for arg in "$@"; do
     case "$arg" in
@@ -90,6 +92,10 @@ fi
 
 if [ "$USE_GAZEBO_GUI" != true ] && [ "$USE_GAZEBO_GUI" != false ]; then
     echo "ERROR: USE_GAZEBO_GUI 必须是 true 或 false。" >&2
+    exit 2
+fi
+if ! [[ "$MERGED_MAP_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: MERGED_MAP_TIMEOUT 必须为正整数秒数。" >&2
     exit 2
 fi
 
@@ -208,6 +214,20 @@ echo '${topic_name} is ready.'
 "
 }
 
+wait_for_topic_message() {
+    local topic_name=$1
+    local timeout_seconds=$2
+    echo "等待 ROS topic ${topic_name} 的首条消息（${timeout_seconds}s 超时）..."
+    if ! timeout "${timeout_seconds}" bash -c "$COMMON_ENV
+ros2 topic echo '${topic_name}' nav_msgs/msg/OccupancyGrid --once >/dev/null 2>&1
+"; then
+        echo "ERROR: 等待 ${topic_name} 首条消息超时。" >&2
+        echo "请检查 /go2_1/map、/go2_2/map、/go2_3/map 和 map_merger.log。" >&2
+        return 1
+    fi
+    echo "${topic_name} has published its first message."
+}
+
 wait_for_controllers_active() {
     local robot_name=$1
     local list_controllers_service="/${robot_name}/controller_manager/list_controllers"
@@ -272,14 +292,29 @@ if [ "$MAPPING_NAV" = true ]; then
     done
 
     mkdir -p "$WS/src/go2_mapping_nav/runtime/logs"
+    map_merger_log="$WS/src/go2_mapping_nav/runtime/logs/map_merger.log"
+    : > "$map_merger_log"
+    launch_terminal "three_go2_map_merge" "
+echo '==== Starting known-pose map merger: scene=${SCENE} ===='
+ros2 launch go2_mapping_nav three_go2_map_merge.launch.py scene:=${SCENE} use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
+"
+
+    merged_map_ready=false
     for robot_index in 1 2 3; do
         robot_name="go2_${robot_index}"
         mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
         : > "$mapping_log"
         launch_terminal "mapping_nav_${robot_name}" "
 echo '==== Starting ${robot_name} mapping and navigation ===='
-ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_rviz:=${USE_RVIZ} delete_db_on_start:=true >${mapping_log} 2>&1
+ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true >${mapping_log} 2>&1
 "
+        if [ "$merged_map_ready" = false ]; then
+            if ! wait_for_topic_message "/merged_map" "$MERGED_MAP_TIMEOUT"; then
+                echo "融合地图启动失败，停止后续 mapping-nav 启动。" >&2
+                exit 1
+            fi
+            merged_map_ready=true
+        fi
         # The action name is advertised before Nav2 has finished activating.
         # Watch the launch log instead of polling ROS lifecycle services, then
         # leave a settling interval before starting the next cold stack.
@@ -289,10 +324,17 @@ ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=tr
             "${robot_name} Nav2 lifecycle"
         wait_for_ros_action "/${robot_name}/navigate_to_pose"
         if [ "$robot_index" -lt 3 ]; then
-            echo "${robot_name} 导航已激活，等待 5 秒后启动下一套导航..."
-            sleep 5
+            echo "${robot_name} 导航已激活，等待 1 秒后启动下一套导航..."
+            sleep 1
         fi
     done
+
+    if [ "$USE_RVIZ" = true ]; then
+        launch_terminal "three_go2_mapping_rviz" "
+echo '==== Starting unified three-Go2 mapping RViz ===='
+rviz2 -d \$(ros2 pkg prefix go2_mapping_nav)/share/go2_mapping_nav/rviz/three_go2_mapping_nav.rviz
+"
+    fi
 fi
 
 echo "全部启动命令已经发出。"

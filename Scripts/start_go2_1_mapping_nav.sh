@@ -79,8 +79,8 @@ start_background_launch "${LOG_DIR}/go2_1_mapping_world.log" \
     ros2 launch go2_config gazebo_target_seek_world.launch.py \
     gui:=true "world:=${QY_MODEL_ROOT}/target_seek"
 wait_for_topic "/clock" 30
-echo "Waiting 5s for the Gazebo world to settle before spawning go2_1..."
-sleep 5
+echo "Waiting 10s for the Gazebo world to settle before spawning go2_1..."
+sleep 10
 
 start_background_launch "${LOG_DIR}/go2_1_mapping_spawn.log" \
     ros2 launch go2_config spawn_go2_velodyne_1.launch.py \
@@ -93,4 +93,5 @@ echo "Starting go2_1 online mapping and Nav2 in the foreground..."
 echo "World log: ${LOG_DIR}/go2_1_mapping_world.log"
 echo "Spawn log: ${LOG_DIR}/go2_1_mapping_spawn.log"
 ros2 launch go2_mapping_nav go2_1_mapping_nav.launch.py \
-    use_sim_time:=true "use_rviz:=${USE_RVIZ}" delete_db_on_start:=true
+    use_sim_time:=true use_merged_map:=false \
+    "use_rviz:=${USE_RVIZ}" delete_db_on_start:=true

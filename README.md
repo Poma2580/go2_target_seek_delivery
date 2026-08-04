@@ -1,14 +1,14 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.07.21**
+**Latest Updated 2026.08.04**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
 - 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只 Go2，可按需开启 3D Velodyne 和 RGB-D，相互独立控制并可用 RViz 查看数据。
-- 多狗静态围捕模式：三只 Go2 统一运行 `multi_go2_waypoint` 的 `waypoint_encircle`；city、forest、airport 均支持人工航点与比例控制，airport 还可基于离线栅格地图使用 A* 规划，最终在目标周围组成等边三角形。
-- 动态追踪模式：go2_1 用 RGB-D 相机在线视觉感知（YOLO+深度）估计行人位置并稳定跟随（单狗已实现；三狗三角编队尚未调通）。
+- 多狗静态围捕模式：三只 Go2 在三个场景 city、forest、airport 下进行导航与静态追踪，支持三种方法：1.人工航点规划，2.离线栅格地图与 A* 规划，3.RTAB建图与Nav2导航自主规划。
+- 动态围捕模式：go2_1 使用 RGB-D 相机在线视觉感知（YOLO + 深度）估计并持续跟随行人，go2_2/go2_3 基于三机融合地图和 Nav2 驶向固定分配的动态围捕槽位，形成三狗围捕。
 
 ## 版本要求
 
@@ -37,18 +37,6 @@ git pull origin main
 git checkout -b feature/姓名-修改内容
 ```
 
-主要目录应为：
-
-```text
-go2_target_seek_delivery/
-  go2_ws_v2/
-  QY_MODEL/
-    models/
-  KD_MODEL/
-    models/
-    world/
-  README.md
-```
 
 ## 第 1 步：安装依赖
 
@@ -299,26 +287,52 @@ ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
 
 
 
-## 多狗模式：三只 Go2 联合“拦截式围捕”动态行人追踪
+## 多狗模式：三只 Go2 基于建图与 Nav2 的动态行人围捕
 
-> **现状说明**：三狗联合“拦截式围捕”已**初步调通**——go2_1 用 RGB-D 相机在线视觉感知
-> （YOLO 检测 + 深度反投影）估计行人位置作为目标源，go2_1 稳定跟在行人身后做感知，
-> go2_2/go2_3 绕到行人前方后**同步冲刺合围**。
+> **现状说明**：go2_1 使用 RGB-D 相机 YOLO 检测，
+> 并在行人附近持续跟随。go2_2/go2_3 使用融合地图和
+> Nav2，根据行人估计位置及 go2_1 方位计算围捕点并导航至附近。
 
-
-一键启动（务必先 `conda deactivate`，确认 `which python3` 为 `/usr/bin/python3`）：
+一键启动（ROS 项目不要使用 conda，需确认 `which python3` 为 `/usr/bin/python3`）：
 
 ```bash
 cd $DELIVERY_ROOT/Scripts
 ./start_three_go2_dynamic_tracking.sh
 ```
 
-脚本会按顺序拉起：target_seek 世界 → go2_1（RGB-D 相机）→ go2_2/go2_3 → 行人真值桥接
-`actor_state_publisher` → 目标感知 `target_perception` → 动态追踪控制 `dynamic_encircle`
-（目标源 `/go2_1/target_estimated/odom`）→ rqt 调试图 → `perception_eval` 误差评估。
+脚本固定使用 `target_seek/city` 场景，依次启动：Gazebo 世界 → 三只 Go2（全部开启
+Velodyne，仅 go2_1 开启 RGB-D）→ 已知位姿地图融合 → 三套 RTAB-Map/Nav2 → 统一 RViz →
+行人真值桥接 `actor_state_publisher` → 目标感知 `target_perception` →
+`go2_mapping_nav/dynamic_encircle.py`（目标源 `/go2_1/target_estimated/odom`）→ RQT 调试图 →
+`perception_eval` 误差评估。上述组件就绪后，脚本最后调用 `/walking_target/start`，让行人开始运动。
 
 
 ## 模型参数说明
+
+
+### 行人走路控制
+
+先启动 Gazebo 世界：
+
+```bash
+cd $DELIVERY_ROOT
+ros2 launch go2_config gazebo_target_seek_world.launch.py
+```
+
+通过 ROS 2 服务控制行人运动：
+
+```bash
+# 启动或继续行走
+ros2 service call /walking_target/start std_srvs/srv/Trigger "{}"
+
+# 暂停行走
+ros2 service call /walking_target/pause std_srvs/srv/Trigger "{}"
+
+# 复位行人
+ros2 service call /walking_target/reset std_srvs/srv/Trigger "{}"
+```
+
+
 
 ### 机器狗
 

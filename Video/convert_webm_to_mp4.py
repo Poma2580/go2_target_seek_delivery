@@ -4,7 +4,7 @@
 Usage:
 
 cd /home/bit/go2_target_seek_delivery
-python3 Video/convert_webm_to_mp4.py dynamic_tracking_2_0708.webm
+python3 Video/convert_webm_to_mp4.py single_go2_nav2_city.webm
 
 By default, the output path is:
   - same name when input already ends with .mp4

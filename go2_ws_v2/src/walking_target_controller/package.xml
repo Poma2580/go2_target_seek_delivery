@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>walking_target_controller</name>
+  <version>0.1.0</version>
+  <description>ROS 2 services for independently controlling a Gazebo Classic actor trajectory.</description>
+
+  <maintainer email="developer@example.com">go2_target_seek_delivery</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>gazebo_dev</depend>
+  <depend>gazebo_ros</depend>
+  <depend>rclcpp</depend>
+  <depend>std_srvs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

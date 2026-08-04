@@ -2,7 +2,7 @@
 <package format="3">
   <name>go2_mapping_nav</name>
   <version>0.1.0</version>
-  <description>Go2_1 RTAB-Map online mapping and Nav2 static-goal navigation.</description>
+  <description>Multi-Go2 RTAB-Map fusion and Nav2 static-goal navigation.</description>
 
   <maintainer email="anujjain.dev@gmail.com">Anuj Jain</maintainer>
   <author>Anuj Jain</author>
@@ -32,12 +32,18 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>navigation2</exec_depend>
   <exec_depend>pointcloud_to_laserscan</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rcl_interfaces</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>rtabmap_ros</exec_depend>
   <exec_depend>rtabmap_slam</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

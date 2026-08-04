@@ -1,0 +1,334 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Merged Map1
+        - /Robots1
+      Splitter Ratio: 0.5
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Name: Tool Properties
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 100
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Alpha: 0.8
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: true
+      Enabled: true
+      Name: Merged Map
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /merged_map
+      Use Timestamp: false
+      Value: true
+    - Class: rviz_common/Group
+      Displays:
+        - Alpha: 0.35
+          Class: rviz_default_plugins/Map
+          Color Scheme: map
+          Draw Behind: false
+          Enabled: false
+          Name: go2_1 Raw Map
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/map
+          Use Timestamp: false
+          Value: false
+        - Alpha: 0.35
+          Class: rviz_default_plugins/Map
+          Color Scheme: map
+          Draw Behind: false
+          Enabled: false
+          Name: go2_2 Raw Map
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/map
+          Use Timestamp: false
+          Value: false
+        - Alpha: 0.35
+          Class: rviz_default_plugins/Map
+          Color Scheme: map
+          Draw Behind: false
+          Enabled: false
+          Name: go2_3 Raw Map
+          Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/map
+          Use Timestamp: false
+          Value: false
+      Enabled: true
+      Name: Raw Maps (optional)
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/RobotModel
+          Collision Enabled: false
+          Description Source: Topic
+          Description Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/robot_description
+          Enabled: true
+          Name: go2_1
+          TF Prefix: go2_1
+          Update Interval: 0
+          Visual Enabled: true
+        - Class: rviz_default_plugins/RobotModel
+          Collision Enabled: false
+          Description Source: Topic
+          Description Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/robot_description
+          Enabled: true
+          Name: go2_2
+          TF Prefix: go2_2
+          Update Interval: 0
+          Visual Enabled: true
+        - Class: rviz_default_plugins/RobotModel
+          Collision Enabled: false
+          Description Source: Topic
+          Description Topic:
+            Depth: 1
+            Durability Policy: Transient Local
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/robot_description
+          Enabled: true
+          Name: go2_3
+          TF Prefix: go2_3
+          Update Interval: 0
+          Visual Enabled: true
+      Enabled: true
+      Name: Robots
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/LaserScan
+          Color: 239; 71; 111
+          Color Transformer: FlatColor
+          Decay Time: 0
+          Enabled: false
+          Name: go2_1 Scan
+          Position Transformer: XYZ
+          Size (Pixels): 2
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /go2_1/scan
+          Use Fixed Frame: true
+          Value: false
+        - Class: rviz_default_plugins/LaserScan
+          Color: 255; 209; 102
+          Color Transformer: FlatColor
+          Decay Time: 0
+          Enabled: false
+          Name: go2_2 Scan
+          Position Transformer: XYZ
+          Size (Pixels): 2
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /go2_2/scan
+          Use Fixed Frame: true
+          Value: false
+        - Class: rviz_default_plugins/LaserScan
+          Color: 6; 214; 160
+          Color Transformer: FlatColor
+          Decay Time: 0
+          Enabled: false
+          Name: go2_3 Scan
+          Position Transformer: XYZ
+          Size (Pixels): 2
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /go2_3/scan
+          Use Fixed Frame: true
+          Value: false
+      Enabled: true
+      Name: LaserScans (optional)
+    - Class: rviz_common/Group
+      Displays:
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 239; 71; 111
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.04
+          Name: go2_1 Global Plan
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/plan
+          Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 255; 209; 102
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.04
+          Name: go2_2 Global Plan
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/plan
+          Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 6; 214; 160
+          Enabled: true
+          Line Style: Lines
+          Line Width: 0.04
+          Name: go2_3 Global Plan
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/plan
+          Value: true
+      Enabled: true
+      Name: Global Plans
+    - Class: rviz_common/Group
+      Displays:
+        - Alpha: 0.6
+          Class: rviz_default_plugins/Map
+          Color Scheme: costmap
+          Draw Behind: false
+          Enabled: false
+          Name: go2_1 Global Costmap
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_1/global_costmap/costmap
+          Use Timestamp: false
+          Value: false
+        - Alpha: 0.6
+          Class: rviz_default_plugins/Map
+          Color Scheme: costmap
+          Draw Behind: false
+          Enabled: false
+          Name: go2_2 Global Costmap
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_2/global_costmap/costmap
+          Use Timestamp: false
+          Value: false
+        - Alpha: 0.6
+          Class: rviz_default_plugins/Map
+          Color Scheme: costmap
+          Draw Behind: false
+          Enabled: false
+          Name: go2_3 Global Costmap
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /go2_3/global_costmap/costmap
+          Use Timestamp: false
+          Value: false
+      Enabled: true
+      Name: Global Costmaps (optional)
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+      Tree: {}
+      Update Interval: 0
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 32; 34; 37
+    Fixed Frame: merged_map
+    Frame Rate: 20
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Near Clip Distance: 0.01
+      Scale: 80
+      Target Frame: merged_map
+      Value: TopDownOrtho (rviz)
+      X: 30
+      Y: 10
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400
+  X: 40
+  Y: 40

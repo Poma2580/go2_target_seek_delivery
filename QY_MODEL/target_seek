@@ -11885,34 +11885,42 @@
       <script>
         <loop>true</loop>
         <delay_start>0</delay_start>
-        <auto_start>true</auto_start>
+        <auto_start>false</auto_start>
 
         <trajectory id="0" type="walking">
-          <!-- 矩形外扩 1m(角点 41/-13/36/4)，速度~0.35 m/s；每段两端 yaw 相同避免直行扭身，
+          <!-- 矩形外扩 1m(角点 41/-13/36/4)，速度~0.20 m/s；每段两端 yaw 相同避免直行扭身，
                拐角原地转 2s，yaw 递增(逆时针全程左转)防 270° 反转 -->
           <!-- 从 C 段终点转向后的姿态出发，按原路线继续 D->A->B->C，速度/转角耗时不变 -->
-          <!-- D 段：(-13,4)->(41,4) 向东 54m，两端 yaw=6.283(=0) -->
+          <!-- D 段：(-13,4)->(41,4) 向东 54m，54/0.20=270s，两端 yaw=6.283(=0) -->
           <waypoint><time>0</time><pose>-13 4 0 0 0 6.2832</pose></waypoint>
-          <waypoint><time>154</time><pose>41 4 0 0 0 6.2832</pose></waypoint>
+          <waypoint><time>270</time><pose>41 4 0 0 0 6.2832</pose></waypoint>
           <!-- 拐角4：原地左转 东->北 -->
-          <waypoint><time>156</time><pose>41 4 0 0 0 7.854</pose></waypoint>
+          <waypoint><time>272</time><pose>41 4 0 0 0 7.854</pose></waypoint>
 
-          <!-- A 段：(41,4)->(41,36) 向北 32m，两端 yaw=7.854(=1.57+2π) -->
-          <waypoint><time>247</time><pose>41 36 0 0 0 7.854</pose></waypoint>
+          <!-- A 段：(41,4)->(41,36) 向北 32m，32/0.20=160s，两端 yaw=7.854(=1.57+2π) -->
+          <waypoint><time>432</time><pose>41 36 0 0 0 7.854</pose></waypoint>
           <!-- 拐角1：原地左转 北->西 -->
-          <waypoint><time>249</time><pose>41 36 0 0 0 9.4248</pose></waypoint>
+          <waypoint><time>434</time><pose>41 36 0 0 0 9.4248</pose></waypoint>
 
-          <!-- B 段：(41,36)->(-13,36) 向西 54m，两端 yaw=9.425(=3.14+2π) -->
-          <waypoint><time>403</time><pose>-13 36 0 0 0 9.4248</pose></waypoint>
+          <!-- B 段：(41,36)->(-13,36) 向西 54m，54/0.20=270s，两端 yaw=9.425(=3.14+2π) -->
+          <waypoint><time>704</time><pose>-13 36 0 0 0 9.4248</pose></waypoint>
           <!-- 拐角2：原地左转 西->南 -->
-          <waypoint><time>405</time><pose>-13 36 0 0 0 10.9956</pose></waypoint>
+          <waypoint><time>706</time><pose>-13 36 0 0 0 10.9956</pose></waypoint>
 
-          <!-- C 段：(-13,36)->(-13,4) 向南 32m，两端 yaw=10.996(=4.712+2π) -->
-          <waypoint><time>496</time><pose>-13 4 0 0 0 10.9956</pose></waypoint>
+          <!-- C 段：(-13,36)->(-13,4) 向南 32m，32/0.20=160s，两端 yaw=10.996(=4.712+2π) -->
+          <waypoint><time>866</time><pose>-13 4 0 0 0 10.9956</pose></waypoint>
           <!-- 拐角3：原地左转 南->东，回到起始朝向(12.566=2π+2π)，loop 无缝 -->
-          <waypoint><time>498</time><pose>-13 4 0 0 0 12.5664</pose></waypoint>
+          <waypoint><time>868</time><pose>-13 4 0 0 0 12.5664</pose></waypoint>
         </trajectory>
       </script>
+
+      <plugin name="walking_target_controller"
+              filename="libwalking_target_controller.so">
+        <service_prefix>/walking_target</service_prefix>
+        <animation_factor>4.5</animation_factor>
+        <!-- Gazebo custom Actor 使用骨架根坐标；此补偿保持人物直立且脚部贴地。 -->
+        <actor_pose_offset>0 0 0.98 1.5707 0 1.5707</actor_pose_offset>
+      </plugin>
     </actor>
     <!-- <include>
       <name>moving_pedestrian</name>
