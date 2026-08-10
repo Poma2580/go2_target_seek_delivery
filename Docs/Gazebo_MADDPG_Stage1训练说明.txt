@@ -1,0 +1,200 @@
+Gazebo MADDPG Stage1 训练说明
+================================
+
+目标
+----
+先完成最简单 Gazebo 微调场景：
+
+1. 默认采用 ./Scripts/start_three_go2_dynamic_tracking.sh 启动后 Gazebo 中已经站稳的状态；
+2. 默认 reset_mode=none：不调用 /reset_simulation，避免四足机器人 reset 后倒地；
+3. 行人直行；
+4. go1 由训练节点内部的目标跟踪控制保持在行人后方；
+5. go2/go3 由 MADDPG 策略控制；
+6. 观测使用 28 维真实状态接口，不使用 v_cmd/w_cmd 作为观测；
+7. 动作为线加速度比例、角加速度比例，训练节点积分得到 cmd_vel。
+8. 站稳检测默认使用 roll/pitch/wz；默认不检查 odom.z，因为当前 Go2 /odom 可能是平面里程计，z 固定为 0。
+9. 默认 use_internal_training_target=true：训练节点自己发布可重置的 /maddpg_training_target/odom，行人每个 episode 从 (-8, 4) 出发，并保持 QY_MODEL/target_seek 中约 0.203 m/s 的速度直行；Gazebo 里的可视化 walking_target actor 可能继续按自身脚本运动。
+
+
+新增文件
+--------
+
+1. go2_ws_v2/src/multi_go2_waypoint/multi_go2_waypoint/gazebo_maddpg_reset.py
+
+   作用：
+   - 默认 reset_mode=none：不调用 /reset_simulation，也不调用 /gazebo/set_entity_state，只发布 0 速度并等待稳定；
+   - 可选 reset_mode=spawn：调用 /reset_simulation，回到 launch/spawn 脚本生成的初始状态；
+   - 可选 reset_mode=teleport：不调用 /reset_simulation，只用 /gazebo/set_entity_state 将 target/go1/go2/go3 移动到固定初始位姿，清零速度并等待稳定；
+   - teleport/fixed 默认 reset_pose_source=script：使用当前启动脚本中的三只狗初始状态，并使用 Gazebo Stage1 设定的训练行人起点：
+     training_target=(-8, 4), speed≈0.203 m/s；
+     go2_1=(-10, 4), go2_2=(-13, 5), go2_3=(-7, 3)；
+   - 可选 reset_pose_source=formation：使用按 target、side_dist、leader_follow_dist 推导出来的编队初始位置；
+   - 可选 target_reset_mode=respawn：每个 episode 删除旧 walking_target，再 spawn 一个新的同名 walking_target actor；这样 go1 摄像头看到的行人、/walking_target/odom、reward target 可以保持一致；
+   - 不再默认使用 /gazebo/set_entity_state 传送三只 Go2，避免四足机器人接触状态/关节状态异常导致倒地；
+   - 可选 reset_mode=fixed：才会调用 /gazebo/set_entity_state 固定设置 walking_target、go2_1、go2_2、go2_3；
+   - 清零 go1/go2/go3 的 cmd_vel。
+
+2. go2_ws_v2/src/multi_go2_waypoint/multi_go2_waypoint/gazebo_maddpg_train_stage1.py
+
+   作用：
+   - 每个 episode 自动 reset；
+   - 订阅 /go2_1/odom、/go2_2/odom、/go2_3/odom、/walking_target/odom；
+   - 默认不使用 /walking_target/odom 作为训练目标，而是使用内部可重置 target 状态并发布 /maddpg_training_target/odom；
+   - 构造 28 维观测；
+   - 加载 Python 预训练模型继续 Gazebo 微调；
+   - 发布 /go2_1/cmd_vel、/go2_2/cmd_vel、/go2_3/cmd_vel；
+   - 计算五项奖励；
+   - 打印 GPU 状态和训练进度；
+   - 保存 Gazebo 微调模型。
+
+3. go2_ws_v2/src/multi_go2_waypoint/setup.py
+
+   作用：
+   - 注册 ros2 run 命令：
+     gazebo_maddpg_reset
+     gazebo_maddpg_train_stage1
+
+
+启动前注意
+----------
+
+训练节点会发布 go1/go2/go3 的速度命令，所以不要同时运行：
+
+- dynamic_encircle
+- maddpg_follower_slot_controller
+
+否则多个节点会同时抢 /cmd_vel。
+
+如果使用 Scripts/start_three_go2_dynamic_tracking.sh 启动环境，需要手动关闭 dynamic_encircle 终端。
+
+
+手动 reset 测试
+---------------
+
+先启动 Gazebo 世界、三只 Go2、actor_state_publisher。
+
+然后运行：
+
+cd /home/wangantong/KD_all/go2_target_seek_delivery/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+ros2 run multi_go2_waypoint gazebo_maddpg_reset --ros-args \
+  -p use_sim_time:=true \
+  -p target_x:=13.50 \
+  -p target_y:=4.00 \
+  -p target_yaw:=0.0 \
+  -p target_speed:=0.25 \
+  -p side_dist:=1.20 \
+  -p leader_follow_dist:=1.80
+
+
+开始 Gazebo Stage1 微调
+----------------------
+
+cd /home/wangantong/KD_all/go2_target_seek_delivery/go2_ws_v2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+ros2 run multi_go2_waypoint gazebo_maddpg_train_stage1 --ros-args \
+  -p use_sim_time:=true \
+  -p target_odom_topic:=/walking_target/odom \
+  -p reset_mode:=none \
+  -p pretrained_model_path:=/home/wangantong/KD_all/go2_target_seek_delivery/三角形MADDPG/runs/follower_slot_tracking_v0/MADDPG/stage5_b512_usteps20_g0.99_t0.005_alr0.0003_clr0.0005_n0.25_minn0.03_h128,128_20260731_111729/best_model.pt \
+  -p total_timesteps:=20000 \
+  -p max_steps:=250 \
+  -p batch_size:=256 \
+  -p warmup_steps:=1000 \
+  -p update_every:=20 \
+  -p noise_scale:=0.12 \
+  -p min_noise:=0.02 \
+  -p control_rate:=10.0 \
+  -p side_dist:=1.20 \
+  -p leader_follow_dist:=1.80 \
+  -p follower_max_linear:=0.60 \
+  -p follower_max_angular:=0.80 \
+  -p follower_accel_lin:=0.40 \
+  -p follower_accel_ang:=0.60
+
+
+终端输出
+--------
+
+训练开始会打印：
+
+- torch version
+- cuda available
+- device
+- gpu name
+- 输出模型目录
+
+训练过程中会打印：
+
+- global step
+- episode
+- episode 内 step
+- reward_sum
+- mean_slot
+- max_slot
+- mean_yaw
+- hold
+- noise
+- replay buffer 大小
+
+
+模型保存位置
+------------
+
+默认保存到：
+
+/home/wangantong/KD_all/go2_target_seek_delivery/三角形MADDPG/runs/follower_slot_tracking_v0/GazeboMADDPG/
+
+每次训练会新建一个 gazebo_stage1_时间戳 文件夹，里面有：
+
+- best_model.pt
+- model.pt
+
+
+当前 Stage1 初始状态
+-------------------
+
+默认使用 reset_mode=none：
+
+./Scripts/start_three_go2_dynamic_tracking.sh
+
+启动后 Gazebo 中已经站稳的三只 Go2 状态。训练节点不再默认调用 /reset_simulation。
+
+如果显式设置 reset_mode=spawn，才会使用三个 spawn launch 文件给出的初始状态：
+
+go2_1:
+  来自 spawn_go2_velodyne_1.launch.py
+
+go2_2:
+  来自 spawn_go2_velodyne_2.launch.py
+
+go2_3:
+  来自 spawn_go2_velodyne_3.launch.py
+
+每个 episode reset 时调用 /reset_simulation，不硬传送三只机器狗。
+
+如果显式设置 reset_mode=fixed，才会使用下面这组手写固定状态：
+
+如果显式设置 reset_mode=teleport，也会使用下面这组手写固定状态，但不会调用 /reset_simulation。
+这用于排查四足机器人倒地是否由 /reset_simulation 导致。
+
+target:
+  x = 13.50
+  y = 4.00
+  yaw = 0.0
+  speed = 0.25 m/s
+
+go1:
+  在 target 后方 leader_follow_dist = 1.80 m
+
+go2:
+  在左槽位附近，有固定偏移，不是完全在槽位
+
+go3:
+  在右槽位附近，有固定偏移，不是完全在槽位
+
+形成稳定 Stage1 后，再进入 Stage2：go2/go3 初始位置小范围随机。

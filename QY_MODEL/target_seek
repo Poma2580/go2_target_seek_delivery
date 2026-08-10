@@ -11869,7 +11869,7 @@
     </include>
   
     <actor name="walking_target">
-      <pose>0 0 0 0 0 0</pose>
+      <pose>-8 4 0 0 0 6.2832</pose>
 
       <skin>
         <filename>model://actor/meshes/SKIN_man_blue_shirt.dae</filename>
@@ -11882,17 +11882,17 @@
         <interpolate_x>true</interpolate_x>
       </animation>
 
-      <script>
-        <loop>true</loop>
-        <delay_start>0</delay_start>
-        <auto_start>true</auto_start>
+      <!--
+        The original scripted trajectory was removed for Gazebo MADDPG
+        training.  A scripted actor is tied to simulation time, so
+        /gazebo/set_entity_state cannot reliably reset it between episodes.
+        The actor is now driven by:
 
-        <trajectory id="0" type="walking">
-        <!-- 直行测试：从 (-13, 4) 沿 x 正方向走到 (71, 4)，保持朝东 -->
-        <waypoint><time>0</time><pose>-13 4 0 0 0 6.2832</pose></waypoint>
-        <waypoint><time>464</time><pose>81 4 0 0 0 6.2832</pose></waypoint>
-        </trajectory>
-      </script>
+          ros2 run multi_go2_waypoint walking_target_actor_controller
+
+        which keeps the same YOLO-visible actor, starts from (-8, 4), and
+        moves along +x at the original speed 94 / 464 m/s.
+      -->
     </actor>
     <!-- <include>
       <name>moving_pedestrian</name>

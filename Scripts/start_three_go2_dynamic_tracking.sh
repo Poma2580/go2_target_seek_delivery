@@ -19,6 +19,19 @@ if ! command -v gnome-terminal >/dev/null 2>&1; then
     exit 1
 fi
 
+echo "==== Cleaning old ROS/Gazebo control nodes from previous runs ===="
+pkill -f "walking_target_actor_controller" 2>/dev/null || true
+pkill -f "actor_state_publisher" 2>/dev/null || true
+pkill -f "dynamic_encircle" 2>/dev/null || true
+pkill -f "gazebo_maddpg_train_stage1" 2>/dev/null || true
+pkill -f "maddpg_follower_slot_controller" 2>/dev/null || true
+pkill -f "target_perception" 2>/dev/null || true
+pkill -f "perception_eval" 2>/dev/null || true
+pkill -f "rqt_image_view" 2>/dev/null || true
+pkill -f "gzserver" 2>/dev/null || true
+pkill -f "gzclient" 2>/dev/null || true
+sleep 2
+
 COMMON_ENV="
 export DELIVERY_ROOT=$DELIVERY_ROOT
 cd $WS
@@ -87,7 +100,7 @@ echo '${robot_name} controllers are active.'
 # 终端 1：启动 target_seek 世界
 launch_terminal "go2_world" "
 echo '==== Starting target_seek world ===='
-ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true world:=$QY_MODEL_ROOT/target_seek
 "
 
 wait_for_ros_service "/spawn_entity"
@@ -131,6 +144,13 @@ ros2 launch go2_config spawn_go2_velodyne_3.launch.py enable_lidar:=false enable
 wait_for_controllers_active "go2_3"
 
 # 终端 5：启动行人真值状态广播
+launch_terminal "walking_target_controller" "
+echo '==== Starting walking_target_actor_controller ===='
+ros2 run multi_go2_waypoint walking_target_actor_controller --ros-args -p use_sim_time:=true -p start_x:=-8.0 -p start_y:=4.0 -p start_yaw:=6.2832 -p default_speed:=0.2025862069 -p auto_start:=false
+"
+
+wait_for_ros_service "/walking_target/reset"
+
 launch_terminal "actor_state" "
 echo '==== Starting actor_state_publisher ===='
 ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true

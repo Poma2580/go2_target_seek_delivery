@@ -1,0 +1,788 @@
+#!/usr/bin/env python3
+"""Runtime Gazebo controller for the 25-D leader-relative MADDPG policy.
+
+This is the test/deployment counterpart of gazebo_leader_slot_train_stage1.py:
+
+- no replay buffer,
+- no learning update,
+- no target/pedestrian odom,
+- go1 follows a predefined straight route,
+- go2/go3 use the trained 25-D leader-relative follower policy.
+"""
+
+import math
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import rclpy
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+from rclpy.node import Node
+
+
+def find_repo_root():
+    env_root = os.environ.get("DELIVERY_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+    here = Path(__file__).resolve()
+    for path in (here, *here.parents):
+        for candidate in (path, path.parent):
+            if (candidate / "三角形MADDPG").exists() and (candidate / "go2_ws_v2").exists():
+                return candidate.resolve()
+    return Path("/home/wangantong/KD_all/go2_target_seek_delivery").resolve()
+
+
+REPO_ROOT = find_repo_root()
+DEFAULT_MADDPG_ROOT = REPO_ROOT / "三角形MADDPG"
+DEFAULT_MODEL_PATH = (
+    DEFAULT_MADDPG_ROOT
+    / "runs"
+    / "leader_slot_tracking_v0"
+    / "GazeboMADDPG"
+    / "gazebo_leader_stage1_b256_usteps20_alr0.0001_clr0.0002_20260803_155731"
+    / "best_model.pt"
+)
+
+POS_SCALE = 8.0
+VEL_SCALE = 0.60
+DIST_PARAM_SCALE = 3.0
+DEFAULT_SIDE_DIST = 1.20
+DEFAULT_LEADER_FOLLOW_DIST = 1.80
+
+
+@dataclass
+class EntityState:
+    x: float = 0.0
+    y: float = 0.0
+    yaw: float = 0.0
+    vx: float = 0.0
+    vy: float = 0.0
+    wz: float = 0.0
+    received: bool = False
+    receive_time = None
+
+
+def quaternion_to_yaw(q):
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def wrap_angle(angle):
+    return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def clamp(value, lo, hi):
+    return max(lo, min(hi, value))
+
+
+def rot90(v):
+    return np.array([-v[1], v[0]], dtype=np.float32)
+
+
+def body_frame(yaw, vec):
+    c, s = math.cos(yaw), math.sin(yaw)
+    return np.array([c * vec[0] + s * vec[1], -s * vec[0] + c * vec[1]], dtype=np.float32)
+
+
+def world_vel_from_odom(state, msg, twist_in_body_frame):
+    vx = float(msg.twist.twist.linear.x)
+    vy = float(msg.twist.twist.linear.y)
+    if not twist_in_body_frame:
+        return vx, vy
+    c, s = math.cos(state.yaw), math.sin(state.yaw)
+    return c * vx - s * vy, s * vx + c * vy
+
+
+class GazeboLeaderSlotController(Node):
+    def __init__(self):
+        super().__init__("gazebo_leader_slot_controller")
+
+        self.declare_parameter("maddpg_root", str(DEFAULT_MADDPG_ROOT))
+        self.declare_parameter("model_path", str(DEFAULT_MODEL_PATH))
+        self.declare_parameter("control_rate", 10.0)
+        self.declare_parameter("odom_timeout", 1.0)
+        self.declare_parameter("odom_twist_in_body_frame", False)
+        self.declare_parameter("publish_zero_when_not_ready", True)
+
+        self.declare_parameter("control_leader", True)
+        self.declare_parameter("leader_route_speed", 0.25)
+        self.declare_parameter("leader_route_yaw", 0.0)
+        self.declare_parameter("leader_open_loop", True)
+        self.declare_parameter("leader_yaw_k", 0.0)
+        self.declare_parameter("leader_max_angular", 0.30)
+
+        self.declare_parameter("side_dist", DEFAULT_SIDE_DIST)
+        self.declare_parameter("leader_follow_dist", DEFAULT_LEADER_FOLLOW_DIST)
+        self.declare_parameter("go2_actor_index", 0)
+        self.declare_parameter("go3_actor_index", 1)
+        self.declare_parameter("follower_max_linear", 0.60)
+        self.declare_parameter("follower_max_angular", 0.80)
+        self.declare_parameter("follower_accel_lin", 0.40)
+        self.declare_parameter("follower_accel_ang", 0.60)
+        self.declare_parameter("follower_turn_slowdown", True)
+        self.declare_parameter("near_slot_action_filter", True)
+        self.declare_parameter("near_slot_filter_dist", 1.00)
+        self.declare_parameter("near_slot_ang_action_limit", 0.35)
+        self.declare_parameter("near_slot_yaw_large", 0.80)
+        self.declare_parameter("near_slot_yaw_ang_action_limit", 0.55)
+        self.declare_parameter("near_slot_action_slew", 0.35)
+        self.declare_parameter("follower_yaw_guard_enable", True)
+        self.declare_parameter("follower_yaw_guard_limit", 0.70)
+        self.declare_parameter("safety_enable", True)
+        self.declare_parameter("safety_follower_safe_dist", 0.90)
+        self.declare_parameter("safety_follower_hard_dist", 0.65)
+        self.declare_parameter("safety_leader_safe_dist", 1.10)
+        self.declare_parameter("safety_leader_hard_dist", 0.80)
+        self.declare_parameter("safety_leader_soft_slowdown", False)
+        self.declare_parameter("safety_max_angular_correction", 0.35)
+        self.declare_parameter("safety_hard_angular_correction", 0.55)
+        self.declare_parameter("safety_min_linear_scale", 0.20)
+        self.declare_parameter("safety_hard_linear", 0.08)
+
+        self.declare_parameter("dry_run", False)
+        self.declare_parameter("debug_policy", True)
+        self.declare_parameter("log_rate", 2.0)
+
+        self.maddpg_root = Path(self.get_parameter("maddpg_root").value).expanduser().resolve()
+        self.model_path = Path(self.get_parameter("model_path").value).expanduser().resolve()
+        self.rate_hz = float(self.get_parameter("control_rate").value)
+        self.dt = 1.0 / max(self.rate_hz, 1e-6)
+        self.odom_timeout = float(self.get_parameter("odom_timeout").value)
+        self.odom_twist_in_body_frame = bool(self.get_parameter("odom_twist_in_body_frame").value)
+        self.publish_zero_when_not_ready = bool(self.get_parameter("publish_zero_when_not_ready").value)
+
+        self.control_leader = bool(self.get_parameter("control_leader").value)
+        self.leader_route_speed = float(self.get_parameter("leader_route_speed").value)
+        self.leader_route_yaw = float(self.get_parameter("leader_route_yaw").value)
+        self.leader_open_loop = bool(self.get_parameter("leader_open_loop").value)
+        self.leader_yaw_k = float(self.get_parameter("leader_yaw_k").value)
+        self.leader_max_angular = float(self.get_parameter("leader_max_angular").value)
+
+        self.side_dist = float(self.get_parameter("side_dist").value)
+        self.leader_follow_dist = float(self.get_parameter("leader_follow_dist").value)
+        self.go2_actor_index = int(self.get_parameter("go2_actor_index").value)
+        self.go3_actor_index = int(self.get_parameter("go3_actor_index").value)
+        self.go2_actor_index = 0 if self.go2_actor_index <= 0 else 1
+        self.go3_actor_index = 0 if self.go3_actor_index <= 0 else 1
+        self.follower_max_linear = float(self.get_parameter("follower_max_linear").value)
+        self.follower_max_angular = float(self.get_parameter("follower_max_angular").value)
+        self.follower_accel_lin = float(self.get_parameter("follower_accel_lin").value)
+        self.follower_accel_ang = float(self.get_parameter("follower_accel_ang").value)
+        self.follower_turn_slowdown = bool(self.get_parameter("follower_turn_slowdown").value)
+        self.near_slot_action_filter = bool(self.get_parameter("near_slot_action_filter").value)
+        self.near_slot_filter_dist = float(self.get_parameter("near_slot_filter_dist").value)
+        self.near_slot_ang_action_limit = float(self.get_parameter("near_slot_ang_action_limit").value)
+        self.near_slot_yaw_large = float(self.get_parameter("near_slot_yaw_large").value)
+        self.near_slot_yaw_ang_action_limit = float(self.get_parameter("near_slot_yaw_ang_action_limit").value)
+        self.near_slot_action_slew = float(self.get_parameter("near_slot_action_slew").value)
+        self.follower_yaw_guard_enable = bool(self.get_parameter("follower_yaw_guard_enable").value)
+        self.follower_yaw_guard_limit = float(self.get_parameter("follower_yaw_guard_limit").value)
+        self.safety_enable = bool(self.get_parameter("safety_enable").value)
+        self.safety_follower_safe_dist = float(self.get_parameter("safety_follower_safe_dist").value)
+        self.safety_follower_hard_dist = float(self.get_parameter("safety_follower_hard_dist").value)
+        self.safety_leader_safe_dist = float(self.get_parameter("safety_leader_safe_dist").value)
+        self.safety_leader_hard_dist = float(self.get_parameter("safety_leader_hard_dist").value)
+        self.safety_leader_soft_slowdown = bool(self.get_parameter("safety_leader_soft_slowdown").value)
+        self.safety_max_angular_correction = float(self.get_parameter("safety_max_angular_correction").value)
+        self.safety_hard_angular_correction = float(self.get_parameter("safety_hard_angular_correction").value)
+        self.safety_min_linear_scale = float(self.get_parameter("safety_min_linear_scale").value)
+        self.safety_hard_linear = float(self.get_parameter("safety_hard_linear").value)
+
+        self.dry_run = bool(self.get_parameter("dry_run").value)
+        self.debug_policy = bool(self.get_parameter("debug_policy").value)
+        self.log_period = 1.0 / max(float(self.get_parameter("log_rate").value), 1e-6)
+        self.last_log_time = None
+        self.safety_total_ticks = 0
+        self.safety_intervention_ticks = 0
+        self.last_safety_info = {"intervened": False, "rate": 0.0}
+        self.yaw_guard_total_ticks = 0
+        self.yaw_guard_intervention_ticks = 0
+        self.last_yaw_guard_info = {
+            "enabled": bool(self.follower_yaw_guard_enable),
+            "intervened": False,
+            "rate": 0.0,
+            "agents": [
+                {"intervened": False, "yaw_rel": 0.0, "limit": self.follower_yaw_guard_limit},
+                {"intervened": False, "yaw_rel": 0.0, "limit": self.follower_yaw_guard_limit},
+            ],
+        }
+
+        self.robot_names = ("go2_1", "go2_2", "go2_3")
+        self.follower_names = ("go2_2", "go2_3")
+        self.command_names = self.robot_names if self.control_leader else self.follower_names
+        self.states = {name: EntityState() for name in self.robot_names}
+        self.last_slots = None
+        self.follower_prev_cmds = {"go2_2": [0.0, 0.0], "go2_3": [0.0, 0.0]}
+        self.follower_prev_actions = {"go2_2": [0.0, 0.0], "go2_3": [0.0, 0.0]}
+
+        self.cmd_pubs = {
+            name: self.create_publisher(Twist, f"/{name}/cmd_vel", 10)
+            for name in self.command_names
+        }
+        for name in self.robot_names:
+            self.create_subscription(
+                Odometry,
+                f"/{name}/odom",
+                lambda msg, robot_name=name: self._odom_cb(robot_name, msg),
+                10,
+            )
+
+        self.maddpg = self._load_model()
+        self.timer = self.create_timer(self.dt, self._timer_cb)
+        self.get_logger().info(
+            "gazebo_leader_slot_controller started: "
+            f"model={self.model_path}, 25-D leader-relative, "
+            f"go2_2<=actor{self.go2_actor_index}, go2_3<=actor{self.go3_actor_index}, "
+            f"control_leader={self.control_leader}, leader_open_loop={self.leader_open_loop}, "
+            f"leader_speed={self.leader_route_speed:.2f}, side_dist={self.side_dist:.2f}, "
+            f"leader_follow_dist={self.leader_follow_dist:.2f}, safety_enable={self.safety_enable}, "
+            f"near_slot_filter={self.near_slot_action_filter}, "
+            f"dry_run={self.dry_run}"
+        )
+
+    def _load_model(self):
+        if not self.maddpg_root.exists():
+            raise FileNotFoundError(f"MADDPG root not found: {self.maddpg_root}")
+        if not self.model_path.exists():
+            raise FileNotFoundError(f"MADDPG model not found: {self.model_path}")
+
+        sys.path.insert(0, str(self.maddpg_root))
+        from maddpg import MADDPG
+
+        maddpg = MADDPG(
+            state_sizes=[25, 25],
+            action_sizes=[2, 2],
+            hidden_sizes=(128, 128),
+            action_low=-1.0,
+            action_high=1.0,
+        )
+        maddpg.load(str(self.model_path))
+        return maddpg
+
+    def _odom_cb(self, name, msg):
+        state = self.states[name]
+        state.x = float(msg.pose.pose.position.x)
+        state.y = float(msg.pose.pose.position.y)
+        state.yaw = quaternion_to_yaw(msg.pose.pose.orientation)
+        state.vx, state.vy = world_vel_from_odom(state, msg, self.odom_twist_in_body_frame)
+        state.wz = float(msg.twist.twist.angular.z)
+        state.received = True
+        state.receive_time = self.get_clock().now()
+
+    def _now_age(self, receive_time):
+        if receive_time is None:
+            return float("inf")
+        return (self.get_clock().now() - receive_time).nanoseconds * 1e-9
+
+    def _data_ready(self):
+        missing = []
+        for name in self.robot_names:
+            state = self.states[name]
+            if not state.received or self._now_age(state.receive_time) > self.odom_timeout:
+                missing.append(name)
+        if missing:
+            if self.publish_zero_when_not_ready:
+                self._publish_all_zero()
+            self.get_logger().info(f"waiting for fresh odom: {', '.join(missing)}")
+            return False
+        return True
+
+    def _compute_slots(self, leader_pos, leader_yaw):
+        forward = np.array([math.cos(leader_yaw), math.sin(leader_yaw)], dtype=np.float32)
+        left = rot90(forward)
+        center = leader_pos + self.leader_follow_dist * forward
+        slots = np.zeros((2, 2), dtype=np.float32)
+        slots[0] = center + self.side_dist * left
+        slots[1] = center - self.side_dist * left
+        return slots
+
+    def _build_observations(self):
+        leader = self.states["go2_1"]
+        go2 = self.states["go2_2"]
+        go3 = self.states["go2_3"]
+        leader_pos = np.array([leader.x, leader.y], dtype=np.float32)
+        leader_vel = np.array([leader.vx, leader.vy], dtype=np.float32)
+        follower_pos = np.array([[go2.x, go2.y], [go3.x, go3.y]], dtype=np.float32)
+        follower_vel = np.array([[go2.vx, go2.vy], [go3.vx, go3.vy]], dtype=np.float32)
+        follower_yaw = np.array([go2.yaw, go3.yaw], dtype=np.float32)
+        follower_wz = np.array([go2.wz, go3.wz], dtype=np.float32)
+
+        slots = self._compute_slots(leader_pos, float(leader.yaw))
+        if self.last_slots is None:
+            self.last_slots = slots.copy()
+        slot_vel = (slots - self.last_slots) / max(self.dt, 1e-6)
+
+        observations = []
+        diagnostics = []
+        for idx in range(2):
+            other_idx = 1 - idx
+            yaw = float(follower_yaw[idx])
+            self_vel_body = body_frame(yaw, follower_vel[idx]) / VEL_SCALE
+            leader_rel = body_frame(yaw, leader_pos - follower_pos[idx]) / POS_SCALE
+            leader_rel_vel = body_frame(yaw, leader_vel - follower_vel[idx]) / VEL_SCALE
+            slot_rel = body_frame(yaw, slots[idx] - follower_pos[idx]) / POS_SCALE
+            slot_rel_vel = body_frame(yaw, slot_vel[idx] - follower_vel[idx]) / VEL_SCALE
+            other_rel = body_frame(yaw, follower_pos[other_idx] - follower_pos[idx]) / POS_SCALE
+            role = np.array([1.0, 0.0] if idx == 0 else [0.0, 1.0], dtype=np.float32)
+            slot_error = float(np.linalg.norm(slots[idx] - follower_pos[idx]))
+            formation_params = np.array(
+                [self.side_dist / DIST_PARAM_SCALE, self.leader_follow_dist / DIST_PARAM_SCALE],
+                dtype=np.float32,
+            )
+            real_motion_state = np.array(
+                [self_vel_body[0], follower_wz[idx] / max(self.follower_max_angular, 1e-6)],
+                dtype=np.float32,
+            )
+            robot_name = self.follower_names[idx]
+            prev_action = np.array(self.follower_prev_actions[robot_name], dtype=np.float32)
+            leader_yaw_rel = wrap_angle(float(leader.yaw) - yaw)
+            leader_yaw_rel_obs = np.array([math.sin(leader_yaw_rel), math.cos(leader_yaw_rel)], dtype=np.float32)
+
+            obs = np.concatenate(
+                [
+                    self_vel_body,
+                    np.array([math.sin(yaw), math.cos(yaw)], dtype=np.float32),
+                    leader_rel,
+                    leader_rel_vel,
+                    slot_rel,
+                    slot_rel_vel,
+                    other_rel,
+                    role,
+                    np.array([slot_error / POS_SCALE], dtype=np.float32),
+                    formation_params,
+                    real_motion_state,
+                    prev_action,
+                    leader_yaw_rel_obs,
+                ]
+            ).astype(np.float32)
+            observations.append(obs)
+            diagnostics.append(
+                {
+                    "slot": slots[idx],
+                    "pos": follower_pos[idx],
+                    "error_vec": slots[idx] - follower_pos[idx],
+                    "slot_error": slot_error,
+                    "yaw_error": abs(wrap_angle(float(leader.yaw) - yaw)),
+                    "real_v_body_x": float(self_vel_body[0] * self.follower_max_linear),
+                    "real_wz": float(follower_wz[idx]),
+                }
+            )
+        self.last_slots = slots.copy()
+        return observations, diagnostics
+
+    def _leader_twist(self):
+        cmd = Twist()
+        cmd.linear.x = clamp(self.leader_route_speed, 0.0, 0.60)
+        if self.leader_open_loop:
+            cmd.angular.z = 0.0
+        else:
+            leader = self.states["go2_1"]
+            yaw_error = wrap_angle(self.leader_route_yaw - leader.yaw)
+            cmd.angular.z = clamp(self.leader_yaw_k * yaw_error, -self.leader_max_angular, self.leader_max_angular)
+        return cmd
+
+    def _action_to_twist(self, robot_name, action):
+        action = np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0)
+        prev_lin, prev_ang = self.follower_prev_cmds[robot_name]
+        linear = prev_lin + float(action[0]) * self.follower_accel_lin * self.dt
+        angular = prev_ang + float(action[1]) * self.follower_accel_ang * self.dt
+        linear = clamp(linear, 0.0, self.follower_max_linear)
+        angular = clamp(angular, -self.follower_max_angular, self.follower_max_angular)
+
+        if self.follower_turn_slowdown:
+            turn_ratio = min(abs(angular) / max(self.follower_max_angular, 1e-6), 1.0)
+            linear = min(linear, self.follower_max_linear * max(0.25, 1.0 - 0.65 * turn_ratio))
+
+        self.follower_prev_cmds[robot_name] = [linear, angular]
+        self.follower_prev_actions[robot_name] = [float(action[0]), float(action[1])]
+        cmd = Twist()
+        cmd.linear.x = linear
+        cmd.angular.z = angular
+        return cmd
+
+    def _filter_near_slot_actions(self, actions, diagnostics):
+        filtered_actions = []
+        filter_infos = []
+        if not self.near_slot_action_filter:
+            for action in actions:
+                filtered_actions.append(np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0))
+                filter_infos.append({"active": False, "gate": 0.0, "ang_limit": 1.0, "slew": 0.0})
+            return filtered_actions, filter_infos
+
+        filter_dist = max(self.near_slot_filter_dist, 1e-6)
+        base_ang_limit = clamp(self.near_slot_ang_action_limit, 0.0, 1.0)
+        yaw_ang_limit = clamp(self.near_slot_yaw_ang_action_limit, base_ang_limit, 1.0)
+        max_slew = max(self.near_slot_action_slew, 0.0)
+
+        for idx, action in enumerate(actions):
+            robot_name = self.follower_names[idx]
+            raw = np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0)
+            slot_error = float(diagnostics[idx]["slot_error"])
+            yaw_error = float(diagnostics[idx]["yaw_error"])
+
+            # gate=0: far from slot, keep the original action authority.
+            # gate=1: near slot, suppress aggressive angular acceleration.
+            near_gate = float(np.clip((filter_dist - slot_error) / filter_dist, 0.0, 1.0))
+            near_ang_limit = yaw_ang_limit if yaw_error >= self.near_slot_yaw_large else base_ang_limit
+            ang_limit = (1.0 - near_gate) * 1.0 + near_gate * near_ang_limit
+
+            filtered = raw.copy()
+            filtered[1] = clamp(float(filtered[1]), -ang_limit, ang_limit)
+
+            # Action slew is also a near-slot stabilizer.  Do not apply it far
+            # from the slot; otherwise a valid catch-up command raw=(+1,+1)
+            # is artificially weakened at episode start.
+            if max_slew > 0.0 and near_gate > 1e-3:
+                prev = np.asarray(self.follower_prev_actions[robot_name], dtype=np.float32)
+                delta = np.clip(filtered - prev, -max_slew, max_slew)
+                filtered = prev + delta
+
+            filtered = np.clip(filtered, -1.0, 1.0).astype(np.float32)
+            filter_infos.append(
+                {
+                    "active": near_gate > 1e-3 or max_slew > 0.0,
+                    "gate": near_gate,
+                    "ang_limit": ang_limit,
+                    "slew": max_slew,
+                }
+            )
+            filtered_actions.append(filtered)
+        return filtered_actions, filter_infos
+
+    def _safety_pair_adjustment(self, robot_name, pos, yaw, obstacle_pos, dist, safe_dist, hard_dist, fallback_sign):
+        if dist >= safe_dist:
+            return 1.0, 0.0, False, 0.0
+
+        denom = max(safe_dist - hard_dist, 1e-6)
+        severity = float(np.clip((safe_dist - dist) / denom, 0.0, 1.0))
+        hard = dist <= hard_dist
+
+        obstacle_rel_body = body_frame(yaw, obstacle_pos - pos)
+        away_body = -obstacle_rel_body
+        away_angle = math.atan2(float(away_body[1]), float(away_body[0]))
+        steer_unit = clamp(away_angle / (0.5 * math.pi), -1.0, 1.0)
+        if abs(steer_unit) < 0.15:
+            steer_unit = fallback_sign
+
+        max_corr = self.safety_hard_angular_correction if hard else self.safety_max_angular_correction
+        angular_corr = severity * max_corr * steer_unit
+        linear_scale = max(self.safety_min_linear_scale, 1.0 - 0.80 * severity)
+        return linear_scale, angular_corr, True, severity
+
+    def _apply_safety_layer(self, cmds):
+        info = {
+            "enabled": bool(self.safety_enable),
+            "intervened": False,
+            "rate": 0.0,
+            "inter_dist": float("inf"),
+            "leader_dists": [float("inf"), float("inf")],
+            "agents": [
+                {"intervened": False, "linear_scale": 1.0, "angular_correction": 0.0, "severity": 0.0},
+                {"intervened": False, "linear_scale": 1.0, "angular_correction": 0.0, "severity": 0.0},
+            ],
+        }
+        self.safety_total_ticks += 1
+        if not self.safety_enable:
+            info["rate"] = self.safety_intervention_ticks / max(self.safety_total_ticks, 1)
+            return cmds, info
+
+        leader = self.states["go2_1"]
+        go2 = self.states["go2_2"]
+        go3 = self.states["go2_3"]
+        leader_pos = np.array([leader.x, leader.y], dtype=np.float32)
+        follower_pos = [
+            np.array([go2.x, go2.y], dtype=np.float32),
+            np.array([go3.x, go3.y], dtype=np.float32),
+        ]
+        follower_yaw = [float(go2.yaw), float(go3.yaw)]
+        inter_dist = float(np.linalg.norm(follower_pos[0] - follower_pos[1]))
+        leader_dists = [float(np.linalg.norm(p - leader_pos)) for p in follower_pos]
+        info["inter_dist"] = inter_dist
+        info["leader_dists"] = leader_dists
+
+        adjusted_cmds = []
+        for idx, cmd in enumerate(cmds):
+            other_idx = 1 - idx
+            fallback_sign = 1.0 if idx == 0 else -1.0
+            linear_scale = 1.0
+            angular_corr = 0.0
+            severity = 0.0
+            intervened = False
+
+            scale, corr, active, sev = self._safety_pair_adjustment(
+                self.follower_names[idx],
+                follower_pos[idx],
+                follower_yaw[idx],
+                follower_pos[other_idx],
+                inter_dist,
+                self.safety_follower_safe_dist,
+                self.safety_follower_hard_dist,
+                fallback_sign,
+            )
+            if active:
+                # go2/go3 slots are in front of go1.  If the leader safety
+                # layer slows a follower in the whole soft safety band, that
+                # follower can get trapped behind go1 and never pass into its
+                # slot.  Keep the soft leader avoidance as steering-only, and
+                # reserve speed reduction for the hard-danger zone.
+                if not self.safety_leader_soft_slowdown and leader_dists[idx] > self.safety_leader_hard_dist:
+                    scale = 1.0
+                linear_scale = min(linear_scale, scale)
+                angular_corr += corr
+                severity = max(severity, sev)
+                intervened = True
+
+            scale, corr, active, sev = self._safety_pair_adjustment(
+                self.follower_names[idx],
+                follower_pos[idx],
+                follower_yaw[idx],
+                leader_pos,
+                leader_dists[idx],
+                self.safety_leader_safe_dist,
+                self.safety_leader_hard_dist,
+                fallback_sign,
+            )
+            if active:
+                linear_scale = min(linear_scale, scale)
+                angular_corr += corr
+                severity = max(severity, sev)
+                intervened = True
+
+            new_cmd = Twist()
+            new_cmd.linear.x = clamp(cmd.linear.x * linear_scale, 0.0, self.follower_max_linear)
+            new_cmd.angular.z = clamp(
+                cmd.angular.z + angular_corr,
+                -self.follower_max_angular,
+                self.follower_max_angular,
+            )
+            if severity >= 1.0:
+                new_cmd.linear.x = min(new_cmd.linear.x, self.safety_hard_linear)
+
+            if intervened:
+                self.follower_prev_cmds[self.follower_names[idx]] = [new_cmd.linear.x, new_cmd.angular.z]
+                info["intervened"] = True
+            info["agents"][idx] = {
+                "intervened": intervened,
+                "linear_scale": linear_scale,
+                "angular_correction": angular_corr,
+                "severity": severity,
+            }
+            adjusted_cmds.append(new_cmd)
+
+        if info["intervened"]:
+            self.safety_intervention_ticks += 1
+        info["rate"] = self.safety_intervention_ticks / max(self.safety_total_ticks, 1)
+        return adjusted_cmds, info
+
+    def _apply_follower_yaw_guard(self, cmds):
+        limit = max(float(self.follower_yaw_guard_limit), 0.0)
+        info = {
+            "enabled": bool(self.follower_yaw_guard_enable),
+            "intervened": False,
+            "rate": 0.0,
+            "agents": [],
+        }
+
+        self.yaw_guard_total_ticks += 1
+        if not self.follower_yaw_guard_enable or limit <= 1e-6:
+            info["rate"] = self.yaw_guard_intervention_ticks / max(self.yaw_guard_total_ticks, 1)
+            for robot_name in self.follower_names:
+                yaw_rel = wrap_angle(self.states[robot_name].yaw - self.states["go2_1"].yaw)
+                info["agents"].append(
+                    {
+                        "intervened": False,
+                        "yaw_rel": float(yaw_rel),
+                        "limit": float(limit),
+                        "original_w": 0.0,
+                        "guarded_w": 0.0,
+                    }
+                )
+            self.last_yaw_guard_info = info
+            return cmds, info
+
+        adjusted_cmds = []
+        leader_yaw = self.states["go2_1"].yaw
+        for robot_name, cmd in zip(self.follower_names, cmds):
+            yaw_rel = wrap_angle(self.states[robot_name].yaw - leader_yaw)
+            original_w = float(cmd.angular.z)
+            guarded_w = original_w
+
+            # If already outside +/-limit, only allow corrective angular
+            # velocity.  If still inside, clip any command that would cross the
+            # limit during the next controller tick.
+            if yaw_rel > limit:
+                guarded_w = min(guarded_w, 0.0)
+            elif yaw_rel < -limit:
+                guarded_w = max(guarded_w, 0.0)
+            else:
+                predicted = yaw_rel + guarded_w * self.dt
+                if predicted > limit:
+                    guarded_w = min(guarded_w, (limit - yaw_rel) / max(self.dt, 1e-6))
+                elif predicted < -limit:
+                    guarded_w = max(guarded_w, (-limit - yaw_rel) / max(self.dt, 1e-6))
+
+            new_cmd = Twist()
+            new_cmd.linear.x = cmd.linear.x
+            new_cmd.angular.z = clamp(guarded_w, -self.follower_max_angular, self.follower_max_angular)
+
+            intervened = abs(new_cmd.angular.z - original_w) > 1e-6
+            if intervened:
+                info["intervened"] = True
+                # Keep the command integrator consistent with the final command.
+                self.follower_prev_cmds[robot_name][1] = float(new_cmd.angular.z)
+
+            adjusted_cmds.append(new_cmd)
+            info["agents"].append(
+                {
+                    "intervened": bool(intervened),
+                    "yaw_rel": float(yaw_rel),
+                    "limit": float(limit),
+                    "original_w": original_w,
+                    "guarded_w": float(new_cmd.angular.z),
+                }
+            )
+
+        if info["intervened"]:
+            self.yaw_guard_intervention_ticks += 1
+        info["rate"] = self.yaw_guard_intervention_ticks / max(self.yaw_guard_total_ticks, 1)
+        self.last_yaw_guard_info = info
+        return adjusted_cmds, info
+
+    def _publish_all_zero(self):
+        for name in self.follower_prev_cmds:
+            self.follower_prev_cmds[name] = [0.0, 0.0]
+            self.follower_prev_actions[name] = [0.0, 0.0]
+        zero = Twist()
+        for pub in self.cmd_pubs.values():
+            pub.publish(zero)
+
+    def _should_log(self):
+        now = self.get_clock().now()
+        if self.last_log_time is None:
+            self.last_log_time = now
+            return True
+        elapsed = (now - self.last_log_time).nanoseconds * 1e-9
+        if elapsed >= self.log_period:
+            self.last_log_time = now
+            return True
+        return False
+
+    def _timer_cb(self):
+        if not self._data_ready():
+            return
+        observations, diagnostics = self._build_observations()
+        actor_actions = [np.asarray(action, dtype=np.float32) for action in self.maddpg.act(observations, add_noise=False)]
+        actions = [
+            np.asarray(actor_actions[self.go2_actor_index], dtype=np.float32),
+            np.asarray(actor_actions[self.go3_actor_index], dtype=np.float32),
+        ]
+        if not all(np.all(np.isfinite(action)) for action in actions):
+            self.get_logger().error("MADDPG produced NaN or Inf action. Publishing zero velocity.")
+            self._publish_all_zero()
+            return
+
+        raw_actions = [action.copy() for action in actions]
+        actions, action_filter_infos = self._filter_near_slot_actions(actions, diagnostics)
+        leader_cmd = self._leader_twist() if self.control_leader else None
+        prev_cmds_snapshot = {name: list(cmd) for name, cmd in self.follower_prev_cmds.items()}
+        prev_actions_snapshot = {name: list(action) for name, action in self.follower_prev_actions.items()}
+        safety_total_snapshot = self.safety_total_ticks
+        safety_intervention_snapshot = self.safety_intervention_ticks
+        safety_info_snapshot = dict(self.last_safety_info)
+        yaw_guard_total_snapshot = self.yaw_guard_total_ticks
+        yaw_guard_intervention_snapshot = self.yaw_guard_intervention_ticks
+        yaw_guard_info_snapshot = dict(self.last_yaw_guard_info)
+        cmds = [
+            self._action_to_twist("go2_2", actions[0]),
+            self._action_to_twist("go2_3", actions[1]),
+        ]
+        cmds, safety = self._apply_safety_layer(cmds)
+        cmds, yaw_guard = self._apply_follower_yaw_guard(cmds)
+
+        if self.dry_run:
+            # Dry-run is a pure policy/diagnostic mode: show the one-step
+            # command that would be produced from the current observation, but
+            # do not let internal cmd/action integrators drift over repeated
+            # log ticks.  Otherwise a stationary dry-run can falsely appear to
+            # saturate cmd_vel only because the controller kept integrating.
+            self.follower_prev_cmds = prev_cmds_snapshot
+            self.follower_prev_actions = prev_actions_snapshot
+            self.safety_total_ticks = safety_total_snapshot
+            self.safety_intervention_ticks = safety_intervention_snapshot
+            self.last_safety_info = safety_info_snapshot
+            self.yaw_guard_total_ticks = yaw_guard_total_snapshot
+            self.yaw_guard_intervention_ticks = yaw_guard_intervention_snapshot
+            self.last_yaw_guard_info = yaw_guard_info_snapshot
+
+        if not self.dry_run:
+            if self.control_leader:
+                self.cmd_pubs["go2_1"].publish(leader_cmd)
+            self.cmd_pubs["go2_2"].publish(cmds[0])
+            self.cmd_pubs["go2_3"].publish(cmds[1])
+
+        if self._should_log():
+            d0, d1 = diagnostics
+            leader = self.states["go2_1"]
+            self.get_logger().info(
+                "\n"
+                f"[leader_slot_policy] dry_run={self.dry_run} "
+                f"go1=({leader.x:+.2f},{leader.y:+.2f}, yaw={leader.yaw:+.2f}) "
+                f"cmd=({leader_cmd.linear.x:+.2f},{leader_cmd.angular.z:+.2f}) "
+                f"safety={safety['intervened']} rate={100.0 * safety['rate']:.1f}% "
+                f"yaw_guard={yaw_guard['intervened']} "
+                f"yg_rate={100.0 * yaw_guard['rate']:.1f}% "
+                f"inter={safety['inter_dist']:.2f} "
+                f"dL=({safety['leader_dists'][0]:.2f},{safety['leader_dists'][1]:.2f})\n"
+                f"  go2_2/left actor0: pos=({d0['pos'][0]:+.2f},{d0['pos'][1]:+.2f}) "
+                f"slot=({d0['slot'][0]:+.2f},{d0['slot'][1]:+.2f}) "
+                f"err=({d0['error_vec'][0]:+.2f},{d0['error_vec'][1]:+.2f}) "
+                f"|err|={d0['slot_error']:.2f} yaw_err={d0['yaw_error']:.2f} "
+                f"raw=({raw_actions[0][0]:+.3f},{raw_actions[0][1]:+.3f}) "
+                f"action=({actions[0][0]:+.3f},{actions[0][1]:+.3f}) "
+                f"filter=(gate={action_filter_infos[0]['gate']:.2f}, "
+                f"alim={action_filter_infos[0]['ang_limit']:.2f}) "
+                f"cmd_vel=({cmds[0].linear.x:+.2f},{cmds[0].angular.z:+.2f}) "
+                f"yaw_rel={yaw_guard['agents'][0]['yaw_rel']:+.2f} "
+                f"yg=({yaw_guard['agents'][0]['intervened']}, "
+                f"w:{yaw_guard['agents'][0]['original_w']:+.2f}->{yaw_guard['agents'][0]['guarded_w']:+.2f}) "
+                f"safe=({safety['agents'][0]['intervened']}, "
+                f"scale={safety['agents'][0]['linear_scale']:.2f}, "
+                f"dw={safety['agents'][0]['angular_correction']:+.2f})\n"
+                f"  go2_3/right actor1: pos=({d1['pos'][0]:+.2f},{d1['pos'][1]:+.2f}) "
+                f"slot=({d1['slot'][0]:+.2f},{d1['slot'][1]:+.2f}) "
+                f"err=({d1['error_vec'][0]:+.2f},{d1['error_vec'][1]:+.2f}) "
+                f"|err|={d1['slot_error']:.2f} yaw_err={d1['yaw_error']:.2f} "
+                f"raw=({raw_actions[1][0]:+.3f},{raw_actions[1][1]:+.3f}) "
+                f"action=({actions[1][0]:+.3f},{actions[1][1]:+.3f}) "
+                f"filter=(gate={action_filter_infos[1]['gate']:.2f}, "
+                f"alim={action_filter_infos[1]['ang_limit']:.2f}) "
+                f"cmd_vel=({cmds[1].linear.x:+.2f},{cmds[1].angular.z:+.2f}) "
+                f"yaw_rel={yaw_guard['agents'][1]['yaw_rel']:+.2f} "
+                f"yg=({yaw_guard['agents'][1]['intervened']}, "
+                f"w:{yaw_guard['agents'][1]['original_w']:+.2f}->{yaw_guard['agents'][1]['guarded_w']:+.2f}) "
+                f"safe=({safety['agents'][1]['intervened']}, "
+                f"scale={safety['agents'][1]['linear_scale']:.2f}, "
+                f"dw={safety['agents'][1]['angular_correction']:+.2f})"
+            )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = GazeboLeaderSlotController()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node._publish_all_zero()
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
