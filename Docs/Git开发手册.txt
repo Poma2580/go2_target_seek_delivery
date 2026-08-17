@@ -29,6 +29,13 @@ git add -A
 git commit -m "..."
 把暂存区里的内容打包成一个本地提交。-m 后面是提交说明
 
+git push -u origin xhk_v1
+提交到自己的分支
+
+git switch main
+git pull --ff-only origin main
+git merge --no-ff xhk_v1 -m 
+
 git push origin main
 把本地 main 分支的新提交推送到远程仓库 origin 的 main 分支，也就是 GitHub 上。
 

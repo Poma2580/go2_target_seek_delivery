@@ -11957,6 +11957,17 @@
       <uri>model://ugv3_turtlebot3_waffle</uri>
       <pose>-14 1 0 0 0 0</pose>
     </include> -->
+
+    <!-- TurtleBot3 house.
+         Local resources: QY_MODEL/models
+         Public furniture resources: OSRF gazebo_models -->
+    <model name="turtlebot3_house_qy">
+      <static>true</static>
+      <pose>115 -20 0 0 0 0</pose>
+      <include>
+        <uri>model://turtlebot3_house</uri>
+      </include>
+    </model>
     
   </world>
 </sdf>

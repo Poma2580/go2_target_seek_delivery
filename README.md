@@ -78,7 +78,14 @@ git clone https://github.com/osrf/gazebo_models ~/.gazebo/models
 
 ```bash
 git clone https://github.com/osrf/gazebo_models ~/gazebo_models_osrf
-export GAZEBO_MODEL_PATH=~/gazebo_models_osrf:$GAZEBO_MODEL_PATH
+
+grep -qxF \
+  'export GAZEBO_MODEL_PATH="$HOME/gazebo_models_osrf:${GAZEBO_MODEL_PATH:-}"' \
+  ~/.bashrc || echo \
+  'export GAZEBO_MODEL_PATH="$HOME/gazebo_models_osrf:${GAZEBO_MODEL_PATH:-}"' \
+  >> ~/.bashrc
+
+source ~/.bashrc
 ```
 
 ## 第 3 步：写入项目环境变量
@@ -139,6 +146,7 @@ ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true r
 # 机场场景
 ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=airport gui:=true rviz:=false
 ```
+
 
 终端 2：启动键盘控制，控制时鼠标焦点需要停留在该终端窗口内：
 
