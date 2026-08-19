@@ -1,0 +1,9 @@
+/**/target_perception:
+  ros__parameters:
+    conf: 0.7
+    imgsz: 640
+    device: cuda:0
+    inference_rate: 8.0
+    max_image_age: 0.30
+    publish_debug: true
+    role_topic: /target_role/perception_robot

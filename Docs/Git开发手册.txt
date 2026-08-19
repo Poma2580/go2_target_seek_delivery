@@ -113,3 +113,8 @@ git pull --ff-only origin xhk_v1
 
 # 确认当前版本：
 git branch --show-current
+
+# 从 Git 索引移除，但保留本地文件
+git rm -r --cached -- \
+  go2_ws_v2/src/go2_mapping_nav/test \
+  go2_ws_v2/src/multi_go2_waypoint/test
