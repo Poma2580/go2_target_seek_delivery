@@ -41,6 +41,7 @@ setup(
             'target_perception = multi_go2_waypoint.target_perception:main',
             'perception_eval = multi_go2_waypoint.perception_eval:main',
             'astar_visualizer = multi_go2_waypoint.astar_visualizer:main',
+            'gazebo_leader_slot_controller = multi_go2_waypoint.gazebo_leader_slot_controller:main',
         ],
     },
 )

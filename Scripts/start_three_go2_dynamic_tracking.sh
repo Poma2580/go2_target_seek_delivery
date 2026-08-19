@@ -200,15 +200,25 @@ echo '==== Starting known-pose map merger: scene=city ===='
 ros2 launch go2_mapping_nav three_go2_map_merge.launch.py scene:=city use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
 "
 
+# 速度所有权选择器：Nav2 与 MADDPG 只能通过各自私有输入控制跟随犬。
+launch_terminal "follower_cmd_vel_mux" "
+echo '==== Starting follower command velocity mux (initial owner: Nav2) ===='
+ros2 run go2_mapping_nav follower_cmd_vel_mux.py --ros-args -p use_sim_time:=true
+"
+
 # 终端 6-8：依次启动三套 RTAB-Map + Nav2，并统一使用融合地图。
 merged_map_ready=false
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
+    nav_cmd_vel_arg=""
+    if [ "$robot_index" -ge 2 ]; then
+        nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
+    fi
     mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
     : > "$mapping_log"
     launch_terminal "mapping_nav_${robot_name}" "
 echo '==== Starting ${robot_name} mapping and navigation ===='
-ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true >${mapping_log} 2>&1
+ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true ${nav_cmd_vel_arg} >${mapping_log} 2>&1
 "
 
     if [ "$merged_map_ready" = false ]; then
@@ -252,6 +262,12 @@ ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -
 "
 
 wait_for_topic "/go2_1/target_perception/debug_image"
+
+# MADDPG 提前加载模型并等待接管信号；输出进入私有 mux 输入话题。
+launch_terminal "maddpg_follower_controller" "
+echo '==== Preloading MADDPG follower controller (disabled) ===='
+ros2 run multi_go2_waypoint gazebo_leader_slot_controller --ros-args -p use_sim_time:=true -p wait_for_enable:=true -p command_topic_suffix:=maddpg_cmd_vel
+"
 
 # 终端 12：启动基于 Nav2 的三 Go2 动态围捕。
 launch_terminal "nav2_dynamic_encircle" "

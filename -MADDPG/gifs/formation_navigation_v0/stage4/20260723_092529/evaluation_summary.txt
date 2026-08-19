@@ -1,0 +1,56 @@
+==================================================
+Formation Navigation Evaluation Summary
+==================================================
+Model Path: runs/stage4_b512_usteps20_g0.99_t0.005_alr5e-05_clr0.0005_n0.14_minn0.02_h128,128_20260430_132728/best_model.pt
+Environment: formation_navigation_v0
+Timestamp: 20260723_092529
+Total Episodes: 1
+Base seed: 42
+Episode seeds: 42 to 42
+
+agent_0 average reward: 388.72
+agent_1 average reward: 12.55
+agent_2 average reward: 62.70
+agent_3 average reward: 6.79
+
+Team Metrics:
+  Average total reward:     470.76
+  Average final mean slot error:0.0703
+  Average final formation error:0.0703
+  Average final team target dist:0.7929
+  Average agent collisions:  0.00
+  Success rate:             100.0% (1/1)
+
+Navigation Phase Metrics:
+  Navigation activation rate:       100.0%
+  Average navigation start step:    0.00
+  Average navigation steps:         70.00
+  Average NAV formation error:      0.2557
+  Average max NAV formation error:  1.7269
+
+Reward Component Averages (weighted, episode cumulative):
+  formation      Team:  -289.65 | Per-agent: [   0.   -109.51  -59.31 -120.83]
+  collision      Team:   -66.90 | Per-agent: [-29.13 -14.43 -14.48  -8.86]
+  goal           Team:   453.06 | Per-agent: [339.4   37.89  37.89  37.89]
+  step           Team:    -5.60 | Per-agent: [-1.4 -1.4 -1.4 -1.4]
+  nav_unlock_bonus Team:     0.00 | Per-agent: [0. 0. 0. 0.]
+  success_bonus  Team:   400.00 | Per-agent: [100. 100. 100. 100.]
+  recomposed_total Team:   490.91
+
+Decision Time Metrics:
+  Measured scope: maddpg.act(...) only; excludes env.step/render/GIF/file saving
+  Average decision time per step:     2.150 ms
+  Max decision time per step:         64.847 ms
+  Std decision time per step:         7.548 ms
+
+Obstacle Metrics:
+  Average obstacle collisions:        0.00
+  Obstacle termination rate:          0.0%
+  Average min obstacle dist:          0.1075
+  FORM obstacle collisions:           0.00
+  FORM obstacle termination rate:     0.0%
+  FORM min obstacle dist:             0.0000
+  NAV obstacle collisions:            0.00
+  NAV obstacle termination rate:      0.0%
+  NAV min obstacle dist:              0.1075
+==================================================

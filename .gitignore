@@ -29,3 +29,21 @@ Figure/BEV_airport.png
 
 # 离线建图包
 /go2_ws_v2/src/world_to_grid
+# ROS2 build artifacts
+build/
+install/
+log/
+
+go2_ws_v2/build/
+go2_ws_v2/install/
+go2_ws_v2/log/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# Backup archive
+go2_ws_v2.zip

@@ -11,6 +11,7 @@ install(
 install(
   PROGRAMS
     scripts/dynamic_encircle.py
+    scripts/follower_cmd_vel_mux.py
     scripts/known_pose_map_merger.py
     scripts/static_goal_nav.py
   DESTINATION lib/${PROJECT_NAME}
