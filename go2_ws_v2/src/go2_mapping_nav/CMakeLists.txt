@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 project(go2_mapping_nav)
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+
+ament_python_install_package(${PROJECT_NAME})
 
 install(
   DIRECTORY launch config rviz
@@ -37,6 +40,16 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_dynamic_encircle
     test/test_dynamic_encircle.py
+    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
+  )
+  ament_add_pytest_test(
+    test_handoff_manager
+    test/test_handoff_manager.py
+    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
+  )
+  ament_add_pytest_test(
+    test_role_aware_mux
+    test/test_role_aware_mux.py
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
 endif()

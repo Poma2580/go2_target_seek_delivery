@@ -160,14 +160,10 @@ wait_for_topic "/clock"
 echo "Gazebo 世界已就绪，等待 3 秒以完成稳定加载..."
 sleep 3
 
-# 终端 2-4：依次生成三只 Go2；全部开启 Velodyne，仅 go2_1 开启 RGB-D。
+# 终端 2-4：依次生成三只 Go2；全部开启 Velodyne 和 RGB-D。
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
-    if [ "$robot_index" -eq 1 ]; then
-        enable_camera=true
-    else
-        enable_camera=false
-    fi
+    enable_camera=true
 
     launch_terminal "spawn_${robot_name}" "
 echo '==== Spawning ${robot_name}: lidar=true, camera=${enable_camera} ===='
@@ -178,11 +174,9 @@ ros2 launch go2_config spawn_go2_velodyne_${robot_index}.launch.py scene:=city u
     wait_for_topic "/${robot_name}/velodyne_points"
     wait_for_topic "/${robot_name}/odom"
 
-    if [ "$robot_index" -eq 1 ]; then
-        wait_for_topic "/go2_1/camera/image_raw"
-        wait_for_topic "/go2_1/camera/depth/image_raw"
-        wait_for_topic "/go2_1/camera/depth/camera_info"
-    fi
+    wait_for_topic "/${robot_name}/camera/image_raw"
+    wait_for_topic "/${robot_name}/camera/depth/image_raw"
+    wait_for_topic "/${robot_name}/camera/depth/camera_info"
 
     if [ "$robot_index" -lt 3 ]; then
         echo "${robot_name} 已就绪，等待 3 秒后启动下一只 Go2..."
@@ -210,10 +204,7 @@ ros2 run go2_mapping_nav follower_cmd_vel_mux.py --ros-args -p use_sim_time:=tru
 merged_map_ready=false
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
-    nav_cmd_vel_arg=""
-    if [ "$robot_index" -ge 2 ]; then
-        nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
-    fi
+    nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
     mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
     : > "$mapping_log"
     launch_terminal "mapping_nav_${robot_name}" "
@@ -247,21 +238,21 @@ echo '==== Starting unified three-Go2 mapping RViz ===='
 rviz2 -d \$(ros2 pkg prefix go2_mapping_nav)/share/go2_mapping_nav/rviz/three_go2_mapping_nav.rviz
 "
 
-# 终端 10：启动行人真值状态广播。
-launch_terminal "actor_state" "
-echo '==== Starting actor_state_publisher ===='
-ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true
+# # 终端 10：启动行人真值状态广播。
+# launch_terminal "actor_state" "
+# echo '==== Starting actor_state_publisher ===='
+# ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true
+# "
+
+# wait_for_topic "/walking_target/odom"
+
+# 终端 11：启动三套目标感知和首次稳定发现角色选举。
+launch_terminal "three_go2_target_tracking" "
+echo '==== Starting three-Go2 target perception and role selector ===='
+ros2 launch multi_go2_waypoint three_go2_target_tracking.launch.py use_sim_time:=true model_path:=$YOLO_MODEL
 "
 
-wait_for_topic "/walking_target/odom"
-
-# 终端 11：启动目标感知（go2_1 RGB-D -> YOLO + 深度估计 -> 目标 odom）。
-launch_terminal "target_perception" "
-echo '==== Starting target_perception ===='
-ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true -p robot_namespace:=go2_1 -p model_path:=$YOLO_MODEL -p imgsz:=640 -p inference_rate:=8.0 -p max_image_age:=0.30
-"
-
-wait_for_topic "/go2_1/target_perception/debug_image"
+wait_for_topic "/target_role/perception_robot"
 
 # MADDPG 提前加载模型并等待接管信号；输出进入私有 mux 输入话题。
 launch_terminal "maddpg_follower_controller" "
@@ -272,24 +263,27 @@ ros2 run multi_go2_waypoint gazebo_leader_slot_controller --ros-args -p use_sim_
 # 终端 12：启动基于 Nav2 的三 Go2 动态围捕。
 launch_terminal "nav2_dynamic_encircle" "
 echo '==== Starting Nav2 dynamic encircle ===='
-ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p target_odom_topic:=/go2_1/target_estimated/odom
+ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
 "
 
-# 终端 13：打开 RQT 查看检测调试图。
-launch_terminal "rqt_debug_image" "
-echo '==== Starting rqt_image_view debug image ===='
-ros2 run rqt_image_view rqt_image_view /go2_1/target_perception/debug_image
-"
+# # 终端 13-15：分别打开三只狗的压缩相机。
+# for robot_index in 1 2 3; do
+#     robot_name="go2_${robot_index}"
+#     launch_terminal "rqt_image_view_${robot_name}" "
+# echo '==== Starting ${robot_name} rqt_image_view ===='
+# ros2 run rqt_image_view rqt_image_view /${robot_name}/camera/image_raw/compressed
+# "
+# done
 
-# 终端 14：启动感知误差评估。
-launch_terminal "perception_eval" "
-echo '==== Starting perception_eval ===='
-ros2 run multi_go2_waypoint perception_eval --ros-args -p use_sim_time:=true
-"
+# # 启动当前感知狗的误差评估。
+# launch_terminal "perception_eval" "
+# echo '==== Starting perception_eval ===='
+# ros2 run multi_go2_waypoint perception_eval --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
+# "
 
-wait_for_ros_service "/walking_target/start"
+# wait_for_ros_service "/walking_target/start"
 
-# 终端 15：最后启动行人运动。
+# 最后启动行人运动。
 launch_terminal "start_walking_target" "
 echo '==== Starting walking target movement ===='
 ros2 service call /walking_target/start std_srvs/srv/Trigger \"{}\"
@@ -301,8 +295,9 @@ echo "  ros2 topic list | grep -E 'go2_[123]/(velodyne_points|map)|merged_map'"
 echo "  ros2 topic echo /merged_map nav_msgs/msg/OccupancyGrid --once"
 echo "  ros2 action list | grep navigate_to_pose"
 echo "  ros2 topic echo /walking_target/odom --once"
-echo "  ros2 topic echo /go2_1/target_estimated/odom --once"
-echo "  ros2 topic list | grep -E 'go2_1/(target_perception|perception_error)'"
+echo "  ros2 topic echo /target_role/perception_robot --once"
+echo "  ros2 topic list | grep -E 'go2_[123]/(target_estimated|target_perception|perception_error)'"
 echo "  ros2 node list | grep /nav2_dynamic_encircle"
+echo "  ros2 action info /go2_1/navigate_to_pose"
 echo "  ros2 action info /go2_2/navigate_to_pose"
 echo "  ros2 action info /go2_3/navigate_to_pose"

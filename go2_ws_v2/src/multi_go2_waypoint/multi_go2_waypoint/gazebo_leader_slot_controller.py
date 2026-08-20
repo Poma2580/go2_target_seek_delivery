@@ -22,7 +22,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool
 
 
@@ -35,7 +35,7 @@ def find_repo_root():
         for candidate in (path, path.parent):
             if (candidate / "-MADDPG").exists() and (candidate / "go2_ws_v2").exists():
                 return candidate.resolve()
-    return Path("/home/zhj/wat/go2_target_seek_delivery-main").resolve()
+    return Path.cwd().resolve()
 
 
 REPO_ROOT = find_repo_root()
@@ -98,20 +98,23 @@ def world_vel_from_odom(state, msg, twist_in_body_frame):
     return c * vx - s * vy, s * vx + c * vy
 
 
-def choose_follower_slots(go2_pos, go3_pos, slots, automatic=True):
+def choose_follower_slots(follower_names, follower_positions, slots, automatic=True):
     """Return a latched robot->slot mapping and both assignment costs."""
+    follower_names = tuple(follower_names)
+    if len(follower_names) != 2 or len(follower_positions) != 2:
+        raise ValueError("exactly two followers are required")
     normal_cost = float(
-        np.linalg.norm(go2_pos - slots[0])
-        + np.linalg.norm(go3_pos - slots[1])
+        np.linalg.norm(follower_positions[0] - slots[0])
+        + np.linalg.norm(follower_positions[1] - slots[1])
     )
     swapped_cost = float(
-        np.linalg.norm(go2_pos - slots[1])
-        + np.linalg.norm(go3_pos - slots[0])
+        np.linalg.norm(follower_positions[0] - slots[1])
+        + np.linalg.norm(follower_positions[1] - slots[0])
     )
     mapping = (
-        {"go2_2": 1, "go2_3": 0}
+        {follower_names[0]: 1, follower_names[1]: 0}
         if automatic and swapped_cost < normal_cost
-        else {"go2_2": 0, "go2_3": 1}
+        else {follower_names[0]: 0, follower_names[1]: 1}
     )
     return mapping, normal_cost, swapped_cost
 
@@ -138,8 +141,9 @@ class GazeboLeaderSlotController(Node):
             "/gazebo_leader_slot_controller/set_enabled",
         )
         self.declare_parameter("command_topic_suffix", "maddpg_cmd_vel")
+        self.declare_parameter("role_topic", "/target_role/perception_robot")
+        self.declare_parameter("robot_names", ["go2_1", "go2_2", "go2_3"])
 
-        self.declare_parameter("control_leader", False)
         self.declare_parameter("leader_route_speed", 0.25)
         self.declare_parameter("leader_route_yaw", 0.0)
         self.declare_parameter("leader_open_loop", True)
@@ -148,8 +152,6 @@ class GazeboLeaderSlotController(Node):
 
         self.declare_parameter("side_dist", DEFAULT_SIDE_DIST)
         self.declare_parameter("leader_follow_dist", DEFAULT_LEADER_FOLLOW_DIST)
-        self.declare_parameter("go2_actor_index", 0)
-        self.declare_parameter("go3_actor_index", 1)
         self.declare_parameter("auto_assign_slots_on_enable", True)
         self.declare_parameter("follower_max_linear", 0.45)
         self.declare_parameter("follower_max_angular", 0.45)
@@ -194,8 +196,11 @@ class GazeboLeaderSlotController(Node):
         self.command_topic_suffix = str(
             self.get_parameter("command_topic_suffix").value
         ).strip("/")
+        self.role_topic = str(self.get_parameter("role_topic").value)
+        self.robot_names = tuple(self.get_parameter("robot_names").value)
+        if len(self.robot_names) != 3 or len(set(self.robot_names)) != 3:
+            raise ValueError("robot_names must contain three unique names")
 
-        self.control_leader = bool(self.get_parameter("control_leader").value)
         self.leader_route_speed = float(self.get_parameter("leader_route_speed").value)
         self.leader_route_yaw = float(self.get_parameter("leader_route_yaw").value)
         self.leader_open_loop = bool(self.get_parameter("leader_open_loop").value)
@@ -204,10 +209,6 @@ class GazeboLeaderSlotController(Node):
 
         self.side_dist = float(self.get_parameter("side_dist").value)
         self.leader_follow_dist = float(self.get_parameter("leader_follow_dist").value)
-        self.go2_actor_index = int(self.get_parameter("go2_actor_index").value)
-        self.go3_actor_index = int(self.get_parameter("go3_actor_index").value)
-        self.go2_actor_index = 0 if self.go2_actor_index <= 0 else 1
-        self.go3_actor_index = 0 if self.go3_actor_index <= 0 else 1
         self.auto_assign_slots_on_enable = bool(
             self.get_parameter("auto_assign_slots_on_enable").value
         )
@@ -254,16 +255,19 @@ class GazeboLeaderSlotController(Node):
             ],
         }
 
-        self.robot_names = ("go2_1", "go2_2", "go2_3")
-        self.follower_names = ("go2_2", "go2_3")
-        self.command_names = self.robot_names if self.control_leader else self.follower_names
+        self.leader_name = None
+        self.follower_names = ()
         self.states = {name: EntityState() for name in self.robot_names}
         self.last_slots = None
         # Canonical slot indices are 0=left and 1=right.  This mapping is
         # selected at each enable edge, then remains latched while active.
-        self.slot_index_by_follower = {"go2_2": 0, "go2_3": 1}
-        self.follower_prev_cmds = {"go2_2": [0.0, 0.0], "go2_3": [0.0, 0.0]}
-        self.follower_prev_actions = {"go2_2": [0.0, 0.0], "go2_3": [0.0, 0.0]}
+        self.slot_index_by_follower = {}
+        self.follower_prev_cmds = {
+            name: [0.0, 0.0] for name in self.robot_names
+        }
+        self.follower_prev_actions = {
+            name: [0.0, 0.0] for name in self.robot_names
+        }
 
         self.model_loaded = False
         self.ready = False
@@ -274,7 +278,7 @@ class GazeboLeaderSlotController(Node):
             name: self.create_publisher(
                 Twist, f"/{name}/{self.command_topic_suffix}", 10
             )
-            for name in self.command_names
+            for name in self.robot_names
         }
         for name in self.robot_names:
             self.create_subscription(
@@ -297,21 +301,28 @@ class GazeboLeaderSlotController(Node):
             self._enable_topic_cb,
             status_qos,
         )
+        self.role_sub = self.create_subscription(
+            String, self.role_topic, self._role_cb, status_qos
+        )
         self.enable_service = self.create_service(
             SetBool,
             self.set_enabled_service,
             self._set_enabled_cb,
         )
 
-        self.maddpg = self._load_model()
-        self.model_loaded = True
+        try:
+            self.maddpg = self._load_model()
+            self.model_loaded = True
+        except Exception as error:
+            self.maddpg = None
+            self.get_logger().error(f"MADDPG model unavailable: {error}")
         self._publish_status(force=True)
         self.timer = self.create_timer(self.dt, self._timer_cb)
         self.get_logger().info(
             "gazebo_leader_slot_controller started: "
             f"model={self.model_path}, 25-D leader-relative, "
-            f"go2_2<=actor{self.go2_actor_index}, go2_3<=actor{self.go3_actor_index}, "
-            f"control_leader={self.control_leader}, leader_open_loop={self.leader_open_loop}, "
+            "actors=left/right runtime roles, "
+            "leader_control=external, "
             f"leader_speed={self.leader_route_speed:.2f}, side_dist={self.side_dist:.2f}, "
             f"leader_follow_dist={self.leader_follow_dist:.2f}, safety_enable={self.safety_enable}, "
             f"near_slot_filter={self.near_slot_action_filter}, "
@@ -340,6 +351,8 @@ class GazeboLeaderSlotController(Node):
         return maddpg
 
     def _missing_fresh_odom(self):
+        if self.leader_name is None:
+            return ["perception role"]
         missing = []
         for name in self.robot_names:
             state = self.states[name]
@@ -348,7 +361,11 @@ class GazeboLeaderSlotController(Node):
         return missing
 
     def _publish_status(self, force=False):
-        ready_now = self.model_loaded and not self._missing_fresh_odom()
+        ready_now = (
+            self.model_loaded
+            and self.leader_name is not None
+            and not self._missing_fresh_odom()
+        )
         if force or ready_now != self.ready:
             self.ready = ready_now
             self.ready_pub.publish(Bool(data=self.ready))
@@ -361,28 +378,57 @@ class GazeboLeaderSlotController(Node):
             self.follower_prev_cmds[name] = [0.0, 0.0]
             self.follower_prev_actions[name] = [0.0, 0.0]
 
+    def _role_cb(self, message):
+        selected = message.data.strip("/")
+        if selected not in self.robot_names:
+            self.get_logger().warning(f"Ignoring unknown perception robot: {selected}")
+            return
+        if self.leader_name is not None:
+            if selected != self.leader_name:
+                self.get_logger().warning(
+                    f"Ignoring conflicting perception role {selected}"
+                )
+            return
+        self.leader_name = selected
+        self.follower_names = tuple(
+            name for name in self.robot_names if name != selected
+        )
+        self.slot_index_by_follower = {
+            self.follower_names[0]: 0,
+            self.follower_names[1]: 1,
+        }
+        self._publish_status(force=True)
+        self.get_logger().info(
+            f"MADDPG role locked: leader={selected}, "
+            f"followers={','.join(self.follower_names)}"
+        )
+
     def _assign_slots_for_enable(self):
         """Choose the minimum-distance left/right assignment and latch it."""
-        leader = self.states["go2_1"]
+        leader = self.states[self.leader_name]
         leader_pos = np.array([leader.x, leader.y], dtype=np.float32)
         slots = self._compute_slots(leader_pos, float(leader.yaw))
-        go2_pos = np.array(
-            [self.states["go2_2"].x, self.states["go2_2"].y],
-            dtype=np.float32,
-        )
-        go3_pos = np.array(
-            [self.states["go2_3"].x, self.states["go2_3"].y],
-            dtype=np.float32,
-        )
+        follower_positions = [
+            np.array(
+                [self.states[name].x, self.states[name].y], dtype=np.float32
+            )
+            for name in self.follower_names
+        ]
         (
             self.slot_index_by_follower,
             normal_cost,
             swapped_cost,
         ) = choose_follower_slots(
-            go2_pos,
-            go3_pos,
+            self.follower_names,
+            follower_positions,
             slots,
             automatic=self.auto_assign_slots_on_enable,
+        )
+        self.follower_names = tuple(
+            sorted(
+                self.follower_names,
+                key=self.slot_index_by_follower.__getitem__,
+            )
         )
         assignment = ", ".join(
             f"{name}->{'left' if index == 0 else 'right'}"
@@ -469,15 +515,22 @@ class GazeboLeaderSlotController(Node):
         return slots
 
     def _build_observations(self):
-        leader = self.states["go2_1"]
-        go2 = self.states["go2_2"]
-        go3 = self.states["go2_3"]
+        leader = self.states[self.leader_name]
+        followers = [self.states[name] for name in self.follower_names]
         leader_pos = np.array([leader.x, leader.y], dtype=np.float32)
         leader_vel = np.array([leader.vx, leader.vy], dtype=np.float32)
-        follower_pos = np.array([[go2.x, go2.y], [go3.x, go3.y]], dtype=np.float32)
-        follower_vel = np.array([[go2.vx, go2.vy], [go3.vx, go3.vy]], dtype=np.float32)
-        follower_yaw = np.array([go2.yaw, go3.yaw], dtype=np.float32)
-        follower_wz = np.array([go2.wz, go3.wz], dtype=np.float32)
+        follower_pos = np.array(
+            [[state.x, state.y] for state in followers], dtype=np.float32
+        )
+        follower_vel = np.array(
+            [[state.vx, state.vy] for state in followers], dtype=np.float32
+        )
+        follower_yaw = np.array(
+            [state.yaw for state in followers], dtype=np.float32
+        )
+        follower_wz = np.array(
+            [state.wz for state in followers], dtype=np.float32
+        )
 
         slots = self._compute_slots(leader_pos, float(leader.yaw))
         if self.last_slots is None:
@@ -489,7 +542,8 @@ class GazeboLeaderSlotController(Node):
         for idx in range(2):
             other_idx = 1 - idx
             robot_name = self.follower_names[idx]
-            slot_idx = self.slot_index_by_follower[robot_name]
+            # follower_names is canonical left/right order after enable.
+            slot_idx = idx
             yaw = float(follower_yaw[idx])
             self_vel_body = body_frame(yaw, follower_vel[idx]) / VEL_SCALE
             leader_rel = body_frame(yaw, leader_pos - follower_pos[idx]) / POS_SCALE
@@ -556,7 +610,7 @@ class GazeboLeaderSlotController(Node):
         if self.leader_open_loop:
             cmd.angular.z = 0.0
         else:
-            leader = self.states["go2_1"]
+            leader = self.states[self.leader_name]
             yaw_error = wrap_angle(self.leader_route_yaw - leader.yaw)
             cmd.angular.z = clamp(self.leader_yaw_k * yaw_error, -self.leader_max_angular, self.leader_max_angular)
         return cmd
@@ -666,15 +720,14 @@ class GazeboLeaderSlotController(Node):
             info["rate"] = self.safety_intervention_ticks / max(self.safety_total_ticks, 1)
             return cmds, info
 
-        leader = self.states["go2_1"]
-        go2 = self.states["go2_2"]
-        go3 = self.states["go2_3"]
+        leader = self.states[self.leader_name]
+        followers = [self.states[name] for name in self.follower_names]
         leader_pos = np.array([leader.x, leader.y], dtype=np.float32)
         follower_pos = [
-            np.array([go2.x, go2.y], dtype=np.float32),
-            np.array([go3.x, go3.y], dtype=np.float32),
+            np.array([state.x, state.y], dtype=np.float32)
+            for state in followers
         ]
-        follower_yaw = [float(go2.yaw), float(go3.yaw)]
+        follower_yaw = [float(state.yaw) for state in followers]
         inter_dist = float(np.linalg.norm(follower_pos[0] - follower_pos[1]))
         leader_dists = [float(np.linalg.norm(p - leader_pos)) for p in follower_pos]
         info["inter_dist"] = inter_dist
@@ -767,7 +820,10 @@ class GazeboLeaderSlotController(Node):
         if not self.follower_yaw_guard_enable or limit <= 1e-6:
             info["rate"] = self.yaw_guard_intervention_ticks / max(self.yaw_guard_total_ticks, 1)
             for robot_name in self.follower_names:
-                yaw_rel = wrap_angle(self.states[robot_name].yaw - self.states["go2_1"].yaw)
+                yaw_rel = wrap_angle(
+                    self.states[robot_name].yaw
+                    - self.states[self.leader_name].yaw
+                )
                 info["agents"].append(
                     {
                         "intervened": False,
@@ -781,7 +837,7 @@ class GazeboLeaderSlotController(Node):
             return cmds, info
 
         adjusted_cmds = []
-        leader_yaw = self.states["go2_1"].yaw
+        leader_yaw = self.states[self.leader_name].yaw
         for robot_name, cmd in zip(self.follower_names, cmds):
             yaw_rel = wrap_angle(self.states[robot_name].yaw - leader_yaw)
             original_w = float(cmd.angular.z)
@@ -829,12 +885,12 @@ class GazeboLeaderSlotController(Node):
         return adjusted_cmds, info
 
     def _publish_all_zero(self):
-        for name in self.follower_prev_cmds:
+        for name in self.robot_names:
             self.follower_prev_cmds[name] = [0.0, 0.0]
             self.follower_prev_actions[name] = [0.0, 0.0]
         zero = Twist()
-        for pub in self.cmd_pubs.values():
-            pub.publish(zero)
+        for name in self.follower_names:
+            self.cmd_pubs[name].publish(zero)
 
     def _should_log(self):
         now = self.get_clock().now()
@@ -866,8 +922,8 @@ class GazeboLeaderSlotController(Node):
         observations, diagnostics = self._build_observations()
         actor_actions = [np.asarray(action, dtype=np.float32) for action in self.maddpg.act(observations, add_noise=False)]
         actions = [
-            np.asarray(actor_actions[self.go2_actor_index], dtype=np.float32),
-            np.asarray(actor_actions[self.go3_actor_index], dtype=np.float32),
+            np.asarray(actor_actions[0], dtype=np.float32),
+            np.asarray(actor_actions[1], dtype=np.float32),
         ]
         if not all(np.all(np.isfinite(action)) for action in actions):
             self.get_logger().error("MADDPG produced NaN or Inf action. Publishing zero velocity.")
@@ -880,7 +936,7 @@ class GazeboLeaderSlotController(Node):
 
         raw_actions = [action.copy() for action in actions]
         actions, action_filter_infos = self._filter_near_slot_actions(actions, diagnostics)
-        leader_cmd = self._leader_twist() if self.control_leader else None
+        leader_cmd = None
         prev_cmds_snapshot = {name: list(cmd) for name, cmd in self.follower_prev_cmds.items()}
         prev_actions_snapshot = {name: list(action) for name, action in self.follower_prev_actions.items()}
         safety_total_snapshot = self.safety_total_ticks
@@ -890,8 +946,8 @@ class GazeboLeaderSlotController(Node):
         yaw_guard_intervention_snapshot = self.yaw_guard_intervention_ticks
         yaw_guard_info_snapshot = dict(self.last_yaw_guard_info)
         cmds = [
-            self._action_to_twist("go2_2", actions[0]),
-            self._action_to_twist("go2_3", actions[1]),
+            self._action_to_twist(self.follower_names[0], actions[0]),
+            self._action_to_twist(self.follower_names[1], actions[1]),
         ]
         cmds, safety = self._apply_safety_layer(cmds)
         cmds, yaw_guard = self._apply_follower_yaw_guard(cmds)
@@ -912,59 +968,28 @@ class GazeboLeaderSlotController(Node):
             self.last_yaw_guard_info = yaw_guard_info_snapshot
 
         if not self.dry_run:
-            if self.control_leader:
-                self.cmd_pubs["go2_1"].publish(leader_cmd)
-            self.cmd_pubs["go2_2"].publish(cmds[0])
-            self.cmd_pubs["go2_3"].publish(cmds[1])
+            for name, command in zip(self.follower_names, cmds):
+                self.cmd_pubs[name].publish(command)
 
         if self._should_log():
-            d0, d1 = diagnostics
-            leader = self.states["go2_1"]
-            leader_cmd_v = leader_cmd.linear.x if leader_cmd is not None else 0.0
-            leader_cmd_w = leader_cmd.angular.z if leader_cmd is not None else 0.0
-            leader_cmd_label = "external" if not self.control_leader else "cmd"
+            leader = self.states[self.leader_name]
+            follower_lines = []
+            for index, (name, diagnostic, command) in enumerate(
+                zip(self.follower_names, diagnostics, cmds)
+            ):
+                follower_lines.append(
+                    f"{name}/{diagnostic['slot_side']} actor{index}: "
+                    f"error={diagnostic['slot_error']:.2f} "
+                    f"yaw_error={diagnostic['yaw_error']:.2f} "
+                    f"cmd=({command.linear.x:+.2f},{command.angular.z:+.2f})"
+                )
             self.get_logger().info(
-                "\n"
-                f"[leader_slot_policy] dry_run={self.dry_run} "
-                f"go1=({leader.x:+.2f},{leader.y:+.2f}, yaw={leader.yaw:+.2f}) "
-                f"{leader_cmd_label}=({leader_cmd_v:+.2f},{leader_cmd_w:+.2f}) "
+                f"[leader_slot_policy] leader={self.leader_name} "
+                f"pose=({leader.x:+.2f},{leader.y:+.2f},{leader.yaw:+.2f}) "
                 f"safety={safety['intervened']} rate={100.0 * safety['rate']:.1f}% "
                 f"yaw_guard={yaw_guard['intervened']} "
-                f"yg_rate={100.0 * yaw_guard['rate']:.1f}% "
-                f"inter={safety['inter_dist']:.2f} "
-                f"dL=({safety['leader_dists'][0]:.2f},{safety['leader_dists'][1]:.2f})\n"
-                f"  go2_2/{d0['slot_side']} actor{self.go2_actor_index}: "
-                f"pos=({d0['pos'][0]:+.2f},{d0['pos'][1]:+.2f}) "
-                f"slot=({d0['slot'][0]:+.2f},{d0['slot'][1]:+.2f}) "
-                f"err=({d0['error_vec'][0]:+.2f},{d0['error_vec'][1]:+.2f}) "
-                f"|err|={d0['slot_error']:.2f} yaw_err={d0['yaw_error']:.2f} "
-                f"raw=({raw_actions[0][0]:+.3f},{raw_actions[0][1]:+.3f}) "
-                f"action=({actions[0][0]:+.3f},{actions[0][1]:+.3f}) "
-                f"filter=(gate={action_filter_infos[0]['gate']:.2f}, "
-                f"alim={action_filter_infos[0]['ang_limit']:.2f}) "
-                f"cmd_vel=({cmds[0].linear.x:+.2f},{cmds[0].angular.z:+.2f}) "
-                f"yaw_rel={yaw_guard['agents'][0]['yaw_rel']:+.2f} "
-                f"yg=({yaw_guard['agents'][0]['intervened']}, "
-                f"w:{yaw_guard['agents'][0]['original_w']:+.2f}->{yaw_guard['agents'][0]['guarded_w']:+.2f}) "
-                f"safe=({safety['agents'][0]['intervened']}, "
-                f"scale={safety['agents'][0]['linear_scale']:.2f}, "
-                f"dw={safety['agents'][0]['angular_correction']:+.2f})\n"
-                f"  go2_3/{d1['slot_side']} actor{self.go3_actor_index}: "
-                f"pos=({d1['pos'][0]:+.2f},{d1['pos'][1]:+.2f}) "
-                f"slot=({d1['slot'][0]:+.2f},{d1['slot'][1]:+.2f}) "
-                f"err=({d1['error_vec'][0]:+.2f},{d1['error_vec'][1]:+.2f}) "
-                f"|err|={d1['slot_error']:.2f} yaw_err={d1['yaw_error']:.2f} "
-                f"raw=({raw_actions[1][0]:+.3f},{raw_actions[1][1]:+.3f}) "
-                f"action=({actions[1][0]:+.3f},{actions[1][1]:+.3f}) "
-                f"filter=(gate={action_filter_infos[1]['gate']:.2f}, "
-                f"alim={action_filter_infos[1]['ang_limit']:.2f}) "
-                f"cmd_vel=({cmds[1].linear.x:+.2f},{cmds[1].angular.z:+.2f}) "
-                f"yaw_rel={yaw_guard['agents'][1]['yaw_rel']:+.2f} "
-                f"yg=({yaw_guard['agents'][1]['intervened']}, "
-                f"w:{yaw_guard['agents'][1]['original_w']:+.2f}->{yaw_guard['agents'][1]['guarded_w']:+.2f}) "
-                f"safe=({safety['agents'][1]['intervened']}, "
-                f"scale={safety['agents'][1]['linear_scale']:.2f}, "
-                f"dw={safety['agents'][1]['angular_correction']:+.2f})"
+                f"yg_rate={100.0 * yaw_guard['rate']:.1f}%\n  "
+                + "\n  ".join(follower_lines)
             )
 
 

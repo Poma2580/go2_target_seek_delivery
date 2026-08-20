@@ -4,8 +4,8 @@ bt_navigator:
     global_frame: go2_3/map
     robot_base_frame: go2_3/base_link
     odom_topic: /go2_3/odom
-    bt_loop_duration: 10
-    default_server_timeout: 20
+    bt_loop_duration: 100
+    default_server_timeout: 500
     plugin_lib_names:
       - nav2_compute_path_through_poses_action_bt_node
       - nav2_compute_path_to_pose_action_bt_node
@@ -61,13 +61,13 @@ controller_server:
 
     general_goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
-      xy_goal_tolerance: 0.8
-      yaw_goal_tolerance: 3.14
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 1.04
       stateful: true
 
     FollowPath:
       plugin: dwb_core::DWBLocalPlanner
-      debug_trajectory_details: true
+      debug_trajectory_details: false
       min_vel_x: 0.0
       min_vel_y: 0.0
       max_vel_x: 0.5
@@ -235,7 +235,7 @@ velocity_smoother:
     scale_velocities: true
     feedback: OPEN_LOOP
     max_velocity: [0.5, 0.0, 1.0]
-    min_velocity: [0.0, 0.0, -1.0]
+    min_velocity: [-0.2, 0.0, -1.0]
     max_accel: [0.5, 0.0, 0.5]
     max_decel: [-0.5, 0.0, -0.5]
     odom_topic: /go2_3/odom
