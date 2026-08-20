@@ -1,0 +1,63 @@
+###终端 1：启动完整系统
+
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_dynamic_tracking.sh
+
+  脚本会自动打开多个终端、启动三只 Go2，并最终启动行人。
+
+
+###终端 2：监控动态感知角色分配
+
+  cd $DELIVERY_ROOT
+  source /opt/ros/humble/setup.bash
+  source go2_ws_v2/install/setup.bash
+
+  ros2 topic echo \
+    /target_role/perception_robot \
+    std_msgs/msg/String \
+    --once \
+    --qos-durability transient_local
+
+###终端 3：监控阶段切换
+
+  cd $DELIVERY_ROOT
+  source /opt/ros/humble/setup.bash
+  source go2_ws_v2/install/setup.bash
+
+  ros2 topic echo \
+    /dynamic_encircle/handoff_state \
+    std_msgs/msg/String \
+    --qos-durability transient_local
+
+    完整流程是：
+    ROLE_WAIT
+    ↓
+    NAV2_ACTIVE
+    ↓
+    ARRIVAL_HOLD
+    ↓
+    NAV2_CANCELLING
+    ↓
+    WAITING_FOR_STOP
+    ↓
+    WAITING_FOR_MADDPG_READY
+    ↓
+    ENABLING_MADDPG
+    ↓
+    MADDPG_ACTIVE
+
+
+###阵型尺寸，go1相对于目标位置设定
+/home/zhj/wat/go2_target_seek_delivery-main/go2_ws_v2/src/multi_go2_waypoint/multi_go2_waypoint/gazebo_leader_slot_controller.py
+DEFAULT_SIDE_DIST = 1.80
+DEFAULT_LEADER_FOLLOW_DIST = 2.70
+
+/home/zhj/wat/go2_target_seek_delivery-main/go2_ws_v2/src/go2_mapping_nav/scripts/dynamic_encircle.py
+("formation_radius", 2.0),
+
+dynamic_encircle.py：
+go2_1 距离动态目标约 2.0 m
+
+gazebo_leader_slot_controller.py：
+go2_2/go2_3 位于 go2_1 前方 2.70 m
+左右侧向距离分别为 1.80 m

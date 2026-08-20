@@ -1,6 +1,6 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.08.04**
+**Latest Updated 2026.08.20**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
@@ -8,7 +8,7 @@
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只 Go2，可按需开启 3D Velodyne 和 RGB-D，相互独立控制并可用 RViz 查看数据。
 - 多狗静态围捕模式：三只 Go2 在三个场景 city、forest、airport 下进行导航与静态追踪，支持三种方法：1.人工航点规划，2.离线栅格地图与 A* 规划，3.RTAB建图与Nav2导航自主规划。
-- 动态围捕模式：go2_1 使用 RGB-D 相机在线视觉感知（YOLO + 深度）估计并持续跟随行人，go2_2/go2_3 基于三机融合地图和 Nav2 驶向固定分配的动态围捕槽位，形成三狗围捕。
+- 动态围捕模式：三只 Go2 均使用 RGB-D + YOLO 感知目标，最先稳定发现目标的机器人持续视觉跟踪，其余两只先由 Nav2 导航到围捕位置，再安全交接给 MADDPG 编队控制。
 
 ## 版本要求
 
@@ -308,9 +308,10 @@ ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
 
 ## 多狗模式：三只 Go2 基于建图与 Nav2 的动态行人围捕
 
-> **现状说明**：go2_1 使用 RGB-D 相机 YOLO 检测，
-> 并在行人附近持续跟随。go2_2/go2_3 使用融合地图和
-> Nav2，根据行人估计位置及 go2_1 方位计算围捕点并导航至附近。
+> **现状说明**：三只 Go2 都启用 RGB-D + YOLO 感知。首只稳定发现行人的
+> Go2 会成为感知狗并持续跟踪，另外两只作为导航狗，先通过 Nav2 到达围捕位置，
+> 停稳后自动切换到 MADDPG 左右编队控制。交接过程会检查 Nav2 取消、停车、
+> MADDPG ready/active 状态，异常时优先安全停车。
 
 一键启动（ROS 项目不要使用 conda，需确认 `which python3` 为 `/usr/bin/python3`）：
 
@@ -319,11 +320,8 @@ cd $DELIVERY_ROOT/Scripts
 ./start_three_go2_dynamic_tracking.sh
 ```
 
-脚本固定使用 `target_seek/city` 场景，依次启动：Gazebo 世界 → 三只 Go2（全部开启
-Velodyne，仅 go2_1 开启 RGB-D）→ 已知位姿地图融合 → 三套 RTAB-Map/Nav2 → 统一 RViz →
-行人真值桥接 `actor_state_publisher` → 目标感知 `target_perception` →
-`go2_mapping_nav/dynamic_encircle.py`（目标源 `/go2_1/target_estimated/odom`）→ RQT 调试图 →
-`perception_eval` 误差评估。上述组件就绪后，脚本最后调用 `/walking_target/start`，让行人开始运动。
+脚本固定使用 `target_seek/city` 场景，系统就绪后启动行人，
+并按“感知跟踪 → Nav2 靠近 → MADDPG 接管”自动运行。
 
 
 ## 模型参数说明
