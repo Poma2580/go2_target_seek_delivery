@@ -17,6 +17,8 @@ class DogState:
     received: bool = False
     previous_linear: float = 0.0
     previous_angular: float = 0.0
+    linear_speed: float = 0.0
+    angular_speed: float = 0.0
 
     def __post_init__(self):
         """没有显式 frame 时使用该机器人的 odom frame。"""

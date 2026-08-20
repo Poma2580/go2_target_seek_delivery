@@ -37,24 +37,44 @@ class EncircleConfig:
     robot_names: tuple = DOG_NAMES
     perception_robot_topic: str = "/target_role/perception_robot"
     global_frame: str = "merged_map"
+    arrival_hold_duration: float = 1.0
+    stopped_hold_duration: float = 0.5
+    stop_linear_threshold: float = 0.08
+    stop_angular_threshold: float = 0.12
+    cancel_timeout: float = 10.0
+    stop_timeout: float = 10.0
+    maddpg_ready_timeout: float = 30.0
+    maddpg_enable_timeout: float = 5.0
+    handoff_update_rate: float = 10.0
+    maddpg_ready_topic: str = "/gazebo_leader_slot_controller/ready"
+    maddpg_active_topic: str = "/gazebo_leader_slot_controller/active"
+    maddpg_enable_topic: str = "/dynamic_encircle/maddpg_enable"
+    cmd_mux_select_topic: str = "/dynamic_encircle/use_maddpg"
+    handoff_state_topic: str = "/dynamic_encircle/handoff_state"
 
     @classmethod
     def declare_and_load(cls, node):
         """Declare the existing ROS parameters and return validated values."""
         defaults = cls()
+        string_names = (
+            "perception_robot_topic",
+            "global_frame",
+            "maddpg_ready_topic",
+            "maddpg_active_topic",
+            "maddpg_enable_topic",
+            "cmd_mux_select_topic",
+            "handoff_state_topic",
+        )
         numeric_names = tuple(
             field.name
             for field in fields(cls)
-            if field.name
-            not in ("robot_names", "perception_robot_topic", "global_frame")
+            if field.name not in ("robot_names", *string_names)
         )
         for name in numeric_names:
             node.declare_parameter(name, getattr(defaults, name))
         node.declare_parameter("robot_names", list(defaults.robot_names))
-        node.declare_parameter(
-            "perception_robot_topic", defaults.perception_robot_topic
-        )
-        node.declare_parameter("global_frame", defaults.global_frame)
+        for name in string_names:
+            node.declare_parameter(name, getattr(defaults, name))
 
         values = {
             name: float(node.get_parameter(name).value)
@@ -62,10 +82,7 @@ class EncircleConfig:
         }
         values.update(
             robot_names=tuple(node.get_parameter("robot_names").value),
-            perception_robot_topic=node.get_parameter(
-                "perception_robot_topic"
-            ).value,
-            global_frame=node.get_parameter("global_frame").value,
+            **{name: node.get_parameter(name).value for name in string_names},
         )
         config = cls(**values)
         config.validate()
@@ -95,6 +112,15 @@ class EncircleConfig:
             "catch_speed",
             "catch_radius",
             "tf_timeout",
+            "arrival_hold_duration",
+            "stopped_hold_duration",
+            "stop_linear_threshold",
+            "stop_angular_threshold",
+            "cancel_timeout",
+            "stop_timeout",
+            "maddpg_ready_timeout",
+            "maddpg_enable_timeout",
+            "handoff_update_rate",
         )
         for name in positive:
             value = getattr(self, name)
@@ -110,7 +136,15 @@ class EncircleConfig:
             raise ValueError("robot_names entries must be non-empty strings")
         if len(self.robot_names) != 3 or len(set(self.robot_names)) != 3:
             raise ValueError("robot_names must contain exactly three unique names")
-        if not isinstance(self.perception_robot_topic, str) or not self.perception_robot_topic:
-            raise ValueError("perception_robot_topic must be a non-empty string")
-        if not isinstance(self.global_frame, str) or not self.global_frame:
-            raise ValueError("global_frame must be a non-empty string")
+        for name in (
+            "perception_robot_topic",
+            "global_frame",
+            "maddpg_ready_topic",
+            "maddpg_active_topic",
+            "maddpg_enable_topic",
+            "cmd_mux_select_topic",
+            "handoff_state_topic",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"{name} must be a non-empty string")

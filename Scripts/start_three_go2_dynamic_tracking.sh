@@ -204,10 +204,7 @@ ros2 run go2_mapping_nav follower_cmd_vel_mux.py --ros-args -p use_sim_time:=tru
 merged_map_ready=false
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
-    nav_cmd_vel_arg=""
-    if [ "$robot_index" -ge 2 ]; then
-        nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
-    fi
+    nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
     mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
     : > "$mapping_log"
     launch_terminal "mapping_nav_${robot_name}" "

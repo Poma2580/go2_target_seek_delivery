@@ -99,7 +99,11 @@ class NavGoalManager:
             name: ActionClient(node, NavigateToPose, f"/{name}/navigate_to_pose")
             for name in self.robot_names
         }
-        self.active_goal_handles = {name: None for name in self.robot_names}
+        self.active_goal_handles = {name: {} for name in self.robot_names}
+        self.pending_goal_sends = {name: set() for name in self.robot_names}
+        self.cancel_inflight = {name: set() for name in self.robot_names}
+        self._handoff_cancelling = False
+        self._handoff_cancel_failed = False
         self.state = GoalUpdateState(update_period)
         self.plan = None
 
@@ -145,6 +149,7 @@ class NavGoalManager:
 
         generation = self.state.mark_dispatched(now)
         for name in self.navigation_dogs:
+            self.pending_goal_sends[name].add(generation)
             point = self.plan.slots[name]
             future = self.action_clients[name].send_goal_async(
                 self._goal_message(point)
@@ -184,6 +189,32 @@ class NavGoalManager:
         self._cancel_active_goals("encirclement formed")
         return True
 
+    def begin_handoff_cancel(self):
+        """Permanently stop dispatch and settle every pending/accepted goal."""
+        if self._handoff_cancelling:
+            return False
+        self._handoff_cancelling = True
+        self._handoff_cancel_failed = False
+        self.state.complete()
+        for name in self.navigation_dogs:
+            for generation, goal_handle in tuple(
+                self.active_goal_handles[name].items()
+            ):
+                self._request_handoff_cancel(name, generation, goal_handle)
+        return True
+
+    def handoff_cancel_complete(self):
+        """Return true only after no send, cancel, or accepted goal remains."""
+        return self._handoff_cancelling and not self._handoff_cancel_failed and all(
+            not self.pending_goal_sends[name]
+            and not self.cancel_inflight[name]
+            and not self.active_goal_handles[name]
+            for name in self.navigation_dogs
+        )
+
+    def handoff_cancel_failed(self):
+        return self._handoff_cancel_failed
+
     def shutdown(self):
         """Invalidate callbacks and cancel goals before node destruction."""
         if not self.state.completed:
@@ -207,13 +238,26 @@ class NavGoalManager:
 
     def _goal_response_callback(self, name, generation, point, future):
         """Accept current handles and cancel accepted stale generations."""
+        self.pending_goal_sends[name].discard(generation)
         try:
             goal_handle = future.result()
         except Exception as error:
+            if self._handoff_cancelling:
+                self._handoff_cancel_failed = True
             if self.state.is_current(generation):
                 self.node.get_logger().error(
                     f"[nav_goal] {name} goal send failed: {error}"
                 )
+            return
+
+        if self._handoff_cancelling:
+            if goal_handle.accepted:
+                self.active_goal_handles[name][generation] = goal_handle
+                result_future = goal_handle.get_result_async()
+                result_future.add_done_callback(
+                    partial(self._goal_result_callback, name, generation)
+                )
+                self._request_handoff_cancel(name, generation, goal_handle)
             return
 
         if not self.state.is_current(generation):
@@ -227,7 +271,7 @@ class NavGoalManager:
             )
             return
 
-        self.active_goal_handles[name] = goal_handle
+        self.active_goal_handles[name][generation] = goal_handle
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(
             partial(self._goal_result_callback, name, generation)
@@ -235,9 +279,19 @@ class NavGoalManager:
 
     def _goal_result_callback(self, name, generation, future):
         """Log a current result without treating it as formation completion."""
+        self.active_goal_handles[name].pop(generation, None)
+        self.cancel_inflight[name].discard(generation)
+        if self._handoff_cancelling:
+            try:
+                future.result()
+            except Exception as error:
+                self._handoff_cancel_failed = True
+                self.node.get_logger().error(
+                    f"[nav_goal] {name} terminal result failed: {error}"
+                )
+            return
         if not self.state.is_current(generation):
             return
-        self.active_goal_handles[name] = None
         try:
             status = future.result().status
         except Exception as error:
@@ -254,10 +308,41 @@ class NavGoalManager:
     def _cancel_active_goals(self, reason):
         """Cancel and forget accepted handles for both navigation robots."""
         for name in self.navigation_dogs:
-            goal_handle = self.active_goal_handles[name]
-            if goal_handle is not None and goal_handle.accepted:
+            for generation, goal_handle in tuple(
+                self.active_goal_handles[name].items()
+            ):
                 self.node.get_logger().warning(
                     f"[nav_goal] Cancelling {name} goal: {reason}"
                 )
                 goal_handle.cancel_goal_async()
-            self.active_goal_handles[name] = None
+                self.active_goal_handles[name].pop(generation, None)
+
+    def _request_handoff_cancel(self, name, generation, goal_handle):
+        """Request cancellation once; terminal result confirms loss of control."""
+        if generation in self.cancel_inflight[name]:
+            return
+        self.cancel_inflight[name].add(generation)
+        self.node.get_logger().warning(
+            f"[nav_goal] Cancelling {name} generation {generation} for handoff"
+        )
+        try:
+            future = goal_handle.cancel_goal_async()
+            future.add_done_callback(
+                partial(self._cancel_response_callback, name, generation)
+            )
+        except Exception as error:
+            self.cancel_inflight[name].discard(generation)
+            self._handoff_cancel_failed = True
+            self.node.get_logger().error(
+                f"[nav_goal] {name} cancel request failed: {error}"
+            )
+
+    def _cancel_response_callback(self, name, generation, future):
+        self.cancel_inflight[name].discard(generation)
+        try:
+            future.result()
+        except Exception as error:
+            self._handoff_cancel_failed = True
+            self.node.get_logger().error(
+                f"[nav_goal] {name} cancel response failed: {error}"
+            )

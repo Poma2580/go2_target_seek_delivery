@@ -43,33 +43,13 @@ if(BUILD_TESTING)
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
   ament_add_pytest_test(
-    test_target_tracker
-    tests/test_target_tracker.py
+    test_handoff_manager
+    test/test_handoff_manager.py
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
   ament_add_pytest_test(
-    test_geometry
-    tests/test_geometry.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_perception_controller
-    tests/test_perception_controller.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_formation_planner
-    tests/test_formation_planner.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_nav_goal_manager
-    tests/test_nav_goal_manager.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_dynamic_encircle_node
-    tests/test_dynamic_encircle_node.py
+    test_role_aware_mux
+    test/test_role_aware_mux.py
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
 endif()

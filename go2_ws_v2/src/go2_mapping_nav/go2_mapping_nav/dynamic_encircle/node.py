@@ -9,7 +9,7 @@ from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformListener
 
 # Importing this module registers geometry_msgs conversions with tf2_ros.
@@ -19,10 +19,12 @@ from .config import EncircleConfig, LOOP_CORNERS
 from .formation_planner import FormationPlanner
 from .geometry import (
     Loop,
+    encircle_reached,
     navigation_dog_names,
     quaternion_to_yaw,
     yaw_to_quaternion_components,
 )
+from .handoff_manager import HandoffManager
 from .models import DogState, TargetSample
 from .nav_goal_manager import NavGoalManager
 from .perception_controller import PerceptionController
@@ -55,6 +57,8 @@ class DynamicEncircle(Node):
 
         self.perception_dog = None
         self.navigation_dogs = ()
+        self.maddpg_ready = False
+        self.maddpg_active = False
         self._target_lost_logged = False
         self.dogs = {
             name: DogState(name=name) for name in self.config.robot_names
@@ -93,6 +97,34 @@ class DynamicEncircle(Node):
             self._role_callback,
             role_qos,
         )
+        self.maddpg_enable_publisher = self.create_publisher(
+            Bool, self.config.maddpg_enable_topic, role_qos
+        )
+        self.mux_select_publisher = self.create_publisher(
+            Bool, self.config.cmd_mux_select_topic, role_qos
+        )
+        self.handoff_state_publisher = self.create_publisher(
+            String, self.config.handoff_state_topic, role_qos
+        )
+        self.maddpg_ready_subscription = self.create_subscription(
+            Bool,
+            self.config.maddpg_ready_topic,
+            self._maddpg_ready_callback,
+            role_qos,
+        )
+        self.maddpg_active_subscription = self.create_subscription(
+            Bool,
+            self.config.maddpg_active_topic,
+            self._maddpg_active_callback,
+            role_qos,
+        )
+        self.handoff_manager = HandoffManager(
+            self.config,
+            self.nav_goal_manager.begin_handoff_cancel,
+            self._publish_maddpg_enable,
+            self._publish_mux_select,
+            self._publish_handoff_state,
+        )
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -107,6 +139,10 @@ class DynamicEncircle(Node):
         self.nav_goal_timer = self.create_timer(
             1.0 / self.config.nav_goal_update_rate,
             self._nav_goal_timer_callback,
+        )
+        self.handoff_timer = self.create_timer(
+            1.0 / self.config.handoff_update_rate,
+            self._handoff_timer_callback,
         )
 
         self.get_logger().info(
@@ -141,6 +177,11 @@ class DynamicEncircle(Node):
         dog.yaw = quaternion_to_yaw(message.pose.pose.orientation)
         dog.frame_id = message.header.frame_id or f"{name}/odom"
         dog.last_stamp = message.header.stamp
+        dog.linear_speed = math.hypot(
+            message.twist.twist.linear.x,
+            message.twist.twist.linear.y,
+        )
+        dog.angular_speed = abs(message.twist.twist.angular.z)
         dog.received = True
 
     def _role_callback(self, message):
@@ -165,10 +206,27 @@ class DynamicEncircle(Node):
         self.perception_controller.start()
         self.nav_goal_manager.set_navigation_dogs(self.navigation_dogs)
         self.target_tracker.activate(selected, self._clock_seconds())
+        self.handoff_manager.select_role(self._clock_seconds())
         self.get_logger().info(
             "[role] locked: perception=%s navigation=%s"
             % (selected, ",".join(self.navigation_dogs))
         )
+
+    def _maddpg_ready_callback(self, message):
+        self.maddpg_ready = bool(message.data)
+
+    def _maddpg_active_callback(self, message):
+        self.maddpg_active = bool(message.data)
+
+    def _publish_maddpg_enable(self, enabled):
+        self.maddpg_enable_publisher.publish(Bool(data=bool(enabled)))
+
+    def _publish_mux_select(self, use_maddpg):
+        self.mux_select_publisher.publish(Bool(data=bool(use_maddpg)))
+
+    def _publish_handoff_state(self, state):
+        self.handoff_state_publisher.publish(String(data=state))
+        self.get_logger().info(f"[handoff] state={state}")
 
     def _target_callback(self, name, message):
         """Cache all target samples and validate the elected source frame."""
@@ -327,9 +385,6 @@ class DynamicEncircle(Node):
                     for name, index in plan.slot_indices.items()
                 )
             )
-        if plan.completed:
-            self._complete_encirclement()
-            return
         if self.nav_goal_manager.last_dispatch is None:
             if self.nav_goal_manager.dispatch_if_due(self._clock_seconds()):
                 self.nav_goal_timer.reset()
@@ -341,21 +396,46 @@ class DynamicEncircle(Node):
             return
         self.nav_goal_manager.dispatch_if_due(now)
 
-    def _complete_encirclement(self):
-        """Latch Nav2 completion while leaving direct target tracking active."""
-        if not self.nav_goal_manager.complete():
+    def _handoff_timer_callback(self):
+        """Evaluate current pose/speed snapshots and advance safe handoff."""
+        if self.perception_dog is None:
             return
-        self.get_logger().info(
-            f"[completion] {' and '.join(self.navigation_dogs)} are simultaneously "
-            f"within {self.config.success_tolerance:.2f} m of fixed slots and "
-            f"within {math.degrees(self.config.success_yaw_tolerance):.1f} deg "
-            f"of route heading; Nav2 updates stopped while "
-            f"{self.perception_dog} continues tracking"
+        now = self._clock_seconds()
+        arrived = False
+        plan = self.nav_goal_manager.plan
+        target = self.target_tracker.resolve(now)
+        if plan is not None and target is not None:
+            transformed = self._global_geometry(target)
+            if transformed is not None:
+                _, dog_poses = transformed
+                arrived = encircle_reached(
+                    {name: dog_poses[name] for name in self.navigation_dogs},
+                    plan.slots,
+                    self.config.success_tolerance,
+                    self.config.success_yaw_tolerance,
+                )
+        stopped = all(
+            self.dogs[name].received
+            and self._message_age(self.dogs[name].last_stamp)
+            <= self.config.odom_timeout
+            and self.dogs[name].linear_speed <= self.config.stop_linear_threshold
+            and self.dogs[name].angular_speed <= self.config.stop_angular_threshold
+            for name in self.navigation_dogs
+        )
+        self.handoff_manager.update(
+            now,
+            arrived=arrived,
+            stopped=stopped,
+            cancel_complete=self.nav_goal_manager.handoff_cancel_complete(),
+            cancel_failed=self.nav_goal_manager.handoff_cancel_failed(),
+            maddpg_ready=self.maddpg_ready,
+            maddpg_active=self.maddpg_active,
         )
 
     def stop(self):
         """Stop direct control and cancel Nav2 goals before shutdown."""
         if self.perception_dog is not None:
             self._publish_zero(self.perception_dog)
+        self.handoff_manager.shutdown()
         self.nav_goal_manager.shutdown()
         self.get_logger().info("[shutdown] dynamic encircle stopped")
