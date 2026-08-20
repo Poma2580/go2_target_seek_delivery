@@ -7,6 +7,7 @@ go2_ws_v2/log/
 .claude/
 __pycache__/
 *.pyc
+.pytest_cache/
 /Docs/本地启动.txt
 /Docs/Git开发手册.txt
 /Plan
@@ -23,9 +24,13 @@ __pycache__/
 /update_package
 
 # 旧图片
-Figure/2Dmap_airport.png
-Figure/A_star_Nav.png
-Figure/BEV_airport.png
-
+/Figure/2Dmap_airport.png
+/Figure/A_star_Nav.png
+/Figure/BEV_airport.png
+/Figure/Nav2_single_go2_city.png
 # 离线建图包
-/go2_ws_v2/src/world_to_grid
+/go2_ws_v2/src/world_to_grid/
+# 本地测试代码
+/go2_ws_v2/src/go2_mapping_nav/test/
+/go2_ws_v2/src/multi_go2_waypoint/test/
+/go2_ws_v2/src/go2_mapping_nav/tests/

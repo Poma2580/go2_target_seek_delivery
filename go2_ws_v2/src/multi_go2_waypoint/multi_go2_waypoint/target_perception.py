@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""单 Go2 RGB-D 在线感知节点：YOLO 检测行人 + 深度反投影 + TF 转全局。
+"""单只 Go2 RGB-D 在线感知节点：YOLO 检测行人 + 深度反投影 + TF 转全局。
 
 链路（最小闭环的第 4~7 步）：
   RGB + Depth(对齐) --YOLO--> person bbox
   bbox 中心像素 (u,v) + bbox 内 ROI 稳健深度 Z --反投影--> camera_depth_optical_frame 下 3D 点
-  --tf2--> 目标系(默认 go2_1/odom ≈ 世界系) 下的全局位置
-  --发布--> /go2_1/target_pose_estimated (PoseStamped)
-            /go2_1/target_estimated/odom (Odometry，twist 用相邻帧差分+低通)
+  --tf2--> 当前机器人 odom 下的目标位置
+  --发布--> /<robot>/target_pose_estimated (PoseStamped)
+            /<robot>/target_estimated/odom (Odometry，twist 用相邻帧差分+低通)
 
 设计要点：
 - target_estimated/odom 的字段与 actor_state_publisher 的 /walking_target/odom 完全同构，
@@ -19,7 +19,8 @@
 - depth 图每个像素存的是相机到该像素射线方向上的深度 Z，本节点统一转成“米”。
 - 相机内参 K 中 fx/fy/cx/cy 用于把像素 (u,v,Z) 还原成相机光学坐标系下的 3D 点：
     X=(u-cx)*Z/fx, Y=(v-cy)*Z/fy, Z=Z
-- TF 再负责把这个相机坐标点变换到 target_frame，默认是 go2_1/odom。
+- TF 再负责把这个相机坐标点变换到 target_frame，默认是 <robot>/odom。
+- 角色选定后，非感知狗实例会主动结束，感知狗实例持续发布。
 
 运行（先 conda deactivate，确认 which python3 为 /usr/bin/python3）：
   ros2 run multi_go2_waypoint target_perception --ros-args -p use_sim_time:=true
@@ -29,7 +30,13 @@ import numpy as np
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 
 import message_filters
 from cv_bridge import CvBridge
@@ -37,9 +44,16 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import PoseStamped, PointStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 
 import tf2_ros
 import tf2_geometry_msgs  # noqa: F401  (注册 PointStamped 的 do_transform)
+
+
+def should_exit_for_role(robot_namespace, selected_robot):
+    """Return whether this single-robot perception process is not selected."""
+    selected = selected_robot.strip('/')
+    return bool(selected) and selected != robot_namespace.strip('/')
 
 
 class TargetPerception(Node):
@@ -57,6 +71,7 @@ class TargetPerception(Node):
         self.declare_parameter('odom_topic', '')
         self.declare_parameter('debug_image_topic', '')
         self.declare_parameter('target_frame', '')        # 留空则用 <ns>/odom
+        self.declare_parameter('role_topic', '/target_role/perception_robot')
 
         self.declare_parameter('model_path', 'yolov8m.pt')  # m 比 nano 对远/小目标召回强很多
         self.declare_parameter('conf', 0.7)               # 阈值放低，捞回远处低分检测
@@ -79,6 +94,9 @@ class TargetPerception(Node):
         self.declare_parameter('publish_debug', True)
 
         ns = self.get_parameter('robot_namespace').value.strip('/')
+        if not ns:
+            raise ValueError('robot_namespace 不能为空')
+        self.robot_namespace = ns
 
         def _topic(param, default):
             # 小工具：如果用户显式传了某个话题名就用用户的；否则用默认值。
@@ -111,6 +129,9 @@ class TargetPerception(Node):
         self.alpha = float(self.get_parameter('vel_lpf_alpha').value)
         self.tf_timeout = float(self.get_parameter('tf_timeout').value)
         self.publish_debug = bool(self.get_parameter('publish_debug').value)
+        role_topic = self.get_parameter('role_topic').value
+        if not isinstance(role_topic, str) or not role_topic:
+            raise ValueError('role_topic 必须是非空字符串')
 
         # ---- YOLO ----
         model_path = self.get_parameter('model_path').value
@@ -141,6 +162,7 @@ class TargetPerception(Node):
         self._latest_rgbd = None
         self._latest_pair_id = 0
         self._processed_pair_id = -1
+        self._shutdown_requested = False
 
         # ---- TF ----
         # Buffer 保存 TF 树里的历史变换；TransformListener 负责订阅 /tf 和 /tf_static
@@ -170,11 +192,19 @@ class TargetPerception(Node):
             [rgb_sub, depth_sub], queue_size=10, slop=slop)
         self.sync.registerCallback(self._rgbd_cb)
 
+        role_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.role_sub = self.create_subscription(
+            String, role_topic, self._role_callback, role_qos)
+
         if self.inference_rate <= 0.0:
             raise ValueError(f'inference_rate 必须 > 0.0，当前={self.inference_rate}')
 
         self.infer_timer = self.create_timer(1.0 / self.inference_rate, self._process_latest_rgbd)
-
 
         self.get_logger().info(
             f'target_perception 已启动：\n'
@@ -182,7 +212,21 @@ class TargetPerception(Node):
             f'  depth = {depth_topic}\n'
             f'  info  = {info_topic}\n'
             f'  -> pose = {pose_topic}\n'
-            f'  -> odom = {odom_topic}  (frame={self.target_frame})')
+            f'  -> odom = {odom_topic}  (frame={self.target_frame})\n'
+            f'  role = {role_topic}')
+
+    def _role_callback(self, message):
+        """角色锁定后结束非感知实例，释放其独立 YOLO 进程资源。"""
+        selected = message.data.strip('/')
+        if not selected or self._shutdown_requested:
+            return
+        if not should_exit_for_role(self.robot_namespace, selected):
+            self.get_logger().info('本节点已锁定为感知狗，继续目标追踪。')
+            return
+        self._shutdown_requested = True
+        self.get_logger().info(
+            f'感知狗已锁定为 {selected}；结束 {self.robot_namespace} 感知进程。')
+        rclpy.shutdown()
 
     # -----------------------------------------------------------------
     def _info_cb(self, msg):
@@ -432,7 +476,7 @@ class TargetPerception(Node):
         odom = Odometry()
         odom.header.stamp = stamp
         odom.header.frame_id = self.target_frame
-        odom.child_frame_id = 'target_estimated'
+        odom.child_frame_id = f'{self.robot_namespace}/target_estimated'
         odom.pose.pose = pose.pose
         odom.twist.twist.linear.x = self.vx
         odom.twist.twist.linear.y = self.vy

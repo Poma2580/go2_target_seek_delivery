@@ -56,6 +56,7 @@ sudo apt install -y \
   ros-humble-rtabmap-ros \
   ros-humble-slam-toolbox \
   ros-humble-teleop-twist-keyboard \
+  ros-humble-diagnostic-updater \
   ros-humble-velodyne-description \
   ros-humble-velodyne-gazebo-plugins \
   libassimp-dev \
@@ -65,7 +66,17 @@ sudo apt install -y \
   xterm
 ```
 
-## 第 2 步：下载 OSRF/Gazebo 模型
+## 第 2 步：安装 Python 依赖
+
+运行本仓库的 ROS 节点时不要使用 conda，请使用系统 Python 安装 `requirements.txt` 中的依赖：
+
+```bash
+conda deactivate
+which python3  # 必须输出 /usr/bin/python3
+python3 -m pip install -r requirements.txt
+```
+
+## 第 3 步：下载 OSRF/Gazebo 模型
 
 如果目标机器还没有 Gazebo 官方模型缓存：
 
@@ -88,7 +99,7 @@ grep -qxF \
 source ~/.bashrc
 ```
 
-## 第 3 步：写入项目环境变量
+## 第 4 步：写入项目环境变量
 
 在项目根目录执行一次，把项目路径写入 `~/.bashrc`：
 
@@ -111,7 +122,7 @@ echo $DELIVERY_ROOT
 
 后续新开的终端会自动获得这些变量。
 
-## 第 4 步：编译
+## 第 5 步：编译
 
 编译及运行任何 ROS 命令前先退出 conda，并确认系统使用的是 `/usr/bin/python3`：
 
