@@ -115,6 +115,7 @@ def test_goal_update_state_handles_loss_recovery_and_latched_completion():
 def test_build_and_startup_integration_registers_new_node_after_perception():
     cmake = (PACKAGE_ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     assert "scripts/dynamic_encircle.py" in cmake
+    assert "scripts/follower_cmd_vel_mux.py" in cmake
     assert "test/test_dynamic_encircle.py" in cmake
 
     start_script = (
@@ -125,3 +126,7 @@ def test_build_and_startup_integration_registers_new_node_after_perception():
     rqt = start_script.index("ros2 run rqt_image_view rqt_image_view")
     assert perception < dynamic < rqt
     assert "ros2 run multi_go2_waypoint dynamic_encircle" not in start_script
+    assert "ros2 run go2_mapping_nav follower_cmd_vel_mux.py" in start_script
+    assert "ros2 run multi_go2_waypoint gazebo_leader_slot_controller" in start_script
+    assert 'if [ "$robot_index" -ge 2 ]' in start_script
+    assert 'nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"' in start_script
