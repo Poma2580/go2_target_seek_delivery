@@ -61,3 +61,30 @@ go2_1 距离动态目标约 2.0 m
 gazebo_leader_slot_controller.py：
 go2_2/go2_3 位于 go2_1 前方 2.70 m
 左右侧向距离分别为 1.80 m
+
+
+训练集：
+robots:
+  go2_1:
+    spawn: {x: -20.0, y: 4.0, z: 0.30, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+  go2_2:
+    spawn: {x: -20.0, y: 8.0, z: 0.30, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+  go2_3:
+    spawn: {x: -20.0, y: -2.0, z: 0.30, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+
+测试集：
+
+| Robot | x | y | z | yaw |
+|---|---:|---:|---:|---:|
+| `go2_1` | -20.0 | 8.0 | 0.30 | -0.5 |
+| `go2_2` | 10.0 | -17.0 | 0.30 | 0.0 |
+| `go2_3` | 60.0 | 10.0 | 0.30 | 0.0 |
+
+| Robot | x | y | z | yaw |
+|---|---:|---:|---:|---:|
+| `go2_1` | -30.0 | -10.0 | 0.30 | -1.5478 |
+| `go2_2` | -20.0 | 4.0 | 0.30 | 0.0 |
+| `go2_3` | -5.0 | 30.0 | 0.30 | 0.0 |

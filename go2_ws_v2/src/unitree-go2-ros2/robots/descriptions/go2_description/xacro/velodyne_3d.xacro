@@ -58,11 +58,11 @@
         <sensor name="velodyne-VLP16" type="ray">
             <pose>0 0 0 0 0 0</pose>
             <visualize>false</visualize>
-            <update_rate>10</update_rate>
+            <update_rate>5</update_rate>
             <ray>
                 <scan>
                     <horizontal>
-                        <samples>440</samples>
+                        <samples>220</samples>
                         <resolution>1</resolution>
                         <min_angle>-3.141592653589793</min_angle>
                         <max_angle>3.141592653589793</max_angle>

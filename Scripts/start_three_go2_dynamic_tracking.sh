@@ -4,11 +4,16 @@
 set -u
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 DELIVERY_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
 MERGED_MAP_TIMEOUT=${MERGED_MAP_TIMEOUT:-120}
+GO2_RESTART_COUNT=${GO2_RESTART_COUNT:-0}
+MAX_GO2_RESTARTS=${MAX_GO2_RESTARTS:-3}
+RUN_ID="go2_tracking_$$_${GO2_RESTART_COUNT}_$(date +%s%N)"
+PID_DIR="$WS/src/go2_mapping_nav/runtime/pids/$RUN_ID"
 
 if [ ! -f "$YOLO_MODEL" ]; then
     echo "ERROR: YOLO model not found: $YOLO_MODEL"
@@ -30,6 +35,18 @@ if ! [[ "$MERGED_MAP_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
     exit 2
 fi
 
+if ! [[ "$GO2_RESTART_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: GO2_RESTART_COUNT must be a non-negative integer."
+    exit 2
+fi
+
+if ! [[ "$MAX_GO2_RESTARTS" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: MAX_GO2_RESTARTS must be a non-negative integer."
+    exit 2
+fi
+
+mkdir -p "$PID_DIR"
+
 COMMON_ENV="
 export DELIVERY_ROOT=$DELIVERY_ROOT
 cd $WS
@@ -45,9 +62,97 @@ export GAZEBO_MODEL_PATH=\$QY_MODEL_ROOT/models:\$GAZEBO_MODEL_PATH
 export GAZEBO_MODEL_DATABASE_URI=\"\"
 "
 
+collect_process_tree() {
+    local parent_pid=$1
+    local child_pid
+
+    while IFS= read -r child_pid; do
+        [ -n "$child_pid" ] || continue
+        collect_process_tree "$child_pid"
+    done < <(pgrep -P "$parent_pid" 2>/dev/null || true)
+    PROCESS_TREE+=("$parent_pid")
+}
+
+pid_belongs_to_current_run() {
+    local pid=$1
+    [ -r "/proc/$pid/environ" ] || return 1
+    tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null \
+        | grep -Fxq "GO2_TRACKING_RUN_ID=$RUN_ID"
+}
+
+cleanup_current_run() {
+    local pid_file
+    local root_pid
+    local pid
+    local deadline
+    local still_running=false
+    local -a PROCESS_TREE=()
+
+    [ -d "$PID_DIR" ] || return 0
+    echo "正在清理本轮启动的 ROS/Gazebo 进程（run_id=$RUN_ID）..."
+
+    for pid_file in "$PID_DIR"/*.pid; do
+        [ -e "$pid_file" ] || continue
+        read -r root_pid < "$pid_file" || continue
+        if ! [[ "$root_pid" =~ ^[1-9][0-9]*$ ]]; then
+            echo "WARNING: 忽略无效 PID 文件：$pid_file" >&2
+            continue
+        fi
+        if ! kill -0 "$root_pid" 2>/dev/null; then
+            continue
+        fi
+        if ! pid_belongs_to_current_run "$root_pid"; then
+            echo "WARNING: PID $root_pid 不属于本轮运行，跳过。" >&2
+            continue
+        fi
+        collect_process_tree "$root_pid"
+    done
+
+    if [ "${#PROCESS_TREE[@]}" -gt 0 ]; then
+        # collect_process_tree 按子进程优先、父进程最后的顺序填充数组。
+        kill -TERM "${PROCESS_TREE[@]}" 2>/dev/null || true
+        deadline=$((SECONDS + 5))
+        while [ "$SECONDS" -lt "$deadline" ]; do
+            still_running=false
+            for pid in "${PROCESS_TREE[@]}"; do
+                if kill -0 "$pid" 2>/dev/null; then
+                    still_running=true
+                    break
+                fi
+            done
+            [ "$still_running" = false ] && break
+            sleep 0.2
+        done
+
+        still_running=false
+        for pid in "${PROCESS_TREE[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                still_running=true
+                kill -KILL "$pid" 2>/dev/null || true
+            fi
+        done
+        if [ "$still_running" = true ]; then
+            echo "部分进程未在 5 秒内退出，已强制终止。"
+        fi
+    fi
+
+    rm -f "$PID_DIR"/*.pid 2>/dev/null || true
+    rmdir "$PID_DIR" 2>/dev/null || true
+    echo "本轮进程清理完成。"
+}
+
 launch_terminal() {
     local title=$1
     local command=$2
+    local pid_file="$PID_DIR/${title}.pid"
+    local terminal_pid=""
+
+    if ! [[ "$title" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+        echo "ERROR: invalid terminal title for PID tracking: $title" >&2
+        cleanup_current_run
+        exit 1
+    fi
+    rm -f "$pid_file"
 
     # Avoid loading VS Code Snap GTK/runtime libraries in host ROS processes.
     env \
@@ -63,11 +168,30 @@ launch_terminal() {
         -u SNAP_USER_COMMON \
         -u GDK_PIXBUF_MODULE_FILE \
         -u GDK_PIXBUF_MODULEDIR \
+        GO2_TRACKING_RUN_ID="$RUN_ID" \
         gnome-terminal --title="$title" -- bash -c "
+export GO2_TRACKING_RUN_ID=$RUN_ID
+echo \"\$BASHPID\" > '$pid_file'
 $COMMON_ENV
 $command
 exec bash
 "
+
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if [ -s "$pid_file" ]; then
+            read -r terminal_pid < "$pid_file" || true
+            if [[ "$terminal_pid" =~ ^[1-9][0-9]*$ ]] \
+                && kill -0 "$terminal_pid" 2>/dev/null \
+                && pid_belongs_to_current_run "$terminal_pid"; then
+                return 0
+            fi
+        fi
+        sleep 0.2
+    done
+
+    echo "ERROR: 无法记录或验证终端 $title 的 PID。" >&2
+    cleanup_current_run
+    exit 1
 }
 
 wait_for_ros_service() {
@@ -150,7 +274,7 @@ echo '${robot_name} controllers are active.'
 # 终端 1：启动固定的 target_seek/city 世界。
 launch_terminal "go2_world" "
 echo '==== Starting target_seek/city world ===='
-ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=false
 "
 
 wait_for_ros_service "/spawn_entity"
@@ -183,6 +307,45 @@ ros2 launch go2_config spawn_go2_velodyne_${robot_index}.launch.py scene:=city u
         sleep 3
     fi
 done
+
+echo "三只 Go2 已完成导入，等待 2 秒后检查姿态..."
+sleep 2
+
+bash -c "$COMMON_ENV
+ros2 run go2_mapping_nav check_three_go2_attitude.py --ros-args \
+    -p model_states_topic:=/gazebo/model_states \
+    -p robot_names:='[go2_1,go2_2,go2_3]' \
+    -p roll_limit_deg:=90.0 \
+    -p required_frames:=3 \
+    -p timeout_seconds:=10.0
+"
+attitude_check_status=$?
+
+case "$attitude_check_status" in
+    0)
+        echo "三只 Go2 姿态检查通过，继续启动终端 5。"
+        ;;
+    10)
+        echo "检测到机器狗连续 3 帧 abs(roll) > 90 度。" >&2
+        cleanup_current_run
+        if [ "$GO2_RESTART_COUNT" -ge "$MAX_GO2_RESTARTS" ]; then
+            echo "ERROR: 已达到最大自动重启次数 $MAX_GO2_RESTARTS，停止启动。" >&2
+            exit 10
+        fi
+        next_restart_count=$((GO2_RESTART_COUNT + 1))
+        echo "1 秒后进行第 ${next_restart_count}/${MAX_GO2_RESTARTS} 次自动重启..."
+        sleep 1
+        exec env \
+            GO2_RESTART_COUNT="$next_restart_count" \
+            MAX_GO2_RESTARTS="$MAX_GO2_RESTARTS" \
+            "$SCRIPT_PATH" "$@"
+        ;;
+    *)
+        echo "ERROR: 姿态检查失败（退出码 $attitude_check_status），不自动重启。" >&2
+        cleanup_current_run
+        exit "$attitude_check_status"
+        ;;
+esac
 
 mkdir -p "$WS/src/go2_mapping_nav/runtime/logs"
 
@@ -266,7 +429,7 @@ echo '==== Starting Nav2 dynamic encircle ===='
 ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
 "
 
-# # 终端 13-15：分别打开三只狗的压缩相机。
+# 终端 13-15：分别打开三只狗的压缩相机。
 # for robot_index in 1 2 3; do
 #     robot_name="go2_${robot_index}"
 #     launch_terminal "rqt_image_view_${robot_name}" "
@@ -282,6 +445,15 @@ ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p
 # "
 
 # wait_for_ros_service "/walking_target/start"
+
+# 启动监控阶段切换。
+launch_terminal "watch_STAGE_Change" "
+echo '==== Starting stage change monitor ===='
+ros2 topic echo \
+    /dynamic_encircle/handoff_state \
+    std_msgs/msg/String \
+    --qos-durability transient_local
+"
 
 # 最后启动行人运动。
 launch_terminal "start_walking_target" "
@@ -301,3 +473,7 @@ echo "  ros2 node list | grep /nav2_dynamic_encircle"
 echo "  ros2 action info /go2_1/navigate_to_pose"
 echo "  ros2 action info /go2_2/navigate_to_pose"
 echo "  ros2 action info /go2_3/navigate_to_pose"
+
+# 正常启动完成后不再需要本轮 PID 记录；已启动的终端继续运行。
+rm -f "$PID_DIR"/*.pid 2>/dev/null || true
+rmdir "$PID_DIR" 2>/dev/null || true

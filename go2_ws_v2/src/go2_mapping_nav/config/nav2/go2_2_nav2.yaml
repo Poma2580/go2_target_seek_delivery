@@ -67,7 +67,7 @@ controller_server:
 
     FollowPath:
       plugin: dwb_core::DWBLocalPlanner
-      debug_trajectory_details: false
+      debug_trajectory_details: true
       min_vel_x: 0.0
       min_vel_y: 0.0
       max_vel_x: 0.5
@@ -135,7 +135,7 @@ local_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 1.5
-        inflation_radius: 0.3
+        inflation_radius: 0.4
       always_send_full_costmap: true
 
 global_costmap:
@@ -170,7 +170,7 @@ global_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 1.5
-        inflation_radius: 0.3
+        inflation_radius: 0.4
       always_send_full_costmap: true
 
 planner_server:
