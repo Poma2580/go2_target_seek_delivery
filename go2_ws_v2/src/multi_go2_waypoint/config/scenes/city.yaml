@@ -12,11 +12,11 @@ encircle: {radius: 3.0}
 
 robots:
   go2_1:
-    spawn: {x: -20.0, y: 4.0, z: 0.30, yaw: 0.0}
+    spawn: {x: -30.0, y: -10.0, z: 0.30, yaw: -1.54}
     sensors: {lidar: false, camera: false}
   go2_2:
-    spawn: {x: -20.0, y: 8.0, z: 0.30, yaw: 0.0}
+    spawn: {x: -20.0, y: 4.0, z: 0.40, yaw: 0.0}
     sensors: {lidar: false, camera: false}
   go2_3:
-    spawn: {x: -20.0, y: -2.0, z: 0.30, yaw: 0.0}
+    spawn: {x: -5.0, y: 35.0, z: 0.40, yaw: 0.0}
     sensors: {lidar: false, camera: false}

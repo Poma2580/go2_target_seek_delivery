@@ -13,6 +13,7 @@ install(
 
 install(
   PROGRAMS
+    scripts/check_three_go2_attitude.py
     scripts/dynamic_encircle.py
     scripts/follower_cmd_vel_mux.py
     scripts/known_pose_map_merger.py
@@ -22,6 +23,11 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(
+    test_check_three_go2_attitude
+    test/test_check_three_go2_attitude.py
+    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
+  )
   ament_add_pytest_test(
     test_known_pose_map_merger
     test/test_known_pose_map_merger.py

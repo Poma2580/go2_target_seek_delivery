@@ -20,6 +20,11 @@ __pycache__/
 /go2_ws_v2/src/go2_mapping_nav/runtime/logs/*
 !/go2_ws_v2/src/go2_mapping_nav/runtime/logs/.gitkeep
 
+# 暂停跟踪建图转换包与 go2_mapping_nav 测试目录
+/go2_ws_v2/src/world_to_grid/
+/go2_ws_v2/src/go2_mapping_nav/test/
+/go2_ws_v2/src/go2_mapping_nav/tests/
+
 # 复制来的小朱老师建图包
 /update_package
 
