@@ -248,7 +248,7 @@ echo "world：${WORLD_PATH}"
 echo "Go2 传感器覆盖：lidar=${ENABLE_LIDAR}, camera=${ENABLE_CAMERA}"
 echo "独立建图导航：${MAPPING_NAV}"
 echo "Gazebo GUI：${USE_GAZEBO_GUI}"
-echo "Go2 出生点及 auto 传感器值由 multi_go2_waypoint 的 ${SCENE}.yaml 提供。"
+echo "Go2 出生点及 auto 传感器值由 go2_scenario_config 的 ${SCENE}.yaml 提供。"
 
 launch_terminal "go2_world_${SCENE}" "
 echo '==== Starting ${SCENE} world with uav1 ===='
@@ -291,18 +291,18 @@ if [ "$MAPPING_NAV" = true ]; then
         wait_for_topic "/${robot_name}/odom"
     done
 
-    mkdir -p "$WS/src/go2_mapping_nav/runtime/logs"
-    map_merger_log="$WS/src/go2_mapping_nav/runtime/logs/map_merger.log"
+    mkdir -p "$WS/runtime/logs"
+    map_merger_log="$WS/runtime/logs/map_merger.log"
     : > "$map_merger_log"
     launch_terminal "three_go2_map_merge" "
 echo '==== Starting known-pose map merger: scene=${SCENE} ===='
-ros2 launch go2_mapping_nav three_go2_map_merge.launch.py scene:=${SCENE} use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
+ros2 launch go2_mapping_nav three_go2_map_merge.launch.py use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
 "
 
     merged_map_ready=false
     for robot_index in 1 2 3; do
         robot_name="go2_${robot_index}"
-        mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
+        mapping_log="$WS/runtime/logs/${robot_name}_mapping_nav.log"
         : > "$mapping_log"
         launch_terminal "mapping_nav_${robot_name}" "
 echo '==== Starting ${robot_name} mapping and navigation ===='
@@ -348,9 +348,4 @@ echo "机器狗控制器检查："
 echo "  ros2 control list_controllers -c /go2_1/controller_manager"
 echo "  ros2 control list_controllers -c /go2_2/controller_manager"
 echo "  ros2 control list_controllers -c /go2_3/controller_manager"
-echo "人工启动静态围捕："
-echo "  ros2 run multi_go2_waypoint waypoint_encircle --ros-args -p scene:=${SCENE} -p planner_mode:=manual"
-if [ "$SCENE" = "airport" ]; then
-    echo "机场也可使用 A*："
-    echo "  ros2 run multi_go2_waypoint waypoint_encircle --ros-args -p scene:=airport -p planner_mode:=astar"
-fi
+echo "静态目标请通过 Nav2 NavigateToPose 或 Scripts/send_go2_1_static_goal.sh 下发。"

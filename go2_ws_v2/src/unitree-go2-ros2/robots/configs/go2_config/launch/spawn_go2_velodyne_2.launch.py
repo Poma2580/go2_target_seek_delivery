@@ -58,7 +58,7 @@ def _configure_scene(context):
         config_path = Path(configured_path).expanduser().resolve()
     else:
         config_path = Path(
-            get_package_share_directory("multi_go2_waypoint")
+            get_package_share_directory("go2_scenario_config")
         ) / "config" / "scenes" / f"{scene}.yaml"
 
     try:

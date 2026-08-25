@@ -1,0 +1,28 @@
+schema_version: 1
+scene: forest
+
+world:
+  path: KD_MODEL/world/forestV3.world
+
+dynamic_target:
+  model_name: walking_target
+  service_prefix: /walking_target
+  loop: true
+  speed: 0.15
+  turn_duration: 2.0
+  route:
+    - {x: -50.0, y: 0.0}
+    - {x: -10.0, y: 0.0}
+    - {x: -6.0, y: -43.0}
+    - {x: -23.0, y: -75.0}
+
+robots:
+  go2_1:
+    spawn: {x: 20.0, y: 18.0, z: 0.80, yaw: 2.19}
+    sensors: {lidar: false, camera: false}
+  go2_2:
+    spawn: {x: -42.0, y: 8.0, z: 0.80, yaw: -2.35619449}
+    sensors: {lidar: false, camera: false}
+  go2_3:
+    spawn: {x: 36.0, y: 40.0, z: 0.80, yaw: -2.92}
+    sensors: {lidar: false, camera: false}

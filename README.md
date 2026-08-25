@@ -1,13 +1,13 @@
 # Go2 多场景使用手册
 
-**Latest Updated 2026.08.20**
+**Latest Updated 2026.08.25**
 
 本文档说明如何在 Gazebo Classic 中启动 `target_seek`、森林、机场等场景：
 
 - 单狗模式：一只带 2D 激光雷达与深度相机的 Unitree Go2，可在 `target_seek`、`forest`、`airport` 三个场景间切换，支持键盘控制和 SLAM。
 - 2D 多狗模式：同一场景里导入 3 只带 2D 激光雷达的 Go2，各自独立键盘控制。
 - 3D 多狗模式：同一场景里导入 3 只 Go2，可按需开启 3D Velodyne 和 RGB-D，相互独立控制并可用 RViz 查看数据。
-- 多狗静态围捕模式：三只 Go2 在三个场景 city、forest、airport 下进行导航与静态追踪，支持三种方法：1.人工航点规划，2.离线栅格地图与 A* 规划，3.RTAB建图与Nav2导航自主规划。
+- 多狗 Nav2 模式：三只 Go2 在 city、forest、airport 场景中分别进行 RTAB-Map 建图与 Nav2 自主导航。
 - 动态围捕模式：三只 Go2 均使用 RGB-D + YOLO 感知目标，最先稳定发现目标的机器人持续视觉跟踪，其余两只先由 Nav2 导航到围捕位置，再安全交接给 MADDPG 编队控制。
 
 ## 版本要求
@@ -248,17 +248,13 @@ cd $DELIVERY_ROOT/Scripts
 ```
 
 默认关闭三只 Go2 的 3D 雷达和 RGB-D 相机；`--lidar`、`--camera`、`--all-sensors` 可按需开启。
-三个场景的出生位姿、传感器默认值、目标和围捕半径统一保存在
-`go2_ws_v2/src/multi_go2_waypoint/config/scenes/*.yaml`。脚本只选择 world 并传递 `scene`；
-每只狗的 spawn launch 会读取相应 YAML，命令行传感器选项优先于 YAML 默认值。
+三个场景的出生位姿、传感器默认值和动态行人路线统一保存在
+`go2_ws_v2/src/go2_scenario_config/config/scenes/*.yaml`。
 
 增加 `--mapping-nav` 后，脚本会自动为三只 Go2 开启 3D Velodyne，等待各自的点云和里程计
-topic 就绪，再分别启动独立的 RTAB-Map 与 Nav2。三套地图使用独立 frame 和数据库：
-`go2_1/map`、`go2_2/map`、`go2_3/map`。可通过 `USE_RVIZ=false` 关闭三个 RViz：
+topic 就绪，再分别启动 RTAB-Map 与 Nav2。
 
-```bash
-USE_RVIZ=false ./start_three_go2_velodyne.sh city --mapping-nav
-```
+
 
 三狗导航目标可指定机器人，省略 `--robot` 时默认发送给 `go2_1`：
 
@@ -275,37 +271,6 @@ ros2 launch go2_config teleop_three_go2.launch.py
 ros2 launch go2_config view_three_go2_velodyne.launch.py
 ```
 
-## 多狗模式：三只 Go2 静态围捕（三场景均实现）
-
-先用通用脚本启动所需场景、内置 UAV 和三只 Go2。脚本不会自动启动围捕控制器：
-
-```bash
-cd $DELIVERY_ROOT/Scripts
-./start_three_go2_velodyne.sh forest
-```
-
-三只狗控制器全部 active 后，另开终端启动围捕。city 和 forest 使用人工 waypoint：
-
-```bash
-cd $DELIVERY_ROOT/go2_ws_v2
-conda deactivate
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
-  -p scene:=forest \
-  -p planner_mode:=manual
-```
-
-airport 既可使用 `planner_mode:=manual`，也可读取离线地图执行 A*：
-
-```bash
-ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
-  -p scene:=airport \
-  -p planner_mode:=astar
-```
-
-
-
 ## 多狗模式：三只 Go2 基于建图与 Nav2 的动态行人围捕
 
 > **现状说明**：三只 Go2 都启用 RGB-D + YOLO 感知。首只稳定发现行人的
@@ -317,11 +282,13 @@ ros2 run multi_go2_waypoint waypoint_encircle --ros-args \
 
 ```bash
 cd $DELIVERY_ROOT/Scripts
-./start_three_go2_dynamic_tracking.sh
+./start_three_go2_dynamic_tracking.sh           # city
+./start_three_go2_dynamic_tracking.sh forest    # 森林
+./start_three_go2_dynamic_tracking.sh airport   # 机场
 ```
 
-脚本固定使用 `target_seek/city` 场景，系统就绪后启动行人，
-并按“感知跟踪 → Nav2 靠近 → MADDPG 接管”自动运行。
+系统就绪后脚本启动行人，并按“感知跟踪 → Nav2 靠近 → MADDPG 接管”自动运行。
+
 
 
 ## 模型参数说明
@@ -365,7 +332,7 @@ city 场景中，3D 多狗默认出生点:
 forest / airport 通过 start_three_go2_velodyne.sh 启动时:
   forest:
     go2_1: x=20, y=18, z=0.80, yaw=2.19
-    go2_2: x=-8, y=42, z=0.80, yaw=0
+    go2_2: x=-42, y=8, z=0.80, yaw=-2.35619449
     go2_3: x=36, y=40, z=0.80, yaw=-2.92
   airport:
     go2_1: x=60, y=-4, z=0.50, yaw=0

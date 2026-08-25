@@ -15,15 +15,11 @@ __pycache__/
 *.pt
 # 暂时停止跟踪 Nav2 多 Go2 包
 /go2_ws_v2/src/multi_go2_nav2/
-/go2_ws_v2/src/go2_mapping_nav/runtime/maps/*
-!/go2_ws_v2/src/go2_mapping_nav/runtime/maps/.gitkeep
-/go2_ws_v2/src/go2_mapping_nav/runtime/logs/*
-!/go2_ws_v2/src/go2_mapping_nav/runtime/logs/.gitkeep
+/go2_ws_v2/runtime/
+/go2_ws_v2/src/go2_mapping_nav/runtime/
 
-# 暂停跟踪建图转换包与 go2_mapping_nav 测试目录
+# 暂停跟踪建图转换包
 /go2_ws_v2/src/world_to_grid/
-/go2_ws_v2/src/go2_mapping_nav/test/
-/go2_ws_v2/src/go2_mapping_nav/tests/
 
 # 复制来的小朱老师建图包
 /update_package

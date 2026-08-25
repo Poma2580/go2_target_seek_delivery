@@ -1,0 +1,60 @@
+所有文件整理方案实施计划
+
+go2_ws_v2/src/
+├── go2_scenario_config/             # 新建：所有组件共享的场景数据
+│   ├── go2_scenario_config/
+│   │   └── scene_config.py
+│   ├── config/scenes/
+│   │   ├── city.yaml
+│   │   ├── forest.yaml
+│   │   └── airport.yaml
+│   └── test/
+│
+├── go2_mapping_nav/                 # 只负责 RTAB-Map、地图融合和 Nav2
+│   ├── go2_mapping_nav/
+│   │   ├── map_merger.py
+│   │   └── static_goal_nav.py
+│   ├── launch/
+│   ├── config/
+│   │   ├── nav2/
+│   │   └── rtabmap/
+│   └── rviz/
+│
+├── go2_target_perception/           # 新建：目标感知与感知角色选择
+│   ├── go2_target_perception/
+│   │   ├── target_perception.py
+│   │   ├── target_role_selector.py
+│   │   └── perception_eval.py
+│   ├── config/target_perception.yaml
+│   ├── launch/three_go2_target_tracking.launch.py
+│   └── test/
+│
+├── go2_dynamic_encircle/            # 新建：动态围捕任务与控制切换
+│   ├── go2_dynamic_encircle/
+│   │   ├── node.py
+│   │   ├── config.py
+│   │   ├── formation_planner.py
+│   │   ├── geometry.py
+│   │   ├── target_tracker.py
+│   │   ├── nav_goal_manager.py
+│   │   ├── handoff_manager.py
+│   │   ├── perception_controller.py
+│   │   ├── cmd_vel_mux.py
+│   │   └── gazebo_leader_slot_controller.py
+│   └── test/
+│
+└── walking_target_controller/       # 行人仿真相关
+    ├── src/walking_target_controller.cpp
+    ├── walking_target_controller/
+    │   └── actor_state_publisher.py
+    └── test/
+
+三场景动态行人追踪与围捕实施计划
+概要
+- start_three_go2_dynamic_tracking.sh 支持 city|forest|airport，多场景一键启动。
+- 在三份场景 world 中加入真实动态行人路线，行人支持三场景移动；
+- 所有行人统一采用闭环路线、速度 0.15 m/s、转弯停留 2 s。
+
+目前存在的问题：
+1.森林场景的树根太粗了，雷达扫描高度设定只能扫到树干，再往下扫可能会扫到自身的回波障碍，这里得微调一下，否则导航会被树卡住
+2.机场场景太空旷了，雷达扫描范围需要调整，不然点云的值Inf，无法进行RTAB建图；

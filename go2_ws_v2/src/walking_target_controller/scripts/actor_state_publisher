@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""ROS executable wrapper for the walking target state publisher."""
+
+from walking_target_controller.actor_state_publisher import main
+
+
+if __name__ == "__main__":
+    main()

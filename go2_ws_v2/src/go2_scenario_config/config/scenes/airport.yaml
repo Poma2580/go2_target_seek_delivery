@@ -1,0 +1,28 @@
+schema_version: 1
+scene: airport
+
+world:
+  path: KD_MODEL/world/airport
+
+dynamic_target:
+  model_name: walking_target
+  service_prefix: /walking_target
+  loop: true
+  speed: 0.15
+  turn_duration: 2.0
+  route:
+    - {x: 54.0, y: -17.0}
+    - {x: 100.0, y: -17.0}
+    - {x: 100.0, y: -48.0}
+    - {x: 54.0, y: -48.0}
+
+robots:
+  go2_1:
+    spawn: {x: 60.0, y: -4.0, z: 0.50, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+  go2_2:
+    spawn: {x: 70.0, y: 10.0, z: 0.50, yaw: 0.0}
+    sensors: {lidar: false, camera: false}
+  go2_3:
+    spawn: {x: 95.0, y: -25.0, z: 0.50, yaw: 0.0}
+    sensors: {lidar: false, camera: false}

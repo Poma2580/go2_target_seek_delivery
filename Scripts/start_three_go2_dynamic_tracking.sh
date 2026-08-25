@@ -1,27 +1,85 @@
 #!/bin/bash
-# Usage: ./start_three_go2_dynamic_tracking.sh
+# Usage: ./start_three_go2_dynamic_tracking.sh [city|forest|airport]
 
 set -u
+
+usage() {
+    cat <<'EOF'
+用法：./start_three_go2_dynamic_tracking.sh [场景]
+
+场景（默认 city）：
+  city | qy | target_seek  target_seek 城市场景
+  forest                   森林动态行人场景
+  airport                  机场动态行人场景
+
+可选环境变量：
+  MERGED_MAP_TIMEOUT=120       等待 /merged_map 首条消息的秒数
+  ACTOR_SERVICE_TIMEOUT=30     等待 /walking_target/start 的秒数
+  MAX_GO2_RESTARTS=3           机器狗翻倒时的最大自动重启次数
+EOF
+}
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 DELIVERY_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
+KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
 YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
 MERGED_MAP_TIMEOUT=${MERGED_MAP_TIMEOUT:-120}
+ACTOR_SERVICE_TIMEOUT=${ACTOR_SERVICE_TIMEOUT:-30}
 GO2_RESTART_COUNT=${GO2_RESTART_COUNT:-0}
 MAX_GO2_RESTARTS=${MAX_GO2_RESTARTS:-3}
+SCENE=city
+SCENE_SET=false
+
+for arg in "$@"; do
+    case "$arg" in
+        city|qy|target_seek|forest|airport)
+            if [ "$SCENE_SET" = true ]; then
+                echo "ERROR: 只能指定一个场景。" >&2
+                usage >&2
+                exit 2
+            fi
+            SCENE=$arg
+            SCENE_SET=true
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: 未知参数：$arg" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+case "$SCENE" in
+    city|qy|target_seek)
+        SCENE=city
+        WORLD_PATH=$QY_MODEL_ROOT/target_seek
+        ;;
+    forest)
+        WORLD_PATH=$KD_MODEL_ROOT/world/forestV3_dynamic.world
+        ;;
+    airport)
+        WORLD_PATH=$KD_MODEL_ROOT/world/airport_dynamic.world
+        ;;
+esac
+
 RUN_ID="go2_tracking_$$_${GO2_RESTART_COUNT}_$(date +%s%N)"
-PID_DIR="$WS/src/go2_mapping_nav/runtime/pids/$RUN_ID"
+RUNTIME_DIR="$WS/runtime"
+PID_DIR="$RUNTIME_DIR/pids/$RUN_ID"
 
 if [ ! -f "$YOLO_MODEL" ]; then
     echo "ERROR: YOLO model not found: $YOLO_MODEL"
     exit 1
 fi
 
-if [ ! -d "$WS/install" ]; then
-    echo "ERROR: workspace is not built: $WS/install"
+if [ ! -d "$WS/install" ] || [ ! -f "$WORLD_PATH" ]; then
+    echo "ERROR: workspace is not built or world does not exist: $WORLD_PATH"
     exit 1
 fi
 
@@ -32,6 +90,11 @@ fi
 
 if ! [[ "$MERGED_MAP_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: MERGED_MAP_TIMEOUT must be a positive integer number of seconds."
+    exit 2
+fi
+
+if ! [[ "$ACTOR_SERVICE_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: ACTOR_SERVICE_TIMEOUT must be a positive integer number of seconds."
     exit 2
 fi
 
@@ -58,7 +121,8 @@ fi
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 export QY_MODEL_ROOT=$QY_MODEL_ROOT
-export GAZEBO_MODEL_PATH=\$QY_MODEL_ROOT/models:\$GAZEBO_MODEL_PATH
+export KD_MODEL_ROOT=$KD_MODEL_ROOT
+export GAZEBO_MODEL_PATH=\$QY_MODEL_ROOT/models:\$KD_MODEL_ROOT/models:\$GAZEBO_MODEL_PATH
 export GAZEBO_MODEL_DATABASE_URI=\"\"
 "
 
@@ -206,6 +270,17 @@ echo '${service_name} is ready.'
 "
 }
 
+wait_for_ros_service_timeout() {
+    local service_name=$1
+    local timeout_seconds=$2
+    echo "等待 ROS service ${service_name}（${timeout_seconds}s 超时）..."
+    timeout "${timeout_seconds}" bash -c "$COMMON_ENV
+until ros2 service list 2>/dev/null | awk -v target='${service_name}' '\$0 == target { found=1 } END { exit !found }'; do
+    sleep 1
+done
+"
+}
+
 wait_for_ros_action() {
     local action_name=$1
     echo "等待 ROS action ${action_name} 出现..."
@@ -271,15 +346,24 @@ echo '${robot_name} controllers are active.'
 "
 }
 
-# 终端 1：启动固定的 target_seek/city 世界。
-launch_terminal "go2_world" "
-echo '==== Starting target_seek/city world ===='
-ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=false
+# 终端 1：启动所选动态行人世界。
+echo "动态追踪场景：${SCENE}"
+echo "world：${WORLD_PATH}"
+launch_terminal "go2_world_${SCENE}" "
+echo '==== Starting ${SCENE} dynamic pedestrian world ===='
+ros2 launch go2_config gazebo_target_seek_world.launch.py gui:=true world:=$WORLD_PATH
 "
 
 wait_for_ros_service "/spawn_entity"
 wait_for_topic "/gazebo/model_states"
 wait_for_topic "/clock"
+
+if ! wait_for_ros_service_timeout "/walking_target/start" "$ACTOR_SERVICE_TIMEOUT"; then
+    echo "ERROR: ${SCENE} world 未在 ${ACTOR_SERVICE_TIMEOUT}s 内提供 /walking_target/start。" >&2
+    echo "请检查 walking_target actor 和 libwalking_target_controller.so。" >&2
+    cleanup_current_run
+    exit 1
+fi
 
 echo "Gazebo 世界已就绪，等待 3 秒以完成稳定加载..."
 sleep 3
@@ -291,7 +375,7 @@ for robot_index in 1 2 3; do
 
     launch_terminal "spawn_${robot_name}" "
 echo '==== Spawning ${robot_name}: lidar=true, camera=${enable_camera} ===='
-ros2 launch go2_config spawn_go2_velodyne_${robot_index}.launch.py scene:=city use_sim_time:=true enable_lidar:=true enable_camera:=${enable_camera}
+ros2 launch go2_config spawn_go2_velodyne_${robot_index}.launch.py scene:=${SCENE} use_sim_time:=true enable_lidar:=true enable_camera:=${enable_camera}
 "
 
     wait_for_controllers_active "$robot_name"
@@ -312,7 +396,7 @@ echo "三只 Go2 已完成导入，等待 2 秒后检查姿态..."
 sleep 2
 
 bash -c "$COMMON_ENV
-ros2 run go2_mapping_nav check_three_go2_attitude.py --ros-args \
+ros2 run go2_scenario_config check_three_go2_attitude --ros-args \
     -p model_states_topic:=/gazebo/model_states \
     -p robot_names:='[go2_1,go2_2,go2_3]' \
     -p roll_limit_deg:=90.0 \
@@ -347,20 +431,20 @@ case "$attitude_check_status" in
         ;;
 esac
 
-mkdir -p "$WS/src/go2_mapping_nav/runtime/logs"
+mkdir -p "$RUNTIME_DIR/logs"
 
 # 终端 5：启动已知位姿地图融合。
-map_merger_log="$WS/src/go2_mapping_nav/runtime/logs/map_merger.log"
+map_merger_log="$RUNTIME_DIR/logs/map_merger.log"
 : > "$map_merger_log"
 launch_terminal "three_go2_map_merge" "
-echo '==== Starting known-pose map merger: scene=city ===='
-ros2 launch go2_mapping_nav three_go2_map_merge.launch.py scene:=city use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
+echo '==== Starting known-pose map merger: scene=${SCENE} ===='
+ros2 launch go2_mapping_nav three_go2_map_merge.launch.py use_sim_time:=true use_rviz:=false >${map_merger_log} 2>&1
 "
 
 # 速度所有权选择器：Nav2 与 MADDPG 只能通过各自私有输入控制跟随犬。
 launch_terminal "follower_cmd_vel_mux" "
 echo '==== Starting follower command velocity mux (initial owner: Nav2) ===='
-ros2 run go2_mapping_nav follower_cmd_vel_mux.py --ros-args -p use_sim_time:=true
+ros2 run go2_dynamic_encircle follower_cmd_vel_mux --ros-args -p use_sim_time:=true
 "
 
 # 终端 6-8：依次启动三套 RTAB-Map + Nav2，并统一使用融合地图。
@@ -368,7 +452,7 @@ merged_map_ready=false
 for robot_index in 1 2 3; do
     robot_name="go2_${robot_index}"
     nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"
-    mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
+    mapping_log="$RUNTIME_DIR/logs/${robot_name}_mapping_nav.log"
     : > "$mapping_log"
     launch_terminal "mapping_nav_${robot_name}" "
 echo '==== Starting ${robot_name} mapping and navigation ===='
@@ -404,7 +488,7 @@ rviz2 -d \$(ros2 pkg prefix go2_mapping_nav)/share/go2_mapping_nav/rviz/three_go
 # # 终端 10：启动行人真值状态广播。
 # launch_terminal "actor_state" "
 # echo '==== Starting actor_state_publisher ===='
-# ros2 run multi_go2_waypoint actor_state_publisher --ros-args -p use_sim_time:=true
+# ros2 run walking_target_controller actor_state_publisher --ros-args -p use_sim_time:=true
 # "
 
 # wait_for_topic "/walking_target/odom"
@@ -412,7 +496,7 @@ rviz2 -d \$(ros2 pkg prefix go2_mapping_nav)/share/go2_mapping_nav/rviz/three_go
 # 终端 11：启动三套目标感知和首次稳定发现角色选举。
 launch_terminal "three_go2_target_tracking" "
 echo '==== Starting three-Go2 target perception and role selector ===='
-ros2 launch multi_go2_waypoint three_go2_target_tracking.launch.py use_sim_time:=true model_path:=$YOLO_MODEL
+ros2 launch go2_target_perception three_go2_target_tracking.launch.py use_sim_time:=true model_path:=$YOLO_MODEL
 "
 
 wait_for_topic "/target_role/perception_robot"
@@ -420,13 +504,13 @@ wait_for_topic "/target_role/perception_robot"
 # MADDPG 提前加载模型并等待接管信号；输出进入私有 mux 输入话题。
 launch_terminal "maddpg_follower_controller" "
 echo '==== Preloading MADDPG follower controller (disabled) ===='
-ros2 run multi_go2_waypoint gazebo_leader_slot_controller --ros-args -p use_sim_time:=true -p wait_for_enable:=true -p command_topic_suffix:=maddpg_cmd_vel
+ros2 run go2_dynamic_encircle gazebo_leader_slot_controller --ros-args -p use_sim_time:=true -p wait_for_enable:=true -p command_topic_suffix:=maddpg_cmd_vel
 "
 
 # 终端 12：启动基于 Nav2 的三 Go2 动态围捕。
 launch_terminal "nav2_dynamic_encircle" "
 echo '==== Starting Nav2 dynamic encircle ===='
-ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
+ros2 run go2_dynamic_encircle dynamic_encircle --ros-args -p use_sim_time:=true -p scene:=${SCENE} -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
 "
 
 # 终端 13-15：分别打开三只狗的压缩相机。
@@ -441,7 +525,7 @@ ros2 run go2_mapping_nav dynamic_encircle.py --ros-args -p use_sim_time:=true -p
 # # 启动当前感知狗的误差评估。
 # launch_terminal "perception_eval" "
 # echo '==== Starting perception_eval ===='
-# ros2 run multi_go2_waypoint perception_eval --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
+# ros2 run go2_target_perception perception_eval --ros-args -p use_sim_time:=true -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
 # "
 
 # wait_for_ros_service "/walking_target/start"
