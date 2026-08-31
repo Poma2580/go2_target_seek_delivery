@@ -105,10 +105,10 @@ case "$SCENE" in
         WORLD_PATH=$QY_MODEL_ROOT/target_seek
         ;;
     forest)
-        WORLD_PATH=$KD_MODEL_ROOT/world/forestV3.world
+        WORLD_PATH=$KD_MODEL_ROOT/world/forestV3_dynamic.world
         ;;
     airport)
-        WORLD_PATH=$KD_MODEL_ROOT/world/airport
+        WORLD_PATH=$KD_MODEL_ROOT/world/airport_dynamic.world
         ;;
 esac
 

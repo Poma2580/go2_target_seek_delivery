@@ -27,6 +27,18 @@ def scene_config(name):
     return load_dynamic_target_config(name, SCENE_ROOT / f"{name}.yaml")
 
 
+@pytest.mark.parametrize(
+    ("scene", "expected_path"),
+    (
+        ("forest", "KD_MODEL/world/forestV3_dynamic.world"),
+        ("airport", "KD_MODEL/world/airport_dynamic.world"),
+    ),
+)
+def test_scene_config_uses_the_only_supported_kd_world(scene, expected_path):
+    config = load_scene_config(scene, SCENE_ROOT / f"{scene}.yaml")
+    assert config.world_path == expected_path
+
+
 def test_complete_scene_config_exposes_spawn_and_dynamic_target_only():
     scene = load_scene_config("city", SCENE_ROOT / "city.yaml")
     assert scene.name == "city"

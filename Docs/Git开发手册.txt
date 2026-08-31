@@ -118,3 +118,12 @@ git branch --show-current
 git rm -r --cached -- \
   go2_ws_v2/src/go2_mapping_nav/test \
   go2_ws_v2/src/multi_go2_waypoint/test
+
+===================== 删除当前分支和远端仓库记录 只保留本地文件 ==================================
+git rm --cached Figure/2Dmap_airport.png
+然后将它加入 .gitignore：
+/Figure/2Dmap_airport.png
+提交并推送：
+git add .gitignore
+git commit -m "stop tracking airport map image"
+git push

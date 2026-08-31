@@ -18,7 +18,6 @@ ROS 2 Humble
 Gazebo Classic 11
 ```
 
-
 ## 第 0 步：拉取项目并新建开发分支
 
 进入你希望存放项目的目录，然后从 GitHub 拉取仓库：
@@ -36,7 +35,6 @@ git checkout main
 git pull origin main
 git checkout -b feature/姓名-修改内容
 ```
-
 
 ## 第 1 步：安装依赖
 
@@ -158,7 +156,6 @@ ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=forest gui:=true r
 ros2 launch go2_config gazebo_world_2d_lidar.launch.py scene:=airport gui:=true rviz:=false
 ```
 
-
 终端 2：启动键盘控制，控制时鼠标焦点需要停留在该终端窗口内：
 
 ```bash
@@ -254,8 +251,6 @@ cd $DELIVERY_ROOT/Scripts
 增加 `--mapping-nav` 后，脚本会自动为三只 Go2 开启 3D Velodyne，等待各自的点云和里程计
 topic 就绪，再分别启动 RTAB-Map 与 Nav2。
 
-
-
 三狗导航目标可指定机器人，省略 `--robot` 时默认发送给 `go2_1`：
 
 ```bash
@@ -289,10 +284,7 @@ cd $DELIVERY_ROOT/Scripts
 
 系统就绪后脚本启动行人，并按“感知跟踪 → Nav2 靠近 → MADDPG 接管”自动运行。
 
-
-
 ## 模型参数说明
-
 
 ### 行人走路控制
 
@@ -315,8 +307,6 @@ ros2 service call /walking_target/pause std_srvs/srv/Trigger "{}"
 # 复位行人
 ros2 service call /walking_target/reset std_srvs/srv/Trigger "{}"
 ```
-
-
 
 ### 机器狗
 

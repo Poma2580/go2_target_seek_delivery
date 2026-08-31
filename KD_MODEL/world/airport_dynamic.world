@@ -596,6 +596,409 @@
       <pose>90 -24 0 0 0 0</pose>
     </include>
 
+    <!-- BEGIN airport landmarks from Plan/8.txt -->
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_01</name>
+      <pose>-4 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_02</name>
+      <pose>20 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_03</name>
+      <pose>44 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://grocery_store</uri>
+      <name>west_grocery_store</name>
+      <pose>-133 -36 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://radio_tower</uri>
+      <name>west_radio_tower</name>
+      <pose>-160 0.3 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_01</name>
+      <pose>-144 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_02</name>
+      <pose>-127 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_03</name>
+      <pose>-110 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_04</name>
+      <pose>-93 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_05</name>
+      <pose>-76 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_06</name>
+      <pose>-59 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_07</name>
+      <pose>-42 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_08</name>
+      <pose>-25 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_09</name>
+      <pose>-8 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_10</name>
+      <pose>9 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_11</name>
+      <pose>26 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_12</name>
+      <pose>43 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_13</name>
+      <pose>60 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_14</name>
+      <pose>77 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_15</name>
+      <pose>94 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_16</name>
+      <pose>111 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_17</name>
+      <pose>128 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_18</name>
+      <pose>145 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_01</name>
+      <pose>-144 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_02</name>
+      <pose>-127 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_03</name>
+      <pose>-110 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_04</name>
+      <pose>-93 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_05</name>
+      <pose>-76 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_06</name>
+      <pose>-59 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_07</name>
+      <pose>-42 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_08</name>
+      <pose>-25 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_09</name>
+      <pose>-8 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_10</name>
+      <pose>9 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_11</name>
+      <pose>26 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_12</name>
+      <pose>43 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_13</name>
+      <pose>60 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_14</name>
+      <pose>77 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_15</name>
+      <pose>94 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_16</name>
+      <pose>111 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_17</name>
+      <pose>128 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_18</name>
+      <pose>145 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://ambulance</uri>
+      <name>airport_ambulance_01</name>
+      <pose>106 -30 0 0 0 3.14</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://ambulance</uri>
+      <name>airport_ambulance_02</name>
+      <pose>128 -30 0 0 0 3.14</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://bus</uri>
+      <name>airport_bus_01</name>
+      <pose>-70 -33 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://bus</uri>
+      <name>airport_bus_02</name>
+      <pose>-95 -34 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://suv</uri>
+      <name>airport_suv_01</name>
+      <pose>26 46 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://suv</uri>
+      <name>airport_suv_02</name>
+      <pose>26 34 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://pier</uri>
+      <name>airport_pier_01</name>
+      <pose>56 30 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_01</name>
+      <pose>167 -40 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_02</name>
+      <pose>167 -20 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_03</name>
+      <pose>167 0 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_04</name>
+      <pose>167 20 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_01</name>
+      <pose>154 -54 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_02</name>
+      <pose>154 -36 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_03</name>
+      <pose>154 -18 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_04</name>
+      <pose>154 0 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_05</name>
+      <pose>154 18 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <!-- END airport landmarks from Plan/8.txt -->
+
 
     <include>
       <uri>model://uav1_iris_depth_camera</uri>

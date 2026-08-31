@@ -1,8 +1,8 @@
 """Start a selectable Gazebo world and spawn one Go2 with 2D lidar.
 
 scene:=qy loads QY_MODEL/target_seek with QY_MODEL/models.
-scene:=forest loads KD_MODEL/world/forestV3.world with KD_MODEL/models.
-scene:=airport loads KD_MODEL/world/airport with KD_MODEL/models.
+scene:=forest loads KD_MODEL/world/forestV3_dynamic.world with KD_MODEL/models.
+scene:=airport loads KD_MODEL/world/airport_dynamic.world with KD_MODEL/models.
 """
 
 import os
@@ -47,11 +47,15 @@ def _scene_paths(scene):
             "models": os.path.join(qy_model_root, "models"),
         },
         "forest": {
-            "world": os.path.join(kd_model_root, "world", "forestV3.world"),
+            "world": os.path.join(
+                kd_model_root, "world", "forestV3_dynamic.world"
+            ),
             "models": os.path.join(kd_model_root, "models"),
         },
         "airport": {
-            "world": os.path.join(kd_model_root, "world", "airport"),
+            "world": os.path.join(
+                kd_model_root, "world", "airport_dynamic.world"
+            ),
             "models": os.path.join(kd_model_root, "models"),
         },
     }

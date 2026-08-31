@@ -2,7 +2,7 @@ schema_version: 1
 scene: forest
 
 world:
-  path: KD_MODEL/world/forestV3.world
+  path: KD_MODEL/world/forestV3_dynamic.world
 
 dynamic_target:
   model_name: walking_target

@@ -2,7 +2,7 @@ schema_version: 1
 scene: airport
 
 world:
-  path: KD_MODEL/world/airport
+  path: KD_MODEL/world/airport_dynamic.world
 
 dynamic_target:
   model_name: walking_target
@@ -18,7 +18,7 @@ dynamic_target:
 
 robots:
   go2_1:
-    spawn: {x: 60.0, y: -4.0, z: 0.50, yaw: 0.0}
+    spawn: {x: 54.0, y: -3.0, z: 0.50, yaw: -1.57}
     sensors: {lidar: false, camera: false}
   go2_2:
     spawn: {x: 70.0, y: 10.0, z: 0.50, yaw: 0.0}
