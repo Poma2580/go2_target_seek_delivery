@@ -28,15 +28,13 @@ __pycache__/
 /Docs/情况说明_0819.txt
 /Docs/更正说明0609.txt
 /Plan
+/Middle_Report
 # YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
 *.pt
 # 暂时停止跟踪 Nav2 多 Go2 包
 /go2_ws_v2/src/multi_go2_nav2/
 /go2_ws_v2/runtime/
 /go2_ws_v2/src/go2_mapping_nav/runtime/
-
-# 暂停跟踪建图转换包
-/go2_ws_v2/src/world_to_grid/
 
 # 复制来的小朱老师建图包
 /update_package
@@ -65,3 +63,6 @@ __pycache__/
 
 # Backup archive
 go2_ws_v2.zip
+
+# 测试产物
+/TestResults

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check whether any spawned Go2 has remained rolled over for several frames."""
+"""Check a short frame window for any rolled-over Go2 robot."""
 
 import math
 import sys
@@ -49,20 +49,19 @@ def quaternion_to_euler_degrees(quaternion: Quaternion) -> EulerDegrees:
     )
 
 
-class ConsecutiveRollChecker:
-    """Track per-robot consecutive roll-limit violations."""
+class RollObservationChecker:
+    """Fail an observation window on any per-robot roll-limit violation."""
 
     def __init__(
         self,
         robot_names: Sequence[str],
         roll_limit_deg: float,
-        required_frames: int,
+        sample_frames: int,
     ) -> None:
         self.robot_names = tuple(robot_names)
         self.roll_limit_deg = roll_limit_deg
-        self.required_frames = required_frames
+        self.sample_frames = sample_frames
         self.valid_frames = 0
-        self.consecutive_counts = {name: 0 for name in self.robot_names}
         self.fallen_robots: set[str] = set()
 
     def add_frame(self, attitudes: dict[str, EulerDegrees]) -> None:
@@ -74,15 +73,13 @@ class ConsecutiveRollChecker:
         self.valid_frames += 1
         for name in self.robot_names:
             if abs(attitudes[name].roll) > self.roll_limit_deg:
-                self.consecutive_counts[name] += 1
-            else:
-                self.consecutive_counts[name] = 0
-            if self.consecutive_counts[name] >= self.required_frames:
                 self.fallen_robots.add(name)
 
     @property
     def complete(self) -> bool:
-        return self.valid_frames >= self.required_frames
+        return bool(
+            self.fallen_robots or self.valid_frames >= self.sample_frames
+        )
 
 
 class ThreeGo2AttitudeNode(Node):
@@ -93,7 +90,7 @@ class ThreeGo2AttitudeNode(Node):
         self.declare_parameter("model_states_topic", "/gazebo/model_states")
         self.declare_parameter("robot_names", ["go2_1", "go2_2", "go2_3"])
         self.declare_parameter("roll_limit_deg", 90.0)
-        self.declare_parameter("required_frames", 3)
+        self.declare_parameter("sample_frames", 5)
         self.declare_parameter("timeout_seconds", 10.0)
 
         self.model_states_topic = str(
@@ -103,14 +100,14 @@ class ThreeGo2AttitudeNode(Node):
         self.roll_limit_deg = float(
             self.get_parameter("roll_limit_deg").value
         )
-        self.required_frames = int(self.get_parameter("required_frames").value)
+        self.sample_frames = int(self.get_parameter("sample_frames").value)
         self.timeout_seconds = float(self.get_parameter("timeout_seconds").value)
         self._validate_parameters()
 
-        self.checker = ConsecutiveRollChecker(
+        self.checker = RollObservationChecker(
             self.robot_names,
             self.roll_limit_deg,
-            self.required_frames,
+            self.sample_frames,
         )
         self.last_missing_names: tuple[str, ...] = self.robot_names
         self.create_subscription(
@@ -127,8 +124,8 @@ class ThreeGo2AttitudeNode(Node):
             raise ValueError("robot_names must not contain duplicates")
         if not math.isfinite(self.roll_limit_deg) or self.roll_limit_deg <= 0.0:
             raise ValueError("roll_limit_deg must be a positive finite number")
-        if self.required_frames <= 0:
-            raise ValueError("required_frames must be greater than zero")
+        if self.sample_frames <= 0:
+            raise ValueError("sample_frames must be greater than zero")
         if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0.0:
             raise ValueError("timeout_seconds must be a positive finite number")
 
@@ -157,7 +154,7 @@ class ThreeGo2AttitudeNode(Node):
         )
         self.get_logger().info(
             f"Attitude frame {self.checker.valid_frames}/"
-            f"{self.required_frames}: {values}"
+            f"{self.sample_frames}: {values}"
         )
 
 
@@ -183,8 +180,9 @@ def run_check() -> int:
             fallen = ", ".join(sorted(node.checker.fallen_robots))
             node.get_logger().error(
                 f"Confirmed fallen robot(s): {fallen}; "
-                f"abs(roll) exceeded {node.roll_limit_deg:.2f} deg for "
-                f"{node.required_frames} consecutive frames"
+                f"abs(roll) exceeded {node.roll_limit_deg:.2f} deg in "
+                f"observation frame {node.checker.valid_frames}/"
+                f"{node.sample_frames}"
             )
             return EXIT_FALLEN
 

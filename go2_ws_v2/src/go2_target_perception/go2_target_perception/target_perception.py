@@ -26,6 +26,9 @@
   ros2 run go2_target_perception target_perception --ros-args -p use_sim_time:=true
 """
 
+import json
+import math
+
 import numpy as np
 
 import rclpy
@@ -56,6 +59,31 @@ def should_exit_for_role(robot_namespace, selected_robot):
     return bool(selected) and selected != robot_namespace.strip('/')
 
 
+def result_status_json(stamp, sample_id, recognition_success=False,
+                       confidence=None, bbox=None, localization_success=False):
+    """Build the strict, versioned JSON status published for one RGB-D sample."""
+    if confidence is not None:
+        confidence = float(confidence)
+        if not math.isfinite(confidence):
+            raise ValueError('confidence 必须是有限数值或 None')
+    if bbox is not None:
+        if len(bbox) != 4:
+            raise ValueError('bbox 必须包含四个数值')
+        bbox = [float(value) for value in bbox]
+        if not all(math.isfinite(value) for value in bbox):
+            raise ValueError('bbox 必须只包含有限数值')
+    value = {
+        'schema_version': 1,
+        'stamp': {'sec': int(stamp.sec), 'nanosec': int(stamp.nanosec)},
+        'sample_id': int(sample_id),
+        'recognition_success': bool(recognition_success),
+        'confidence': confidence,
+        'bbox': bbox,
+        'localization_success': bool(localization_success),
+    }
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':'))
+
+
 class TargetPerception(Node):
     def __init__(self):
         super().__init__('target_perception')
@@ -70,6 +98,7 @@ class TargetPerception(Node):
         self.declare_parameter('pose_topic', '')
         self.declare_parameter('odom_topic', '')
         self.declare_parameter('debug_image_topic', '')
+        self.declare_parameter('result_status_topic', '')
         self.declare_parameter('target_frame', '')        # 留空则用 <ns>/odom
         self.declare_parameter('role_topic', '/target_role/perception_robot')
 
@@ -109,6 +138,8 @@ class TargetPerception(Node):
         pose_topic = _topic('pose_topic', f'/{ns}/target_pose_estimated')
         odom_topic = _topic('odom_topic', f'/{ns}/target_estimated/odom')
         dbg_topic = _topic('debug_image_topic', f'/{ns}/target_perception/debug_image')
+        status_topic = _topic(
+            'result_status_topic', f'/{ns}/target_perception/result_status')
         self.target_frame = _topic('target_frame', f'{ns}/odom')
 
         self.conf = float(self.get_parameter('conf').value)
@@ -163,6 +194,7 @@ class TargetPerception(Node):
         self._latest_pair_id = 0
         self._processed_pair_id = -1
         self._shutdown_requested = False
+        self._next_sample_id = 0
 
         # ---- TF ----
         # Buffer 保存 TF 树里的历史变换；TransformListener 负责订阅 /tf 和 /tf_static
@@ -174,6 +206,7 @@ class TargetPerception(Node):
         # PoseStamped 只表达“目标在哪里”；Odometry 额外带线速度，方便下游控制器直接订阅。
         self.pose_pub = self.create_publisher(PoseStamped, pose_topic, 10)
         self.odom_pub = self.create_publisher(Odometry, odom_topic, 10)
+        self.status_pub = self.create_publisher(String, status_topic, 10)
         # debug 图用与相机 image_raw 相同的 sensor_data QoS（BEST_EFFORT），
         # 这样 rqt_image_view 能像显示 image_raw 一样显示带框图。
         self.dbg_pub = (self.create_publisher(Image, dbg_topic, qos_profile_sensor_data)
@@ -213,6 +246,7 @@ class TargetPerception(Node):
             f'  info  = {info_topic}\n'
             f'  -> pose = {pose_topic}\n'
             f'  -> odom = {odom_topic}  (frame={self.target_frame})\n'
+            f'  -> status = {status_topic}\n'
             f'  role = {role_topic}')
 
     def _role_callback(self, message):
@@ -262,6 +296,8 @@ class TargetPerception(Node):
 
         # 先标记已取走，避免同一帧在下一次定时器又被处理
         self._processed_pair_id = pair_id
+        sample_id = self._next_sample_id
+        self._next_sample_id += 1
 
         stamp = rclpy.time.Time.from_msg(depth_msg.header.stamp)
         age = (self.get_clock().now() - stamp).nanoseconds * 1e-9
@@ -269,15 +305,36 @@ class TargetPerception(Node):
         # 只丢弃确实过期的帧；负值可能来自启动阶段的仿真时间初始化。
         if age > self.max_image_age:
             self._warn(f'丢弃过期图像，age={age:.3f}s > max_image_age={self.max_image_age:.3f}s')
+            self._publish_result_status(depth_msg.header.stamp, sample_id)
             return
 
-        self._process_rgbd_pair(rgb_msg, depth_msg)
+        self._process_rgbd_pair(rgb_msg, depth_msg, sample_id)
 
-    def _process_rgbd_pair(self, rgb_msg, depth_msg):
+    def _process_rgbd_pair(self, rgb_msg, depth_msg, sample_id=None):
+        """Publish exactly one result status around the existing inference path."""
+        if sample_id is None:
+            sample_id = self._next_sample_id
+            self._next_sample_id += 1
+        try:
+            status = self._process_rgbd_pair_impl(rgb_msg, depth_msg)
+        except Exception as error:  # noqa: BLE001
+            self._warn(f'RGB-D 推理异常：{error}')
+            status = (False, None, None, False)
+        recognition_success, confidence, bbox, localization_success = status
+        self._publish_result_status(
+            depth_msg.header.stamp,
+            sample_id,
+            recognition_success=recognition_success,
+            confidence=confidence,
+            bbox=bbox,
+            localization_success=localization_success,
+        )
+
+    def _process_rgbd_pair_impl(self, rgb_msg, depth_msg):
         """对最新一对 RGB-D 图像执行 YOLO 检测 + 深度反投影 + TF 转全局，并发布 PoseStamped/Odometry。"""
         if self.K is None:
             self._warn('尚未收到 camera_info，无法反投影。')
-            return
+            return False, None, None, False
 
         try:
             # rgb 用 bgr8 是因为 OpenCV 默认颜色顺序是 BGR；ultralytics 也能接受 numpy 图像。
@@ -286,7 +343,7 @@ class TargetPerception(Node):
             depth = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
         except Exception as e:  # noqa: BLE001
             self._warn(f'cv_bridge 转换失败：{e}')
-            return
+            return False, None, None, False
 
         depth = np.asarray(depth, dtype=np.float32)  # 米；16UC1 时单位是 mm，见下
         # 若是 16UC1（毫米），转成米
@@ -301,9 +358,10 @@ class TargetPerception(Node):
             self._warn('未检测到 person。')
             if self.dbg_pub is not None:
                 self._publish_debug(rgb, None, rgb_msg.header)
-            return
+            return False, None, None, False
 
         x1, y1, x2, y2, conf = best
+        bbox = (x1, y1, x2, y2)
         # 用检测框中心作为反投影像素，深度则优先从 bbox 内 ROI 鲁棒采样。
         u = int(round((x1 + x2) / 2.0))
         v = int(round((y1 + y2) / 2.0))
@@ -313,7 +371,7 @@ class TargetPerception(Node):
             self._warn(f'bbox 深度无效 (u={u}, v={v})。')
             if self.dbg_pub is not None:
                 self._publish_debug(rgb, (x1, y1, x2, y2, conf, None), rgb_msg.header)
-            return
+            return True, conf, bbox, False
 
         # ---- 反投影到 camera_depth_optical_frame ----
         fx, fy, cx, cy = self.K
@@ -347,7 +405,7 @@ class TargetPerception(Node):
                 pt_world = tf2_geometry_msgs.do_transform_point(pt, tf)
             except Exception as e:  # noqa: BLE001
                 self._warn(f'TF {pt.header.frame_id} -> {self.target_frame} 失败：{e}')
-                return
+                return True, conf, bbox, False
 
         gx = pt_world.point.x
         gy = pt_world.point.y
@@ -365,6 +423,24 @@ class TargetPerception(Node):
         if self.dbg_pub is not None:
             self._publish_debug(rgb, (x1, y1, x2, y2, conf, Z), rgb_msg.header,
                                 gx=gx, gy=gy, depth_source=depth_source)
+        return True, conf, bbox, True
+
+    def _publish_result_status(self, stamp, sample_id, recognition_success=False,
+                               confidence=None, bbox=None,
+                               localization_success=False):
+        """Publish one machine-readable result for the source sensor timestamp."""
+        try:
+            payload = result_status_json(
+                stamp, sample_id,
+                recognition_success=recognition_success,
+                confidence=confidence,
+                bbox=bbox,
+                localization_success=localization_success,
+            )
+        except ValueError as error:
+            self._warn(f'感知状态序列化失败：{error}')
+            payload = result_status_json(stamp, sample_id)
+        self.status_pub.publish(String(data=payload))
 
     # -----------------------------------------------------------------
     def _pick_person(self, results):

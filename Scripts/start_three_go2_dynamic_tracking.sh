@@ -400,7 +400,7 @@ ros2 run go2_scenario_config check_three_go2_attitude --ros-args \
     -p model_states_topic:=/gazebo/model_states \
     -p robot_names:='[go2_1,go2_2,go2_3]' \
     -p roll_limit_deg:=90.0 \
-    -p required_frames:=3 \
+    -p sample_frames:=5 \
     -p timeout_seconds:=10.0
 "
 attitude_check_status=$?
@@ -410,7 +410,7 @@ case "$attitude_check_status" in
         echo "三只 Go2 姿态检查通过，继续启动终端 5。"
         ;;
     10)
-        echo "检测到机器狗连续 3 帧 abs(roll) > 90 度。" >&2
+        echo "检测到机器狗在 5 帧观察窗口内 abs(roll) > 90 度。" >&2
         cleanup_current_run
         if [ "$GO2_RESTART_COUNT" -ge "$MAX_GO2_RESTARTS" ]; then
             echo "ERROR: 已达到最大自动重启次数 $MAX_GO2_RESTARTS，停止启动。" >&2

@@ -284,6 +284,25 @@ cd $DELIVERY_ROOT/Scripts
 
 系统就绪后脚本启动行人，并按“感知跟踪 → Nav2 靠近 → MADDPG 接管”自动运行。
 
+## 测试模式：
+
+目前已搭建三只 Go2 的目标感知自动化测试框架，可通过 YAML 组合
+city、forest、airport 三个场景，三类行人路线和 11 组机器人位姿，
+共展开 99 个正式测试 Case。框架能够自动启动并隔离运行每个 Case，
+记录原始数据，计算目标识别准确率与平均定位误差，并汇总测试结果。
+
+当前测试范围主要覆盖目标识别与定位，暂不包含建图、Nav2、动态围捕和 tracking 控制流程。配置方法、运行命令、评价指标及输出目录详见
+[Go2 目标感知自动化测试框架说明](go2_ws_v2/src/go2_test_framework/README.md)。
+
+### 工具：动态场景与机器狗位姿生成器
+
+工具链按职责拆分为两个并列目录：
+
+- [`tools/gazebo_map_creator`](tools/gazebo_map_creator/README.md)：独立构建
+  Gazebo 地图生成器，并保存 PGM、PNG、Nav2 YAML 基准地图。
+- [`tools/pedestrian_map`](tools/pedestrian_map/README.md)：消费上述地图，验证
+  行人路线并生成机器人初始位姿及复核报告。
+
 ## 模型参数说明
 
 ### 行人走路控制

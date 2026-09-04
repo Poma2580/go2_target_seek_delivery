@@ -18,11 +18,11 @@ dynamic_target:
 
 robots:
   go2_1:
-    spawn: {x: 20.0, y: 18.0, z: 0.80, yaw: 2.19}
+    spawn: {x: -3.0, y: 0.0, z: 0.40, yaw: 2.76}
     sensors: {lidar: false, camera: false}
   go2_2:
-    spawn: {x: -42.0, y: 8.0, z: 0.80, yaw: -2.35619449}
+    spawn: {x: -38.0, y: 0.0, z: 0.40, yaw: -2.24}
     sensors: {lidar: false, camera: false}
   go2_3:
-    spawn: {x: 36.0, y: 40.0, z: 0.80, yaw: -2.92}
+    spawn: {x: 42.0, y: -11.0, z: 0.40, yaw: -0.35}
     sensors: {lidar: false, camera: false}

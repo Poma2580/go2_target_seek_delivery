@@ -1,0 +1,32 @@
+schema_version: 1
+execution:
+  gazebo_gui: true
+  rqt: true
+  robot_startup:
+    world_to_first_delay_sec: 3.0
+    inter_robot_delay_sec: 3.0
+    enable_lidar: false
+  attitude_check:
+    enabled: true
+    settle_delay_sec: 3.0
+    roll_limit_deg: 90.0
+    sample_frames: 5
+    timeout_sec: 10.0
+    max_restarts: 5
+    restart_delay_sec: 1.0
+suite_id: T1
+formal: true
+scenes: [city, forest, airport]
+routes: [straight, rectangle, v_shape]
+pose_groups: [group_01, group_02, group_03, group_04, group_05, group_06, group_07, group_08, group_09, group_10, group_11]
+evaluation_rate_hz: 2.0
+evaluation_duration_sec: 10.0
+match_timeout_sec: 0.4
+startup_timeout_sec: 120.0
+role_timeout_sec: 60.0
+data_ready_timeout_sec: 30.0
+visibility_method: camera_projection
+consider_occlusion: false
+perception_mode: selected_robot
+min_camera_depth_m: 0.3
+max_camera_depth_m: 25.0
