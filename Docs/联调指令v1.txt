@@ -160,3 +160,35 @@ execute 模式会先用 Nav2 将 go2_2/go2_3 送到 leader 前方2 m、左右2 m
 leader_pedestrian_tracker 会自动启动行人，并让 go2_1 按旧流程的“追赶 ->
 保持约2m”规律跟踪。该节点不控制 go2_2/go2_3；两只跟随犬仍只接收
 MADDPG 选点后的 Nav2 目标。不要再给 go2_1 发送 Nav2 goal，避免两个控制源。
+
+
+### 完整动态围捕流程：最终阶段改用 MADDPG 选点
+
+旧的连续速度控制脚本保留不变：
+
+  ./Scripts/start_three_go2_dynamic_tracking.sh
+
+新的完整流程脚本：
+
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
+
+只检查脚本、模型和派生启动流程，不启动 Gazebo：
+
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh --check
+
+运行阶段如下：Gazebo/三狗/雷达/相机/融合地图/Nav2启动 -> 三机感知并选出
+感知主狗 -> 主狗跟踪行人、另外两狗通过Nav2接近三角点 -> 安全取消旧目标 ->
+MADDPG读取两只跟随狗的/scan和三狗/odom，每1秒选点 -> Nav2每3秒刷新同一
+动作目标并负责cmd_vel。角色不是固定go2_1；选点器会自动把被选中的感知狗
+作为leader，把另外两只狗按固定顺序映射为两个策略角色。
+
+交接后 /dynamic_encircle/use_maddpg 必须始终为 false。这里的false表示速度
+仍由Nav2通道输出，不表示MADDPG选点没有运行。用以下话题观察：
+
+  ros2 topic echo /dynamic_encircle/handoff_state --qos-durability transient_local
+  ros2 topic echo /maddpg_waypoint/actions
+  ros2 topic echo /maddpg_waypoint/goals
+  ros2 topic echo /maddpg_waypoint/errors
+  ros2 topic echo /maddpg_waypoint/controller_ready --qos-durability transient_local
+  ros2 topic echo /maddpg_waypoint/controller_active --qos-durability transient_local

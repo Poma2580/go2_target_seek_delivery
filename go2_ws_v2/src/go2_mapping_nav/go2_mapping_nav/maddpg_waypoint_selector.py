@@ -14,10 +14,16 @@ from geometry_msgs.msg import Point, Pose, PoseArray, PoseStamped
 from nav_msgs.msg import Odometry
 from rclpy.duration import Duration
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Bool, Float32MultiArray, Int32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray, Int32MultiArray, String
 from std_srvs.srv import SetBool
 from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
@@ -188,6 +194,12 @@ class MaddpgWaypointSelector(Node):
         self.declare_parameter("leader_name", "go2_1")
         self.declare_parameter("follower_1", "go2_2")
         self.declare_parameter("follower_2", "go2_3")
+        self.declare_parameter("robot_names", ["go2_1", "go2_2", "go2_3"])
+        self.declare_parameter("perception_robot_topic", "")
+        self.declare_parameter("wait_for_enable", False)
+        self.declare_parameter("enable_topic", "/dynamic_encircle/maddpg_enable")
+        self.declare_parameter("controller_ready_topic", "/maddpg_waypoint/controller_ready")
+        self.declare_parameter("controller_active_topic", "/maddpg_waypoint/controller_active")
         self.declare_parameter("global_frame", "merged_map")
         self.declare_parameter("decision_period", 1.0)
         self.declare_parameter("nav_goal_update_period", 3.0)
@@ -200,6 +212,7 @@ class MaddpgWaypointSelector(Node):
         self.declare_parameter(
             "initial_formation_tolerance", 0.75
         )
+        self.declare_parameter("require_initial_formation", True)
         self.declare_parameter("dry_run", True)
         self.declare_parameter("enabled", True)
 
@@ -208,6 +221,18 @@ class MaddpgWaypointSelector(Node):
         self.follower_names = (
             str(self.get_parameter("follower_1").value),
             str(self.get_parameter("follower_2").value),
+        )
+        self.robot_names = tuple(self.get_parameter("robot_names").value)
+        self.perception_robot_topic = str(
+            self.get_parameter("perception_robot_topic").value
+        )
+        self.wait_for_enable = bool(self.get_parameter("wait_for_enable").value)
+        self.enable_topic = str(self.get_parameter("enable_topic").value)
+        self.controller_ready_topic = str(
+            self.get_parameter("controller_ready_topic").value
+        )
+        self.controller_active_topic = str(
+            self.get_parameter("controller_active_topic").value
         )
         self.global_frame = str(self.get_parameter("global_frame").value)
         self.decision_period = float(self.get_parameter("decision_period").value)
@@ -225,10 +250,22 @@ class MaddpgWaypointSelector(Node):
         self.initial_formation_tolerance = float(
             self.get_parameter("initial_formation_tolerance").value
         )
+        self.require_initial_formation = bool(
+            self.get_parameter("require_initial_formation").value
+        )
         self.dry_run = bool(self.get_parameter("dry_run").value)
-        self.enabled = bool(self.get_parameter("enabled").value)
+        self.enabled = bool(self.get_parameter("enabled").value) and not self.wait_for_enable
+        self.dynamic_role = bool(self.perception_robot_topic)
+        self.role_received = not self.dynamic_role
+        self.controller_active = False
         if len(self.follower_names) != 2 or self.leader_name in self.follower_names:
             raise ValueError("leader_name and two unique follower_names are required")
+        if len(self.robot_names) != 3 or len(set(self.robot_names)) != 3:
+            raise ValueError("robot_names must contain exactly three unique names")
+        if self.dynamic_role and any(
+            not name or not isinstance(name, str) for name in self.robot_names
+        ):
+            raise ValueError("dynamic robot names must be non-empty strings")
         if self.decision_period < 1.0:
             raise ValueError("decision_period must be at least 1.0 second")
         if self.nav_goal_update_period <= 0.0:
@@ -264,7 +301,10 @@ class MaddpgWaypointSelector(Node):
                 f"({self.config.marl_dt:.3f} s)"
             )
 
-        names = (self.leader_name, *self.follower_names)
+        names = self.robot_names if self.dynamic_role else (
+            self.leader_name,
+            *self.follower_names,
+        )
         self.samples = {name: RobotSample() for name in names}
         for name in names:
             self.create_subscription(
@@ -273,7 +313,8 @@ class MaddpgWaypointSelector(Node):
                 lambda message, robot=name: self._odom_callback(robot, message),
                 20,
             )
-        for name in self.follower_names:
+        scan_names = names if self.dynamic_role else self.follower_names
+        for name in scan_names:
             self.create_subscription(
                 LaserScan,
                 f"/{name}/scan",
@@ -287,6 +328,8 @@ class MaddpgWaypointSelector(Node):
             self, names, self.global_frame, self.nav_goal_update_period
         )
         self.nav_goals.set_navigation_dogs(self.follower_names)
+        if not self.enabled:
+            self.nav_goals.suspend("waiting for handoff enable")
 
         self.action_publisher = self.create_publisher(
             Int32MultiArray, "/maddpg_waypoint/actions", 10
@@ -296,6 +339,18 @@ class MaddpgWaypointSelector(Node):
         )
         self.ready_publisher = self.create_publisher(
             Bool, "/maddpg_waypoint/ready", 10
+        )
+        status_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.controller_ready_publisher = self.create_publisher(
+            Bool, self.controller_ready_topic, status_qos
+        )
+        self.controller_active_publisher = self.create_publisher(
+            Bool, self.controller_active_topic, status_qos
         )
         self.observation_publisher = self.create_publisher(
             Float32MultiArray, "/maddpg_waypoint/observations", 10
@@ -307,6 +362,20 @@ class MaddpgWaypointSelector(Node):
             MarkerArray, "/maddpg_waypoint/markers", 10
         )
         self.create_service(SetBool, "/maddpg_waypoint/set_enabled", self._set_enabled)
+        if self.dynamic_role:
+            self.create_subscription(
+                String,
+                self.perception_robot_topic,
+                self._role_callback,
+                status_qos,
+            )
+        if self.wait_for_enable:
+            self.create_subscription(
+                Bool,
+                self.enable_topic,
+                self._enable_callback,
+                status_qos,
+            )
 
         self.previous_actions = np.full(2, DEFAULT_ACTION, dtype=np.int64)
         self.current_goals = np.zeros((2, 2), dtype=np.float32)
@@ -314,11 +383,12 @@ class MaddpgWaypointSelector(Node):
         self.last_progress = np.zeros(2, dtype=np.float32)
         self.blocked_latched = np.zeros(2, dtype=bool)
         self.clear_counts = np.zeros(2, dtype=np.int64)
-        self.formation_initialized = False
+        self.formation_initialized = not self.require_initial_formation
+        self._publish_controller_status(False)
         self.timer = self.create_timer(self.decision_period, self._decision_callback)
         self.get_logger().info(
             "Loaded %s; leader=%s followers=%s decision=%.1fs nav_goal=%.1fs "
-            "dry_run=%s. "
+            "dry_run=%s dynamic_role=%s wait_for_enable=%s initial_alignment=%s. "
             "MADDPG publishes goals only; Nav2 owns cmd_vel."
             % (
                 self.model_path,
@@ -327,8 +397,80 @@ class MaddpgWaypointSelector(Node):
                 self.decision_period,
                 self.nav_goal_update_period,
                 self.dry_run,
+                self.dynamic_role,
+                self.wait_for_enable,
+                self.require_initial_formation,
             )
         )
+
+    def _role_callback(self, message):
+        selected = message.data.strip("/")
+        if selected not in self.robot_names:
+            self.get_logger().warning(f"Ignoring unknown perception robot: {selected}")
+            return
+        if self.role_received:
+            if selected != self.leader_name:
+                self.get_logger().warning(
+                    f"Ignoring role change to {selected}; role is locked to {self.leader_name}"
+                )
+            return
+        self.leader_name = selected
+        self.follower_names = tuple(
+            name for name in self.robot_names if name != selected
+        )
+        self.nav_goals.set_navigation_dogs(self.follower_names)
+        self.role_received = True
+        self._reset_policy_state()
+        self.get_logger().info(
+            "Dynamic role locked: leader=%s followers=%s"
+            % (self.leader_name, ",".join(self.follower_names))
+        )
+
+    def _reset_policy_state(self):
+        self.previous_actions = np.full(2, DEFAULT_ACTION, dtype=np.int64)
+        self.current_goals = np.zeros((2, 2), dtype=np.float32)
+        self.last_positions = None
+        self.last_progress = np.zeros(2, dtype=np.float32)
+        self.blocked_latched = np.zeros(2, dtype=bool)
+        self.clear_counts = np.zeros(2, dtype=np.int64)
+        self.formation_initialized = not self.require_initial_formation
+
+    def _inputs_ready(self):
+        if not self.role_received:
+            return False
+        required = (self.leader_name, *self.follower_names)
+        return all(
+            self.samples[name].odom is not None
+            and self._fresh(self.samples[name].odom_received_at, self.odom_timeout)
+            for name in required
+        ) and all(
+            self.samples[name].scan is not None
+            and self._fresh(self.samples[name].scan_received_at, self.scan_timeout)
+            for name in self.follower_names
+        )
+
+    def _publish_controller_status(self, ready):
+        self.controller_ready_publisher.publish(Bool(data=bool(ready)))
+        self.controller_active_publisher.publish(Bool(data=self.controller_active))
+
+    def _set_enabled_state(self, enabled):
+        self.enabled = bool(enabled)
+        self.controller_active = False
+        self._reset_policy_state()
+        if self.enabled:
+            self.nav_goals.resume()
+        else:
+            self.nav_goals.suspend("selector disabled")
+        self._publish_controller_status(self._inputs_ready())
+
+    def _enable_callback(self, message):
+        requested = bool(message.data)
+        if requested != self.enabled:
+            self._set_enabled_state(requested)
+            self.get_logger().info(
+                "Handoff command: waypoint selector %s"
+                % ("enabled" if requested else "disabled")
+            )
 
     def _odom_callback(self, name, message):
         sample = self.samples[name]
@@ -585,18 +727,17 @@ class MaddpgWaypointSelector(Node):
 
     def _decision_callback(self):
         required = (self.leader_name, *self.follower_names)
-        ready = all(
-            self.samples[name].odom is not None
-            and self._fresh(self.samples[name].odom_received_at, self.odom_timeout)
-            for name in required
-        ) and all(
-            self.samples[name].scan is not None
-            and self._fresh(self.samples[name].scan_received_at, self.scan_timeout)
-            for name in self.follower_names
-        )
+        ready = self._inputs_ready()
+        self._publish_controller_status(ready)
         if not ready or not self.enabled:
             self.ready_publisher.publish(Bool(data=False))
             return
+        if not self.controller_active:
+            self.controller_active = True
+            self._publish_controller_status(True)
+            self.get_logger().info(
+                "Waypoint selector active; Nav2 remains cmd_vel owner"
+            )
         try:
             receive_times = [
                 self.samples[name].odom_received_at.nanoseconds * 1e-9
@@ -693,14 +834,12 @@ class MaddpgWaypointSelector(Node):
             )
 
     def _set_enabled(self, request, response):
-        self.enabled = bool(request.data)
-        if self.enabled:
-            self.nav_goals.resume()
-        else:
-            self.nav_goals.suspend("selector disabled")
+        self._set_enabled_state(bool(request.data))
         response.success = True
         response.message = "enabled" if self.enabled else "disabled"
         return response
 
     def stop(self):
+        self.controller_active = False
+        self._publish_controller_status(False)
         self.nav_goals.shutdown()

@@ -87,7 +87,10 @@ class HandoffManager:
                 self.fail("timed out waiting for MADDPG ready", now)
         elif self.state == HandoffState.ENABLING_MADDPG:
             if maddpg_active:
-                self.on_mux(True)
+                # Continuous-control MADDPG owns cmd_vel after handoff.  The
+                # waypoint policy only selects goals, so Nav2 must remain the
+                # velocity owner in that mode.
+                self.on_mux(self.config.switch_mux_to_maddpg)
                 self._transition(HandoffState.MADDPG_ACTIVE, now)
             elif elapsed > self.config.maddpg_enable_timeout:
                 self.fail("timed out waiting for MADDPG active", now)

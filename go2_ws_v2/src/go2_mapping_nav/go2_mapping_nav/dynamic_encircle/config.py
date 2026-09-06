@@ -51,6 +51,7 @@ class EncircleConfig:
     maddpg_enable_topic: str = "/dynamic_encircle/maddpg_enable"
     cmd_mux_select_topic: str = "/dynamic_encircle/use_maddpg"
     handoff_state_topic: str = "/dynamic_encircle/handoff_state"
+    switch_mux_to_maddpg: bool = True
 
     @classmethod
     def declare_and_load(cls, node):
@@ -65,15 +66,18 @@ class EncircleConfig:
             "cmd_mux_select_topic",
             "handoff_state_topic",
         )
+        bool_names = ("switch_mux_to_maddpg",)
         numeric_names = tuple(
             field.name
             for field in fields(cls)
-            if field.name not in ("robot_names", *string_names)
+            if field.name not in ("robot_names", *string_names, *bool_names)
         )
         for name in numeric_names:
             node.declare_parameter(name, getattr(defaults, name))
         node.declare_parameter("robot_names", list(defaults.robot_names))
         for name in string_names:
+            node.declare_parameter(name, getattr(defaults, name))
+        for name in bool_names:
             node.declare_parameter(name, getattr(defaults, name))
 
         values = {
@@ -83,6 +87,7 @@ class EncircleConfig:
         values.update(
             robot_names=tuple(node.get_parameter("robot_names").value),
             **{name: node.get_parameter(name).value for name in string_names},
+            **{name: bool(node.get_parameter(name).value) for name in bool_names},
         )
         config = cls(**values)
         config.validate()

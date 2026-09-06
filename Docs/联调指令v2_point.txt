@@ -1,0 +1,213 @@
+三只 Go2 动态跟踪与 MADDPG 避障选点系统
+版本：v2_point
+
+
+一、系统功能
+
+完整流程：
+  Gazebo 城市场景
+  -> 生成三只 Go2、行人、雷达和相机
+  -> 启动三套建图/Nav2和 merged_map
+  -> 相机感知并自动选出一只主狗
+  -> 主狗跟踪行人，另外两只狗通过 Nav2 接近初始阵型
+  -> 自动交接给 MADDPG 避障选点
+  -> Nav2 控制两只跟随狗到达选定候选点
+
+职责边界：
+  - MADDPG 每 1 秒选择候选点，不发布 cmd_vel。
+  - Nav2 每 3 秒刷新同一动作目标，负责规划、避障和运动控制。
+  - 感知主狗继续执行行人跟踪。
+  - 另外两只狗作为 MADDPG 跟随狗，角色会自动映射。
+
+二、新旧脚本
+
+新版 MADDPG 选点：
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
+
+旧版 MARL 直接输出运动控制量，保留作为备案：
+  ./Scripts/start_three_go2_dynamic_tracking.sh
+
+两个脚本不能同时运行。
+
+三、启动前准备
+
+设置工程路径：
+  export DELIVERY_ROOT=/home/zhj/wat/go2_target_seek_delivery-main
+
+修改 ROS Python 代码后重新编译：
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  colcon build --packages-select go2_mapping_nav --symlink-install
+  source install/setup.bash
+
+只检查脚本和模型，不启动 Gazebo：
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh --check
+
+四、启动完整系统
+
+先关闭上一次测试的 Gazebo、RViz 和 ROS 节点终端，然后运行：
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
+
+直接运行默认显示 Gazebo 窗口。如需无界面运行：
+  ./Scripts/start_three_go2_dynamic_waypoint_maddpg.sh --headless
+
+脚本会自动打开多个终端并完成：
+  1. 启动 city 世界。
+  2. 生成 go2_1、go2_2、go2_3。
+  3. 启动三机 Velodyne、RGB-D 相机和里程计。
+  4. 检查控制器、传感器和机器狗姿态。
+  5. 启动地图融合、三套 Nav2 和统一 RViz。
+  6. 启动目标感知和主狗角色选择。
+  7. 预加载 MADDPG 选点器。
+  8. 启动初始靠近、自动交接和行人运动。
+
+五、自动运行阶段
+  ROLE_WAIT：等待感知系统选出主狗。
+  -> NAV2_ACTIVE：主狗跟踪行人，另外两只狗通过 Nav2 接近初始阵型。
+  -> ARRIVAL_HOLD：确认两只跟随狗已经稳定到位。
+  -> NAV2_CANCELLING：取消初始靠近阶段的旧 Nav2 目标。
+  -> WAITING_FOR_STOP：等待两只跟随狗停止。
+  -> WAITING_FOR_MADDPG_READY：检查模型、角色、里程计和雷达输入。
+  -> ENABLING_MADDPG：启用 MADDPG 选点器。
+  -> MADDPG_ACTIVE：立即开始 MADDPG 选点，Nav2 执行。
+
+阶段全部自动切换，无需手动干预。进入 MADDPG_ACTIVE 后不再检查机器狗与
+默认候选点之间是否小于 0.5 m，直接使用当前状态和雷达进行策略推理。
+
+六、雷达与策略输入
+
+原始点云：
+  /go2_1/velodyne_points
+  /go2_2/velodyne_points
+  /go2_3/velodyne_points
+
+二维扫描：
+  /go2_1/scan
+  /go2_2/scan
+  /go2_3/scan
+
+当前城市参数：
+  target_frame: go2_x/velodyne
+  min_height: 0.10 m
+  max_height: 0.50 m
+
+选点器订阅三只狗的雷达，以支持任意一只狗成为主狗。角色确定后，只使用
+另外两只跟随狗的 /scan。约 220 条扫描线会重采样为训练时的 108 条射线，
+再压缩为 36 个雷达扇区。每只跟随狗的策略输入为 83 维，两只狗共 166 维。
+
+七、候选点动作
+
+候选点位于主狗前方约 2 m、左右约 2 m 的默认阵型附近：
+  action 0：向左偏移约 2 m
+  action 1：向左偏移约 1 m
+  action 2：默认阵型点，偏移 0 m
+  action 3：向右偏移约 1 m
+  action 4：向右偏移约 2 m
+
+无障碍时应保持 action 2。遇到障碍物时只能逐级切换：
+  2 -> 1 -> 0
+  2 -> 3 -> 4
+
+不能直接从 2 跳到 0 或 4。
+
+八、关键监控命令
+
+另开终端并加载环境：
+  cd $DELIVERY_ROOT
+  source /opt/ros/humble/setup.bash
+  source go2_ws_v2/install/setup.bash
+
+查看感知主狗：
+  ros2 topic echo /target_role/perception_robot --once \
+    --qos-durability transient_local
+
+查看自动阶段：
+  ros2 topic echo /dynamic_encircle/handoff_state \
+    --qos-durability transient_local
+
+查看 MADDPG 动作、候选点和位置误差：
+  ros2 topic hz /maddpg_waypoint/actions
+  ros2 topic echo /maddpg_waypoint/actions
+  ros2 topic echo /maddpg_waypoint/goals
+  ros2 topic echo /maddpg_waypoint/errors
+  ros2 topic echo /maddpg_waypoint/observations --once
+
+查看选点器状态：
+  ros2 topic echo /maddpg_waypoint/controller_ready \
+    --qos-durability transient_local
+  ros2 topic echo /maddpg_waypoint/controller_active \
+    --qos-durability transient_local
+
+查看速度控制权：
+  ros2 topic echo /dynamic_encircle/use_maddpg --once \
+    --qos-durability transient_local
+
+选点版本正确输出为 data: false。这表示 Nav2 持有 cmd_vel，并不表示
+MADDPG 没有运行。
+
+九、RViz 正常表现
+
+进入 MADDPG_ACTIVE 后应看到：
+  - 两只跟随狗的当前位置圆点。
+  - 当前选中候选点方块。
+  - 当前位置到候选点的误差线。
+  - 每只狗的 action 和 error 文字。
+
+无障碍机器狗应保持 action 2。只有自身路径受阻的机器狗改变候选点，另一只
+路径畅通的狗不应跟随改变。通过障碍物后应逐步恢复默认三角阵型。
+
+十、常见问题
+
+1. 停在 ROLE_WAIT
+
+检查 /target_role/perception_robot、三机相机话题、目标检测终端和 YOLO 模型。
+
+2. 停在 WAITING_FOR_MADDPG_READY
+
+检查三狗 /odom 和 /scan 是否持续发布：
+  ros2 topic hz /go2_1/odom
+  ros2 topic hz /go2_2/scan
+  ros2 topic hz /go2_3/scan
+
+3. 出现 waypoint decision skipped
+
+检查雷达/里程计超时、数据时间差、merged_map TF，以及速度是否超过策略范围。
+
+4. 有候选点但机器狗不运动
+
+检查对应的 navigate_to_pose、nav_cmd_vel、cmd_vel 和 Nav2 局部代价地图；
+同时确认 /dynamic_encircle/use_maddpg 为 false。
+
+5. 出现 follower speed exceeds training range
+
+可在 Nav2 启动完成后临时限制速度：
+  ros2 param set /go2_2/controller_server FollowPath.max_vel_x 0.30
+  ros2 param set /go2_3/controller_server FollowPath.max_vel_x 0.30
+
+6. 行人没有运动
+  ros2 service list | grep /walking_target/start
+  ros2 service call /walking_target/start std_srvs/srv/Trigger "{}"
+
+十一、成功判定
+  1. 三狗、雷达、相机、融合地图和 Nav2 正常启动。
+  2. 系统稳定选出一只感知主狗。
+  3. 行人和主狗持续运动，两只跟随狗完成初始靠近。
+  4. handoff_state 最终进入 MADDPG_ACTIVE。
+  5. actions 约 1 Hz 发布，goals 和 errors 持续更新。
+  6. use_maddpg 保持 false，Nav2 持续输出速度。
+  7. 障碍物遮挡哪只狗，哪只狗改变候选点并完成避障。
+
+十二、回退旧版
+
+关闭新版启动的全部终端，确认没有残留 maddpg_waypoint_selector，然后运行：
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_dynamic_tracking.sh
+
+十三、相关文件
+  新版脚本：Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
+  旧版脚本：Scripts/start_three_go2_dynamic_tracking.sh
+  选点器：go2_ws_v2/src/go2_mapping_nav/go2_mapping_nav/maddpg_waypoint_selector.py
+  场景配置：go2_ws_v2/src/multi_go2_waypoint/config/scenes/city.yaml
+  模型：waypoint_maddpg_v0/runs/two_obstacles_108rays_final_gpu_20260826/best_model.pt
