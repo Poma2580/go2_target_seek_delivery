@@ -7,9 +7,10 @@ world:
 # forest 尚未提供与 airport 同标准的离线栅格地图。使用 A* 时请通过 map_yaml 指定地图。
 map: null
 
-# forestV3.world 中的 cessna_c172。
-target: {x: 8.4, y: 38.3395, yaw: 1.59854}
-encircle: {radius: 4.0}
+# MADDPG 森林测试的行人从 (-13, 2) 出发，初始朝向 +x。
+# 相对队形与 city 完全一致：GO1 在行人后方 2 m，GO2/GO3 在前方左右各 2 m。
+target: {x: -13.0, y: 2.0, yaw: 0.0}
+encircle: {radius: 2.0}
 
 # 森林障碍更密，使用较保守的控制参数。
 controller:
@@ -24,11 +25,11 @@ controller:
 
 robots:
   go2_1:
-    spawn: {x: 20.0, y: 18.0, z: 0.80, yaw: 2.19}
-    sensors: {lidar: false, camera: false}
+    spawn: {x: -15.0, y: 2.0, z: 0.80, yaw: 0.0}
+    sensors: {lidar: true, camera: true}
   go2_2:
-    spawn: {x: -8.0, y: 42.0, z: 0.80, yaw: 0.0}
-    sensors: {lidar: false, camera: false}
+    spawn: {x: -13.0, y: 4.0, z: 0.80, yaw: 0.0}
+    sensors: {lidar: true, camera: true}
   go2_3:
-    spawn: {x: 36.0, y: 40.0, z: 0.80, yaw: -2.92}
-    sensors: {lidar: false, camera: false}
+    spawn: {x: -13.0, y: 0.0, z: 0.80, yaw: 0.0}
+    sensors: {lidar: true, camera: true}

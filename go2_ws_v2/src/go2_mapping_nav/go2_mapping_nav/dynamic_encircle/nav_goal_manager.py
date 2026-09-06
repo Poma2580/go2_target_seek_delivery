@@ -52,6 +52,13 @@ class GoalUpdateState:
         self.generation += 1
         return self.generation
 
+    def make_due(self):
+        """Allow an important plan change to bypass the periodic refresh wait."""
+        if self.suspended or self.completed:
+            return False
+        self.last_dispatch = None
+        return True
+
     def suspend(self):
         """Suspend dispatch and invalidate callbacks from the active generation."""
         if self.completed or self.suspended:
@@ -133,8 +140,10 @@ class NavGoalManager:
         """Store the latest formation plan for the next dispatch."""
         self.plan = plan
 
-    def dispatch_if_due(self, now):
+    def dispatch_if_due(self, now, force=False):
         """Send one goal generation when due and both servers are ready."""
+        if force:
+            self.state.make_due()
         if self.plan is None or not self.navigation_dogs or not self.state.due(now):
             return False
         if not all(

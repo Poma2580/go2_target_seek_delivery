@@ -2,7 +2,7 @@
 # 启动一个场景、预置 uav1，并顺序导入三只 Go2。
 #
 # 用法：
-#   ./start_three_go2_velodyne.sh [city|forest|airport] [--lidar] [--camera] [--mapping-nav]
+#   ./start_three_go2_velodyne.sh [city|forest|airport] [--lidar] [--camera] [--mapping-nav] [--gui]
 #   ./start_three_go2_velodyne.sh forest --all-sensors
 
 set -u
@@ -16,11 +16,13 @@ usage() {
   forest                   森林场景
   airport                  机场场景
 
-传感器选项（默认读取场景 YAML，当前三个场景均关闭）：
+传感器选项（默认读取场景 YAML；forest 默认同时开启雷达和相机）：
   --lidar                  三只 Go2 开启 3D Velodyne
   --camera                 三只 Go2 开启 RGB-D 相机
   --all-sensors            同时开启 3D Velodyne 和 RGB-D 相机
   --mapping-nav            启动三套建图/导航、已知位姿地图融合和统一 RViz
+  --gui                    显示 Gazebo 窗口（覆盖 USE_GAZEBO_GUI）
+  --headless               不显示 Gazebo 窗口
   -h, --help               显示本帮助
 
 可选环境变量：
@@ -32,7 +34,7 @@ usage() {
   ./start_three_go2_velodyne.sh
   ./start_three_go2_velodyne.sh forest
   ./start_three_go2_velodyne.sh airport --all-sensors
-  ./start_three_go2_velodyne.sh city --all-sensors --mapping-nav
+  ./start_three_go2_velodyne.sh city --lidar --mapping-nav --gui
 EOF
 }
 
@@ -74,6 +76,12 @@ for arg in "$@"; do
         --mapping-nav)
             MAPPING_NAV=true
             ;;
+        --gui)
+            USE_GAZEBO_GUI=true
+            ;;
+        --headless)
+            USE_GAZEBO_GUI=false
+            ;;
         -h|--help)
             usage
             exit 0
@@ -111,6 +119,13 @@ case "$SCENE" in
         WORLD_PATH=$KD_MODEL_ROOT/world/airport
         ;;
 esac
+
+# Preserve the validated city navigation clearance.  Forest trees have broad,
+# partly occluded roots, so only that scene receives a wider costmap halo.
+NAV2_INFLATION_RADIUS=0.4
+if [ "$SCENE" = forest ]; then
+    NAV2_INFLATION_RADIUS=0.7
+fi
 
 if ! command -v gnome-terminal >/dev/null 2>&1; then
     echo "ERROR: 未找到 gnome-terminal。请安装后再运行。" >&2
@@ -305,8 +320,8 @@ ros2 launch go2_mapping_nav three_go2_map_merge.launch.py scene:=${SCENE} use_si
         mapping_log="$WS/src/go2_mapping_nav/runtime/logs/${robot_name}_mapping_nav.log"
         : > "$mapping_log"
         launch_terminal "mapping_nav_${robot_name}" "
-echo '==== Starting ${robot_name} mapping and navigation ===='
-ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true >${mapping_log} 2>&1
+echo '==== Starting ${robot_name} mapping and navigation; inflation_radius=${NAV2_INFLATION_RADIUS} m ===='
+ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true inflation_radius:=${NAV2_INFLATION_RADIUS} >${mapping_log} 2>&1
 "
         if [ "$merged_map_ready" = false ]; then
             if ! wait_for_topic_message "/merged_map" "$MERGED_MAP_TIMEOUT"; then

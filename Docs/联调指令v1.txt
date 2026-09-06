@@ -88,3 +88,75 @@ robots:
 | `go2_1` | -30.0 | -10.0 | 0.30 | -1.5478 |
 | `go2_2` | -20.0 | 4.0 | 0.30 | 0.0 |
 | `go2_3` | -5.0 | 30.0 | 0.30 | 0.0 |
+
+
+### MADDPG 选点 + Nav2 执行（Gazebo 部署）
+
+职责边界：
+
+  /go2_2/scan + /go2_3/scan + 三狗 /odom
+  -> MADDPG 每 1 秒输出 [go2_action, go3_action]
+  -> 转换为 merged_map 中两个候选目标 Pose
+  -> /go2_2/navigate_to_pose、/go2_3/navigate_to_pose
+  -> Nav2 规划路径并通过 nav_cmd_vel 控制机器狗
+
+MADDPG 节点不发布 cmd_vel。不要同时运行旧的
+gazebo_leader_slot_controller，否则会回到“模型直接控制速度”的旧架构。
+
+1. 编译：
+
+  cd $DELIVERY_ROOT/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  colcon build --packages-select go2_description go2_mapping_nav --symlink-install
+  source install/setup.bash
+
+2. 启动 Gazebo、三狗、Velodyne、融合地图和三套 Nav2：
+
+  cd $DELIVERY_ROOT
+  ./Scripts/start_three_go2_velodyne.sh city --lidar --mapping-nav
+
+3. 首次只观察选点，不发送 Nav2 goal：
+
+  cd $DELIVERY_ROOT
+  ./Scripts/start_maddpg_waypoint_nav2.sh --dry-run
+
+4. 检查 1 秒决策周期、动作和目标：
+
+  ros2 topic hz /maddpg_waypoint/actions
+  ros2 topic echo /maddpg_waypoint/actions
+  ros2 topic echo /maddpg_waypoint/goals
+  ros2 topic echo /maddpg_waypoint/ready
+  ros2 topic echo /maddpg_waypoint/observations --once
+  ros2 topic echo /maddpg_waypoint/errors
+
+/maddpg_waypoint/observations 每条消息固定包含 166 个 float：前83维为 go2_2，
+后83维为 go2_3。节点会拒绝非有限值、错误维度、超过0.2秒的数据不同步，
+以及超出训练速度范围的数据。
+
+/maddpg_waypoint/errors 每秒发布 [go2_2_error_m, go2_3_error_m]。统一 RViz
+默认显示当前位置圆点、选中目标方块、误差连线和 action/error 文字。
+
+默认直行动作为 [2, 2]。无障碍机器狗必须保持动作 2；只有自身路径
+blocked 的机器狗可以逐级选择相邻候选点。
+
+如果三狗出生时不在训练三角阵型，本节点不会把远距离相对位置输入策略。
+execute 模式会先用 Nav2 将 go2_2/go2_3 送到 leader 前方2 m、左右2 m；
+两者误差均小于0.75 m后，/maddpg_waypoint/ready 才变为 true，并开始推理。
+
+5. 确认目标左右方向和 merged_map 坐标正确后，停止 dry-run 节点并执行：
+
+  ./Scripts/start_maddpg_waypoint_nav2.sh --execute
+
+执行脚本会把 go2_1 的 Nav2 线速度限制为 0.10 m/s，把 go2_2/go2_3
+限制为 0.15 m/s，与 checkpoint 的训练速度一致。不要在联调期间重新提高到
+0.5 m/s，否则速度特征会被裁剪，产生明显输入分布偏移。
+
+6. 随时暂停/恢复选点并取消当前 follower Nav2 goals：
+
+  ros2 service call /maddpg_waypoint/set_enabled std_srvs/srv/SetBool "{data: false}"
+  ros2 service call /maddpg_waypoint/set_enabled std_srvs/srv/SetBool "{data: true}"
+
+当 track_pedestrian:=true（启动脚本默认）时，actor_state_publisher 和
+leader_pedestrian_tracker 会自动启动行人，并让 go2_1 按旧流程的“追赶 ->
+保持约2m”规律跟踪。该节点不控制 go2_2/go2_3；两只跟随犬仍只接收
+MADDPG 选点后的 Nav2 目标。不要再给 go2_1 发送 Nav2 goal，避免两个控制源。

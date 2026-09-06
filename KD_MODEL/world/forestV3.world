@@ -30944,6 +30944,41 @@
       <pose>4.36685 18.587 0 0 -0 0</pose>
     </model>
 
+    <!-- MADDPG forest test pedestrian.  The center line y=2 keeps GO1 clear
+         while the default follower lanes y=4/y=0 encounter separate trees. -->
+    <actor name="walking_target">
+      <pose>0 0 0 0 0 0</pose>
+      <skin>
+        <filename>model://actor/meshes/SKIN_man_blue_shirt.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walking">
+        <filename>model://actor/meshes/ANIMATION_walking.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <!-- leader_pedestrian_tracker pauses this actor until GO2/GO3 are ready. -->
+        <auto_start>false</auto_start>
+        <trajectory id="0" type="walking">
+          <!-- 41 m at 0.12 m/s, followed by a two-second in-place turn. -->
+          <waypoint><time>0</time><pose>-13 2 0 0 0 0</pose></waypoint>
+          <waypoint><time>341.667</time><pose>28 2 0 0 0 0</pose></waypoint>
+          <waypoint><time>343.667</time><pose>28 2 0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>685.334</time><pose>-13 2 0 0 0 3.1416</pose></waypoint>
+          <waypoint><time>687.334</time><pose>-13 2 0 0 0 6.2832</pose></waypoint>
+        </trajectory>
+      </script>
+      <plugin name="walking_target_controller"
+              filename="libwalking_target_controller.so">
+        <service_prefix>/walking_target</service_prefix>
+        <animation_factor>4.5</animation_factor>
+        <actor_pose_offset>0 0 0.98 1.5707 0 1.5707</actor_pose_offset>
+      </plugin>
+    </actor>
+
     <include>
       <uri>model://uav1_iris_depth_camera</uri>
       <pose>-15 -2 50 0 0 0</pose>

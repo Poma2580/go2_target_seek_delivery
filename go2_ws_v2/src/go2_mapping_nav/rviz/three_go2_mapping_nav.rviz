@@ -285,6 +285,26 @@ Visualization Manager:
           Value: false
       Enabled: true
       Name: Global Costmaps (optional)
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Current, Selected Goal and Error
+          Namespaces:
+            maddpg_current: true
+            maddpg_error_line: true
+            maddpg_error_text: true
+            maddpg_goal: true
+          Queue Size: 100
+          Topic:
+            Depth: 10
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /maddpg_waypoint/markers
+          Value: true
+      Enabled: true
+      Name: MADDPG Waypoint Monitor
     - Class: rviz_default_plugins/TF
       Enabled: true
       Frame Timeout: 15
@@ -324,8 +344,8 @@ Visualization Manager:
       Scale: 80
       Target Frame: merged_map
       Value: TopDownOrtho (rviz)
-      X: 30
-      Y: 10
+      X: -18
+      Y: 4
     Saved: ~
 Window Geometry:
   Height: 900

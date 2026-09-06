@@ -1,0 +1,96 @@
+{
+  "environment": {
+    "formation_forward": 2.0,
+    "formation_side": 2.0,
+    "candidate_offsets": [
+      2.0,
+      1.0,
+      0.0,
+      -1.0,
+      -2.0
+    ],
+    "marl_dt": 1.0,
+    "nav_dt": 0.1,
+    "follower_max_speed": 0.15,
+    "leader_speed": 0.1,
+    "lidar_fov": 6.283185307179586,
+    "lidar_sim_rays": 36,
+    "lidar_observation_size": 36,
+    "lidar_update_rate": 10.0,
+    "lidar_min_range": 0.9,
+    "lidar_physical_max_range": 130.0,
+    "lidar_policy_max_range": 20.0,
+    "lidar_noise_std": 0.008,
+    "lidar_sensor_x": 0.2,
+    "robot_radius": 0.35,
+    "obstacle_size": 1.5,
+    "obstacle_spawn_x": [
+      8.0,
+      10.0
+    ],
+    "obstacle_abs_y_range": [
+      1.7,
+      3.5
+    ],
+    "obstacle_lane_jitter": 0.3,
+    "candidate_clearance_cap": 3.0,
+    "candidate_forward_lookahead": 3.0,
+    "endpoint_blocked_clearance": 0.6,
+    "path_blocked_clearance": 0.6,
+    "obstacle_safe_clearance": 0.6,
+    "selected_path_safe_clearance": 0.8,
+    "desired_pair_distance": 4.0,
+    "pair_safe_distance": 1.2,
+    "pair_path_safe_distance": 1.5,
+    "pair_collision_distance": 0.7,
+    "time_penalty": 0.02,
+    "success_bonus": 50.0,
+    "collision_penalty": 100.0,
+    "obstacle_clearance_weight": 4.0,
+    "selected_path_weight": 3.0,
+    "blocked_path_penalty": 5.0,
+    "pair_clearance_weight": 8.0,
+    "pair_path_weight": 6.0,
+    "formation_excess_offset_weight": 0.6,
+    "formation_pair_weight": 1.0,
+    "progress_weight": 0.5,
+    "max_action_index_change": 1,
+    "max_episode_steps": 130,
+    "recovery_hold_steps": 3,
+    "recovery_error_tolerance": 0.75
+  },
+  "training": {
+    "seed": 7,
+    "total_steps": 100000,
+    "replay_size": 100000,
+    "warmup_steps": 2000,
+    "batch_size": 256,
+    "hidden_dim": 256,
+    "actor_lr": 0.0001,
+    "critic_lr": 0.0002,
+    "gamma": 0.99,
+    "tau": 0.005,
+    "update_every": 1,
+    "updates_per_step": 1,
+    "initial_epsilon": 0.25,
+    "final_epsilon": 0.05,
+    "epsilon_decay_steps": 60000,
+    "initial_temperature": 1.0,
+    "final_temperature": 0.25,
+    "eval_interval": 10000,
+    "eval_episodes": 20,
+    "log_interval_episodes": 20
+  },
+  "initialized_from": "waypoint_maddpg_v0/runs/five_reward_straight_avoid_straight_gpu_20260826/latest_model.pt",
+  "curriculum": {
+    "initial_obstacle_abs_y": [
+      1.7,
+      2.3
+    ],
+    "final_obstacle_abs_y": [
+      1.7,
+      3.5
+    ],
+    "steps": 80000
+  }
+}

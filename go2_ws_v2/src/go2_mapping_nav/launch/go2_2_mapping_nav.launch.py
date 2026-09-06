@@ -77,6 +77,7 @@ def generate_launch_description():
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     raw_cmd_vel_topic = LaunchConfiguration("raw_cmd_vel_topic")
     database_path = LaunchConfiguration("database_path")
+    inflation_radius = LaunchConfiguration("inflation_radius")
     nav_global_frame = IfElseSubstitution(
         condition=use_merged_map,
         if_value="merged_map",
@@ -100,6 +101,8 @@ def generate_launch_description():
                 "global_costmap.global_costmap.ros__parameters.static_layer.map_topic": (
                     nav_map_topic
                 ),
+                # Rewrite both local and global InflationLayer instances.
+                "inflation_radius": inflation_radius,
             },
             convert_types=True,
         ),
@@ -205,6 +208,7 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("use_merged_map", default_value="false"),
             DeclareLaunchArgument("use_rviz", default_value="false"),
+            DeclareLaunchArgument("inflation_radius", default_value="0.4"),
             DeclareLaunchArgument("delete_db_on_start", default_value="true"),
             DeclareLaunchArgument(
                 "database_path",
@@ -247,7 +251,9 @@ def generate_launch_description():
                         "max_height": 0.50,
                         "angle_min": -3.14159,
                         "angle_max": 3.14159,
-                        "angle_increment": 0.0143,
+                        # Match the Velodyne's 220 horizontal samples; the
+                        # policy selector then resamples these to 108 rays.
+                        "angle_increment": 0.0285599332,
                         "scan_time": 0.1,
                         "range_min": 0.55,
                         "range_max": 20.0,
