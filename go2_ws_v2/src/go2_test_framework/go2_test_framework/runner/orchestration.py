@@ -14,6 +14,8 @@ from go2_test_framework.runner.runtime import (
     ATTEMPT_MARKER, CASE_MARKER, RUN_MARKER,
 )
 from go2_test_framework.runner.ros_wait import (
+    WalkingTargetStartError,
+    start_walking_target,
     wait_for_controllers_active,
     wait_for_perception_role,
 )
@@ -97,6 +99,23 @@ def _failure_summary(status, reason, case):
     }
 
 
+def _failure_summary_preserving_metrics(attempt_dir, reason, case):
+    summary_path = Path(attempt_dir) / "case_summary.yaml"
+    try:
+        summary = _load_mapping(summary_path)
+    except (FileNotFoundError, RuntimeError, OSError, yaml.YAMLError):
+        summary = _failure_summary(
+            AttemptStatus.INFRASTRUCTURE_FAILED, reason, case
+        )
+    summary.update({
+        "status": AttemptStatus.INFRASTRUCTURE_FAILED.value,
+        "infrastructure_valid": False,
+        "pass": False,
+        "reason": reason,
+    })
+    return summary
+
+
 def _attitude_command(config):
     return [
         "ros2", "run", "go2_scenario_config", "check_three_go2_attitude",
@@ -172,6 +191,7 @@ def run_attempt(
             ATTEMPT_MARKER: str(attempt_number),
         },
     )
+    target_start_observation = None
     world = Path(share) / "worlds" / f"{case.scene}_{case.route}.world"
     startup_timeout = case.settings["startup_timeout_sec"]
     try:
@@ -263,20 +283,14 @@ def run_attempt(
             "-p", f"output_dir:={attempt_dir}",
         ])
         require_current_world()
-        service = subprocess.run(
-            [
-                "ros2", "service", "call", "/walking_target/start",
-                "std_srvs/srv/Trigger", "{}",
-            ],
-            text=True,
-            capture_output=True,
-            timeout=15.0,
-            check=False,
+        target_start_observation = start_walking_target(
+            health_check=require_current_world,
         )
-        if service.returncode != 0 or "success=True" not in service.stdout:
-            raise RuntimeError(
-                f"failed to start walking target: {service.stdout}{service.stderr}"
-            )
+        report(
+            "walking target movement confirmed: displacement="
+            f"{target_start_observation.displacement_m:.3f}m, requests="
+            f"{target_start_observation.start_requests_sent}"
+        )
         recorder_timeout = (
             case.settings["startup_timeout_sec"]
             + case.settings["evaluation_duration_sec"]
@@ -294,6 +308,7 @@ def run_attempt(
         if not summary_path.is_file():
             raise RuntimeError("target recorder did not write case_summary.yaml")
         summary = _load_mapping(summary_path)
+        summary["walking_target_start"] = target_start_observation.to_dict()
         if not summary.get("infrastructure_valid", False):
             reason = summary.get("reason") or "; ".join(
                 summary.get("infrastructure_errors", [])
@@ -314,9 +329,15 @@ def run_attempt(
     except Exception as error:
         report(f"INFRASTRUCTURE FAILED: {error}")
         reason = str(error)
-        summary = _failure_summary(
-            AttemptStatus.INFRASTRUCTURE_FAILED, reason, case
+        summary = _failure_summary_preserving_metrics(
+            attempt_dir, reason, case
         )
+        if isinstance(error, WalkingTargetStartError):
+            target_start_observation = error.observation
+        if target_start_observation is not None:
+            summary["walking_target_start"] = (
+                target_start_observation.to_dict()
+            )
         write_yaml(attempt_dir / "case_summary.yaml", summary)
         return AttemptResult(
             attempt_number, AttemptStatus.INFRASTRUCTURE_FAILED, reason, summary

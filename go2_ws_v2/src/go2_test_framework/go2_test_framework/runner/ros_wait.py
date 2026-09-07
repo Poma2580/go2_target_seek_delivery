@@ -1,8 +1,11 @@
 """Small ROS-facing wait primitives used by the process orchestrator."""
 
+from dataclasses import asdict, dataclass
+import math
 import time
 
 from controller_manager_msgs.srv import ListControllers
+from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import (
@@ -10,8 +13,10 @@ from rclpy.qos import (
     HistoryPolicy,
     QoSProfile,
     ReliabilityPolicy,
+    qos_profile_sensor_data,
 )
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 
 
 ROBOTS = ("go2_1", "go2_2", "go2_3")
@@ -19,6 +24,106 @@ REQUIRED_CONTROLLERS = (
     "joint_group_effort_controller",
     "joint_states_controller",
 )
+
+
+@dataclass(frozen=True)
+class WalkingTargetStartObservation:
+    movement_confirmed: bool
+    displacement_m: float
+    start_requests_sent: int
+
+    def to_dict(self):
+        return asdict(self)
+
+
+class WalkingTargetStartError(RuntimeError):
+    def __init__(self, message, observation):
+        super().__init__(message)
+        self.observation = observation
+
+
+def start_walking_target(
+    timeout_sec=10.0, min_displacement_m=0.05,
+    retry_interval_sec=2.0, max_requests=3, health_check=None,
+):
+    """Request target motion and confirm it solely from observed displacement."""
+    latest_position = None
+
+    def odom_callback(message):
+        nonlocal latest_position
+        position = message.pose.pose.position
+        latest_position = (position.x, position.y)
+
+    rclpy.init()
+    node = Node("target_test_walking_target_starter")
+    client = node.create_client(Trigger, "/walking_target/start")
+    subscription = node.create_subscription(
+        Odometry, "/walking_target/odom", odom_callback,
+        qos_profile_sensor_data,
+    )
+    deadline = time.monotonic() + timeout_sec
+    baseline = None
+    displacement = 0.0
+    requests_sent = 0
+    pending_requests = []
+    next_request_at = None
+
+    def observation(confirmed=False):
+        return WalkingTargetStartObservation(
+            movement_confirmed=confirmed,
+            displacement_m=displacement,
+            start_requests_sent=requests_sent,
+        )
+
+    try:
+        while rclpy.ok() and time.monotonic() < deadline:
+            if health_check is not None:
+                health_check()
+            remaining = deadline - time.monotonic()
+            rclpy.spin_once(node, timeout_sec=min(0.1, max(0.0, remaining)))
+
+            if baseline is None:
+                if latest_position is None:
+                    continue
+                baseline = latest_position
+                next_request_at = time.monotonic()
+
+            if latest_position is not None:
+                displacement = math.hypot(
+                    latest_position[0] - baseline[0],
+                    latest_position[1] - baseline[1],
+                )
+                if displacement >= min_displacement_m:
+                    return observation(confirmed=True)
+
+            now = time.monotonic()
+            if requests_sent < max_requests and now >= next_request_at:
+                if client.service_is_ready() or client.wait_for_service(
+                    timeout_sec=min(0.1, max(0.0, deadline - now))
+                ):
+                    # Keep futures alive while observing motion, but deliberately
+                    # do not inspect service responses: displacement is the only
+                    # success criterion.
+                    pending_requests.append(client.call_async(Trigger.Request()))
+                    requests_sent += 1
+                    next_request_at = now + retry_interval_sec
+
+        if baseline is None:
+            reason = "timed out waiting for initial /walking_target/odom"
+        elif requests_sent == 0:
+            reason = "timed out waiting for /walking_target/start service"
+        else:
+            reason = (
+                "walking target did not move at least "
+                f"{min_displacement_m:.3f} m within {timeout_sec:.1f} seconds"
+            )
+        raise WalkingTargetStartError(reason, observation())
+    finally:
+        node.destroy_subscription(subscription)
+        node.destroy_client(client)
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 def active_controller_names(response):

@@ -16,6 +16,7 @@ from go2_test_framework.runner.orchestration import (
     AttemptResult,
     AttemptStatus,
     CaseResult,
+    _failure_summary_preserving_metrics,
     run_case,
     should_retry,
     spawn_robots,
@@ -67,6 +68,34 @@ def result(number, status, *, passed=False, reason=None):
         "pass": passed,
     }
     return AttemptResult(number, status, reason, summary)
+
+
+def test_infrastructure_failure_preserves_existing_metrics(tmp_path):
+    attempt_dir = tmp_path / "attempt_01"
+    attempt_dir.mkdir()
+    existing = {
+        "infrastructure_valid": True,
+        "recognition": {"accuracy": 100.0, "pass": True},
+        "localization": {"mean_relative_error": 1.4, "pass": True},
+        "pass": True,
+    }
+    (attempt_dir / "case_summary.yaml").write_text(
+        "infrastructure_valid: true\n"
+        "recognition: {accuracy: 100.0, pass: true}\n"
+        "localization: {mean_relative_error: 1.4, pass: true}\n"
+        "pass: true\n",
+        encoding="utf-8",
+    )
+
+    summary = _failure_summary_preserving_metrics(
+        attempt_dir, "target did not move", smoke_case()
+    )
+
+    assert summary["recognition"] == existing["recognition"]
+    assert summary["localization"] == existing["localization"]
+    assert not summary["infrastructure_valid"]
+    assert not summary["pass"]
+    assert summary["reason"] == "target did not move"
 
 
 def test_suite_execution_defaults_and_cli_overrides():
