@@ -68,10 +68,10 @@ def test_forest_route_and_initial_detection_spawn_are_configured():
     )
     root = yaml.safe_load((SCENE_ROOT / "forest.yaml").read_text(encoding="utf-8"))
     assert root["robots"]["go2_2"]["spawn"] == {
-        "x": -42.0,
-        "y": 8.0,
-        "z": 0.80,
-        "yaw": -2.35619449,
+        "x": -38.0,
+        "y": 0.0,
+        "z": 0.40,
+        "yaw": -2.24,
     }
 
 

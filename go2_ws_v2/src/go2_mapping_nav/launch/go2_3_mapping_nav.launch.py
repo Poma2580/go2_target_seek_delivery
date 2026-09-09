@@ -243,7 +243,7 @@ def generate_launch_description():
                         "use_sim_time": use_sim_time_parameter,
                         "target_frame": "go2_3/velodyne",
                         "transform_tolerance": 0.1,
-                        "min_height": 0.10,
+                        "min_height": -0.15,
                         "max_height": 0.50,
                         "angle_min": -3.14159,
                         "angle_max": 3.14159,

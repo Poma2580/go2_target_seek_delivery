@@ -260,7 +260,8 @@ class TargetPerception(Node):
         self._shutdown_requested = True
         self.get_logger().info(
             f'感知狗已锁定为 {selected}；结束 {self.robot_namespace} 感知进程。')
-        rclpy.shutdown()
+        # Let the callback return before shutting down the global executor.
+        # Humble shutdown waits for running callbacks, including this one.
 
     # -----------------------------------------------------------------
     def _info_cb(self, msg):
@@ -597,7 +598,8 @@ def main(args=None):
     rclpy.init(args=args)
     node = TargetPerception()
     try:
-        rclpy.spin(node)
+        while rclpy.ok() and not node._shutdown_requested:
+            rclpy.spin_once(node, timeout_sec=0.2)
     except KeyboardInterrupt:
         pass
     finally:

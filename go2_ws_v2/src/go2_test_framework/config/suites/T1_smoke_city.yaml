@@ -1,6 +1,8 @@
 schema_version: 1
+task_type: perception
 execution:
   gazebo_gui: false
+  rviz: false
   rqt: false
   robot_startup:
     world_to_first_delay_sec: 3.0

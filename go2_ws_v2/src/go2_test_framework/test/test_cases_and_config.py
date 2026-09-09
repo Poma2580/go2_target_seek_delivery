@@ -15,10 +15,33 @@ def test_formal_suite_expands_stable_99_cases():
     suite = load_suite(PACKAGE_ROOT / "config/suites/T1_target_test.yaml")
     cases = expand_cases(suite, routes, poses)
     assert len(cases) == 99
+    assert all(case.task_type == "perception" for case in cases)
     assert cases[0].case_id == "T1-CITY-STRAIGHT-G01"
     assert cases[0].case_index == 1
     assert cases[-1].case_id == "T1-AIRPORT-V-G11"
     assert cases[-1].case_index == 99
+
+
+def test_formal_t2_suite_expands_stable_99_tracking_cases():
+    routes = load_routes(PACKAGE_ROOT / "config/parameters/target_routes.yaml")
+    poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
+    suite = load_suite(PACKAGE_ROOT / "config/suites/T2_tracking_test.yaml")
+    cases = expand_cases(suite, routes, poses)
+    assert len(cases) == 99
+    assert cases[0].case_id == "T2-CITY-STRAIGHT-G01"
+    assert cases[-1].case_id == "T2-AIRPORT-V-G11"
+    assert {case.task_type for case in cases} == {"tracking"}
+
+
+def test_formal_t3_suite_expands_stable_99_path_planning_cases():
+    routes = load_routes(PACKAGE_ROOT / "config/parameters/target_routes.yaml")
+    poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
+    suite = load_suite(PACKAGE_ROOT / "config/suites/T3_path_planning_test.yaml")
+    cases = expand_cases(suite, routes, poses)
+    assert len(cases) == 99
+    assert cases[0].case_id == "T3-CITY-STRAIGHT-G01"
+    assert cases[-1].case_id == "T3-AIRPORT-V-G11"
+    assert {case.task_type for case in cases} == {"path_planning"}
 
 
 def test_formal_pose_groups_are_resolved_and_accepted():
@@ -44,3 +67,21 @@ def test_smoke_case_has_resolved_current_city_pose():
         case.settings["evaluation_rate_hz"]
         * case.settings["evaluation_duration_sec"]
     )) == 60
+
+
+def test_suite_task_type_is_required_and_validated(tmp_path):
+    source = (PACKAGE_ROOT / "config/suites/T1_smoke_city.yaml").read_text(
+        encoding="utf-8"
+    )
+    missing = tmp_path / "missing.yaml"
+    missing.write_text(source.replace("task_type: perception\n", ""), encoding="utf-8")
+    with pytest.raises(ValueError, match="root.task_type is required"):
+        load_suite(missing)
+
+    invalid = tmp_path / "invalid.yaml"
+    invalid.write_text(
+        source.replace("task_type: perception", "task_type: unsupported"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="task_type must be one of"):
+        load_suite(invalid)

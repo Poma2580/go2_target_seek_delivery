@@ -2,6 +2,7 @@ import pytest
 
 from go2_test_framework.evaluators.localization import evaluate_localization
 from go2_test_framework.evaluators.recognition import evaluate_recognition
+from go2_test_framework.reporting.results import evaluate_task_csv
 
 
 def test_recognition_counts_unmatched_visible_frame_as_incorrect():
@@ -41,3 +42,8 @@ def test_localization_zero_reference_and_zero_samples_fail():
     }
     assert evaluate_localization([zero])["pass"] is False
     assert evaluate_localization([])["mean_relative_error"] is None
+
+
+def test_reporting_rejects_task_without_registered_evaluator():
+    with pytest.raises(ValueError, match="no evaluator registered"):
+        evaluate_task_csv("tracking", "unused.csv", "unused")

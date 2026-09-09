@@ -231,10 +231,12 @@ def test_robot_spawn_sequence_and_conditional_lidar(enable_lidar):
             assert expected in event[2]
 
 
-def test_retry_policy_only_accepts_fallen_with_budget():
+def test_retry_policy_accepts_falls_and_infrastructure_failures_with_budget():
     assert should_retry(result(1, AttemptStatus.FALLEN), 3)
     assert not should_retry(result(4, AttemptStatus.FALLEN), 3)
-    assert not should_retry(result(1, AttemptStatus.INFRASTRUCTURE_FAILED), 3)
+    assert should_retry(result(1, AttemptStatus.INFRASTRUCTURE_FAILED), 3)
+    assert not should_retry(result(4, AttemptStatus.INFRASTRUCTURE_FAILED), 3)
+    assert not should_retry(result(1, AttemptStatus.INFRASTRUCTURE_FAILED), 0)
     assert not should_retry(result(1, AttemptStatus.COMPLETED), 3)
 
 
@@ -252,6 +254,7 @@ def run_with_results(tmp_path, results, max_restarts=3):
     case_result = run_case(
         smoke_case(), PACKAGE, tmp_path / "case_001", Path("model.pt"),
         {}, config, attempt_runner=fake_attempt, sleep=lambda _: None,
+        scene_config_root=PACKAGE.parent / "go2_scenario_config/config/scenes",
     )
     return case_result, calls
 
@@ -282,37 +285,105 @@ def test_repeated_falls_exhaust_restart_budget_and_record_failure(tmp_path):
     assert (tmp_path / "case_001/case_summary.yaml").is_file()
 
 
-def test_non_fall_infrastructure_failure_is_not_retried(tmp_path):
+def test_infrastructure_failure_restarts_then_completed_attempt_stops(tmp_path):
     case_result, calls = run_with_results(tmp_path, [
-        result(1, AttemptStatus.INFRASTRUCTURE_FAILED, reason="checker status 20")
+        result(1, AttemptStatus.INFRASTRUCTURE_FAILED, reason="checker status 20"),
+        result(2, AttemptStatus.COMPLETED, passed=True),
     ])
-    assert calls == [1]
-    assert case_result.infrastructure_failed
+    assert calls == [1, 2]
+    assert case_result.status == "completed"
+    assert case_result.summary["restarts_used"] == 1
     assert not case_result.summary["restart_exhausted"]
+    assert [item["status"] for item in case_result.summary["attempts"]] == [
+        "infrastructure_failed", "completed",
+    ]
+
+
+def test_repeated_infrastructure_failures_exhaust_shared_budget(tmp_path):
+    failures = [
+        result(
+            number,
+            AttemptStatus.INFRASTRUCTURE_FAILED,
+            reason=f"missing TF attempt {number}",
+        )
+        for number in range(1, 4)
+    ]
+    case_result, calls = run_with_results(
+        tmp_path, failures, max_restarts=2
+    )
+    assert calls == [1, 2, 3]
+    assert case_result.infrastructure_failed
+    assert case_result.summary["restart_exhausted"]
+    assert case_result.summary["attempts_used"] == 3
+    assert case_result.summary["restarts_used"] == 2
+    assert "2 restart(s)" in case_result.summary["reason"]
+    assert "missing TF attempt 3" in case_result.summary["reason"]
+
+
+def test_fall_and_infrastructure_failure_share_restart_budget(tmp_path):
+    case_result, calls = run_with_results(tmp_path, [
+        result(1, AttemptStatus.FALLEN, reason="fallen"),
+        result(2, AttemptStatus.INFRASTRUCTURE_FAILED, reason="missing TF"),
+        result(3, AttemptStatus.COMPLETED, passed=True),
+    ], max_restarts=2)
+    assert calls == [1, 2, 3]
+    assert case_result.status == "completed"
+    assert case_result.summary["restarts_used"] == 2
 
 
 def test_attempt_and_restart_status_are_printed(tmp_path, capsys):
     run_with_results(tmp_path, [
-        result(1, AttemptStatus.FALLEN, reason="fallen"),
+        result(1, AttemptStatus.INFRASTRUCTURE_FAILED, reason="missing TF"),
         result(2, AttemptStatus.COMPLETED, passed=True),
     ])
     output = capsys.readouterr().out
     assert "Attempt 1/4 starting" in output
-    assert "fallen; restart budget 1/3; restarting in 0.0s" in output
+    assert (
+        "infrastructure_failed; restart budget 1/3; restarting in 0.0s"
+        in output
+    )
     assert "Attempt 2/4 starting" in output
 
 
-def test_disabled_attitude_reports_one_possible_attempt(tmp_path, capsys):
+def test_disabled_attitude_still_retries_infrastructure_failure(tmp_path, capsys):
     config = execution_from_mapping(execution_mapping(enabled=False))
+    calls = []
 
     def fake_attempt(*args, **kwargs):
-        return result(1, AttemptStatus.COMPLETED, passed=True)
+        number = args[-1]
+        calls.append(number)
+        if number == 1:
+            return result(
+                1, AttemptStatus.INFRASTRUCTURE_FAILED, reason="missing TF"
+            )
+        return result(2, AttemptStatus.COMPLETED, passed=True)
 
-    run_case(
+    case_result = run_case(
         smoke_case(), PACKAGE, tmp_path / "case_001", Path("model.pt"),
-        {}, config, attempt_runner=fake_attempt,
+        {}, config, attempt_runner=fake_attempt, sleep=lambda _: None,
+        scene_config_root=PACKAGE.parent / "go2_scenario_config/config/scenes",
     )
-    assert "Attempt 1/1 starting" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert calls == [1, 2]
+    assert case_result.status == "completed"
+    assert case_result.summary["restarts_used"] == 1
+    assert "Attempt 1/4 starting" in output
+    assert "Attempt 2/4 starting" in output
+
+
+def test_case_root_contains_resolved_scene_config(tmp_path):
+    case_result, _ = run_with_results(tmp_path, [
+        result(1, AttemptStatus.COMPLETED, passed=True),
+    ])
+    case_dir = tmp_path / "case_001"
+    case_config = __import__("yaml").safe_load(
+        (case_dir / "case_config.yaml").read_text(encoding="utf-8")
+    )
+    assert case_result.status == "completed"
+    assert (case_dir / "resolved_scene_config.yaml").is_file()
+    assert case_config["resolved_scene_config"] == str(
+        (case_dir / "resolved_scene_config.yaml").resolve()
+    )
 
 
 def test_batch_summary_separates_metrics_from_infrastructure():
@@ -482,3 +553,247 @@ def test_batch_summary_has_empty_aggregates_without_completed_metrics():
             "mean_relative_error": None,
         },
     }
+
+
+def test_tracking_batch_uses_only_infrastructure_valid_cases_and_threshold():
+    success = CaseResult(
+        "ok", "completed", {
+            "tracking_success": True, "attempts_used": 1, "restarts_used": 0,
+        },
+    )
+    failures = [
+        CaseResult(
+            f"fail-{index}", "completed", {
+                "tracking_success": False,
+                "attempts_used": 1, "restarts_used": 0,
+            },
+        )
+        for index in range(3)
+    ]
+    infrastructure = CaseResult(
+        "infra", "infrastructure_failed", {
+            "attempts_used": 1, "restarts_used": 0, "reason": "missing TF",
+        },
+    )
+    summary = _batch_summary(
+        "batch", [success, *failures, infrastructure], "tracking",
+        {"batch_pass_threshold_percent": 70.0},
+    )
+    assert summary["scheduled_case_count"] == 5
+    assert summary["eligible_case_count"] == 4
+    assert summary["success_count"] == 1
+    assert summary["valid_failure_count"] == 3
+    assert summary["infrastructure_failure_count"] == 1
+    assert summary["success_rate_percent"] == 25.0
+    assert summary["completion_status"] == "incomplete"
+    assert summary["incomplete_reason"] == "infrastructure_failed"
+    assert summary["batch_pass"] is False
+
+
+def test_path_batch_requires_reach_without_collision_and_uses_90_percent():
+    cases = [
+        CaseResult(
+            f"ok-{index}", "completed", {
+                "path_success": True, "collision_count": 0,
+                "attempts_used": 1, "restarts_used": 0,
+            },
+        )
+        for index in range(9)
+    ]
+    cases.append(CaseResult(
+        "collision", "completed", {
+            "path_success": True, "collision_count": 1,
+            "attempts_used": 1, "restarts_used": 0,
+        },
+    ))
+    summary = _batch_summary("batch", cases, "path_planning", {
+        "batch_pass_threshold_percent": 90.0,
+    })
+    assert summary["success_count"] == 9
+    assert summary["valid_failure_count"] == 1
+    assert summary["success_rate_percent"] == 90.0
+    assert summary["batch_pass"] is True
+    assert summary["aggregate_metrics"]["collision_event_count"] == 1
+
+
+@pytest.mark.parametrize("value", ["false", 0, 1, None])
+def test_rviz_rejects_non_boolean(value):
+    with pytest.raises(ValueError, match="execution.rviz"):
+        execution_from_mapping({**execution_mapping(), "rviz": value})
+
+
+def test_rviz_defaults_overrides_and_serialization():
+    config = execution_from_mapping(execution_mapping())
+    assert config.rviz is False
+    parser = _build_parser(Path("/package"))
+    assert parser.parse_args([]).rviz is None
+    for flag, expected in [("--rviz", True), ("--no-rviz", False)]:
+        config = apply_execution_overrides(config, rviz=parser.parse_args([flag]).rviz)
+        assert config.rviz is expected
+        assert config.to_dict()["rviz"] is expected
+        assert apply_execution_overrides(config).rviz is expected
+
+
+@pytest.mark.parametrize("task_type", ["perception", "tracking", "path_planning"])
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("fail", [False, True])
+def test_attempt_rviz_order_and_cleanup(tmp_path, monkeypatch, task_type, enabled, fail):
+    from dataclasses import replace
+    from go2_test_framework.runner import orchestration
+    import ament_index_python.packages
+
+    events = []
+    managers = []
+
+    class Processes:
+        def __init__(self, log_dir, **kwargs):
+            self.attempt_dir = log_dir.parent
+            self.names = []
+            self.stopped = False
+            managers.append(self)
+
+        def start(self, name, command, **kwargs):
+            events.append((name, command))
+            self.names.append(name)
+            if name == "perception" and fail:
+                raise RuntimeError("injected failure after visualization startup")
+            if name == "recorder":
+                (self.attempt_dir / "case_summary.yaml").write_text(
+                    "infrastructure_valid: true\npass: true\n"
+                )
+            return SimpleNamespace(pid=123, wait=lambda **k: 0)
+
+        def wait_for_group_command(self, *args):
+            pass
+
+        def require_group_command(self, *args):
+            pass
+
+        def stop(self):
+            self.stopped = True
+            events.append(("stop", list(self.names)))
+
+    monkeypatch.setattr(orchestration, "bounded_worker", lambda manager, operation, *a: (
+        "go2_1" if operation == "role" else {"displacement_m": 1.0, "start_requests_sent": 1, "movement_confirmed": True}
+    ))
+    monkeypatch.setattr(orchestration, "wait_for_perception_role", lambda *a: "go2_1")
+    monkeypatch.setattr(orchestration, "start_walking_target", lambda **k: SimpleNamespace(
+        displacement_m=1.0, start_requests_sent=1, to_dict=lambda: {},
+    ))
+    monkeypatch.setattr(orchestration, "spawn_robots", lambda *a, **k: None)
+    monkeypatch.setattr(orchestration, "_wait_graph", lambda kind, name, *a: events.append(("ready", name)))
+    monkeypatch.setattr(orchestration, "_wait_topic_message", lambda name, *a: events.append(("message", name)))
+    monkeypatch.setattr(ament_index_python.packages, "get_package_share_directory", lambda name: "/shared/" + name)
+    case = replace(smoke_case(), task_type=task_type)
+    config = execution_from_mapping({**execution_mapping(enabled=False), "rviz": enabled})
+    case_config = tmp_path / "case_config.yaml"
+    case_config.write_text("metrics: {path_timeout_sec: 300, acquisition_timeout_sec: 30, tracking_min_duration_sec: 5}\n")
+    for number in (1, 2):
+        events.clear()
+        attempt = orchestration.run_attempt(
+            case, PACKAGE, tmp_path / f"attempt_{number}", case_config,
+            Path("model.pt"), config, number,
+            process_manager_factory=Processes, reporter=lambda *a, **k: None,
+            health_gate=lambda *a: None,
+        )
+        if fail:
+            assert attempt.status is AttemptStatus.INFRASTRUCTURE_FAILED
+            assert "injected failure" in attempt.reason
+        else:
+            assert attempt.status is AttemptStatus.COMPLETED, attempt.reason
+        assert managers[-1].stopped
+        launches = [command for name, command in events if name == "rviz"]
+        assert len(launches) == int(enabled)
+        if enabled:
+            assert launches[0] == [
+                "rviz2", "-d", "/shared/go2_mapping_nav/rviz/three_go2_mapping_nav.rviz",
+                "--ros-args", "-p", "use_sim_time:=true",
+            ]
+            names = [name for name, _ in events]
+            assert names.index("rviz") < names.index("perception")
+            assert "rviz" in events[-1][1]
+            if task_type == "path_planning":
+                assert events.index(("message", "/merged_map")) < names.index("rviz")
+                for robot in ("go2_1", "go2_2", "go2_3"):
+                    assert events.index(("ready", f"/{robot}/navigate_to_pose")) < names.index("rviz")
+            else:
+                assert "map_merger" not in names
+
+
+@pytest.mark.parametrize("reason", ["cleanup_failed", "startup_health_failed"])
+def test_safety_failure_stops_retries_and_preserves_metrics(tmp_path, reason):
+    from go2_test_framework.runner.lifecycle import BatchSafetyError
+    calls = []
+    def attempt(*args, **kwargs):
+        calls.append(args[-1])
+        directory = args[2]
+        directory.mkdir(parents=True)
+        (directory / "case_summary.yaml").write_text(
+            "infrastructure_valid: true\npass: true\nrecognition: {accuracy: 95}\n"
+        )
+        raise BatchSafetyError(reason, "injected safety failure")
+    config = execution_from_mapping(execution_mapping())
+    result = run_case(
+        smoke_case(), PACKAGE, tmp_path / "case", Path("model.pt"), {}, config,
+        attempt_runner=attempt, scene_config_root=PACKAGE.parent / "go2_scenario_config/config/scenes",
+    )
+    assert calls == [1]
+    assert result.infrastructure_failed
+    assert result.summary["abort_batch"] == reason
+    assert result.summary["recognition"]["accuracy"] == 95
+    assert not result.summary["restart_exhausted"]
+
+
+@pytest.mark.parametrize("initial", [True, False])
+def test_batch_gate_stops_next_case_and_writes_planned_counts(tmp_path, monkeypatch, initial):
+    from go2_test_framework.runner import main as runner_main
+    from go2_test_framework.runner.lifecycle import BatchSafetyError
+    import yaml
+    monkeypatch.setattr(runner_main, "_package_share", lambda package="go2_test_framework":
+                        PACKAGE if package == "go2_test_framework" else PACKAGE.parent / package)
+    from go2_test_framework.runner.runtime import BatchLock
+    monkeypatch.setattr(runner_main, "BatchLock", lambda: BatchLock(tmp_path / "runner.lock"))
+    monkeypatch.setattr(runner_main, "cleanup_stale_test_processes", lambda **k: None)
+    def gate(*a):
+        if initial:
+            raise BatchSafetyError("startup_health_failed", "blocked before cases")
+    monkeypatch.setattr(runner_main, "startup_health", gate)
+    calls = []
+    def case_runner(case, *a, **k):
+        calls.append(case.case_id)
+        return CaseResult(case.case_id, "infrastructure_failed", {
+            "abort_batch": "cleanup_failed", "pass": False, "attempts_used": 1,
+            "restarts_used": 0, "reason": "blocked after first case",
+        })
+    monkeypatch.setattr(runner_main, "run_case", case_runner)
+    model = tmp_path / "model.pt"
+    model.touch()
+    status = runner_main.main([
+        "--suite", str(PACKAGE / "config/suites/T1_target_test.yaml"), "--all",
+        "--model-path", str(model), "--results-root", str(tmp_path / "results"),
+    ])
+    assert status == 1
+    summary = yaml.safe_load(next((tmp_path / "results").rglob("batch_summary.yaml")).read_text())
+    assert len(calls) == (0 if initial else 1)
+    assert summary["scheduled_case_count"] == 99
+    assert summary["started_case_count"] == len(calls)
+    assert summary["not_run_case_count"] == 99 - len(calls)
+    assert summary["completion_status"] == "incomplete" and not summary["batch_pass"]
+
+
+def test_interrupted_case_preserves_summary_and_stops_retry(tmp_path):
+    from go2_test_framework.runner.runtime import ShutdownRequested
+    import signal
+    def attempt(*args, **kwargs):
+        args[2].mkdir(parents=True)
+        (args[2] / "case_summary.yaml").write_text("infrastructure_valid: true\nrecognition: {accuracy: 91}\n")
+        raise ShutdownRequested(signal.SIGTERM)
+    config = execution_from_mapping(execution_mapping())
+    result = run_case(
+        smoke_case(), PACKAGE, tmp_path / "case", Path("model.pt"), {}, config,
+        attempt_runner=attempt, scene_config_root=PACKAGE.parent / "go2_scenario_config/config/scenes",
+    )
+    assert result.summary["abort_batch"] == "interrupted"
+    assert result.summary["exit_status"] == 143
+    assert result.summary["attempts_used"] == 1
+    assert result.summary["recognition"]["accuracy"] == 91

@@ -7,6 +7,12 @@ import signal
 import subprocess
 import threading
 import time
+import uuid
+
+from go2_test_framework.reporting.results import write_yaml
+from go2_test_framework.runner.lifecycle import (
+    BatchSafetyError, OWNER_MARKER, PHASE_MARKER, OwnedProcesses,
+)
 
 
 def _group_command_pids(process_group, command_fragment, proc_root=Path("/proc")):
@@ -51,17 +57,26 @@ class _ManagedProcess:
 class ProcessGroupManager:
     """Start commands in isolated sessions and clean up only owned groups."""
 
-    def __init__(self, log_dir, shutdown_timeout=8.0, environment=None):
+    def __init__(self, log_dir, shutdown_timeout=15.0, environment=None,
+                 term_timeout=5.0, kill_timeout=3.0):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.shutdown_timeout = shutdown_timeout
         self.environment = dict(environment or {})
         self.processes = []
+        self.owner = uuid.uuid4().hex
+        self.owned = OwnedProcesses(self.owner)
+        self.timeouts = (shutdown_timeout, term_timeout, kill_timeout)
+        self.cleanup_report = None
 
     def start(self, name, command, *, mirror_to_console=False, console_prefix=""):
+        if self.cleanup_report is not None:
+            raise RuntimeError("cannot start processes after cleanup")
         log = (self.log_dir / f"{name}.log").open("w", encoding="utf-8")
         environment = os.environ.copy()
         environment.update(self.environment)
+        environment[OWNER_MARKER] = self.owner
+        environment[PHASE_MARKER] = "world" if name == "world" else "workers"
         try:
             process = subprocess.Popen(
                 command,
@@ -75,6 +90,7 @@ class ProcessGroupManager:
         except Exception:
             log.close()
             raise
+        self.owned.add(process.pid)
         managed = _ManagedProcess(name, process, log)
         if mirror_to_console:
             managed.tee_thread = threading.Thread(
@@ -123,31 +139,17 @@ class ProcessGroupManager:
             )
 
     def stop(self):
-        process_groups = [item.process.pid for item in self.processes]
-        for item in reversed(self.processes):
-            if item.process.poll() is None:
-                try:
-                    os.killpg(item.process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-
-        deadline = time.monotonic() + self.shutdown_timeout
-        for item in reversed(self.processes):
-            remaining = max(0.0, deadline - time.monotonic())
-            try:
-                item.process.wait(timeout=remaining)
-            except subprocess.TimeoutExpired:
-                pass
-
-        # A ros2 launch parent can exit before descendants. Sweep the exact
-        # process groups created here without touching unrelated ROS processes.
-        for process_group in reversed(process_groups):
-            if _process_group_exists(process_group):
-                try:
-                    os.killpg(process_group, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-        for item in self.processes:
-            if item.tee_thread is not None:
-                item.tee_thread.join(timeout=2.0)
-            item.log.close()
+        if self.cleanup_report is None:
+            self.cleanup_report = self.owned.shutdown(
+                self.timeouts,
+                reap=lambda: [item.process.poll() for item in self.processes],
+            )
+            for item in self.processes:
+                if item.tee_thread is not None:
+                    item.tee_thread.join(timeout=2.0)
+                if item.tee_thread is None or not item.tee_thread.is_alive():
+                    item.log.close()
+            write_yaml(self.log_dir.parent / "cleanup_summary.yaml", self.cleanup_report)
+        if not self.cleanup_report["success"]:
+            raise BatchSafetyError("cleanup_failed", "owned processes did not cleanly release resources; see cleanup_summary.yaml")
+        return self.cleanup_report

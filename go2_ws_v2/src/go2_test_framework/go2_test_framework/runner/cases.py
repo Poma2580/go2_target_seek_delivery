@@ -1,4 +1,4 @@
-"""Stable Cartesian expansion of T1 target-test cases."""
+"""Stable Cartesian expansion of configuration-driven test cases."""
 
 from dataclasses import asdict, dataclass
 
@@ -13,6 +13,7 @@ class TestCase:
     case_index: int
     case_id: str
     suite_id: str
+    task_type: str
     formal: bool
     scene: str
     route: str
@@ -40,6 +41,9 @@ def expand_cases(suite, routes, pose_groups, require_resolved=False):
             "min_camera_depth_m", "max_camera_depth_m",
         )
     }
+    settings["inject_collision_probe"] = suite.get(
+        "inject_collision_probe", False
+    )
     for scene in suite["scenes"]:
         for route_name in suite["routes"]:
             route = routes[scene]["routes"][route_name]
@@ -61,6 +65,7 @@ def expand_cases(suite, routes, pose_groups, require_resolved=False):
                     case_index=index,
                     case_id=case_id,
                     suite_id=suite["suite_id"],
+                    task_type=suite["task_type"],
                     formal=suite["formal"],
                     scene=scene,
                     route=route_name,

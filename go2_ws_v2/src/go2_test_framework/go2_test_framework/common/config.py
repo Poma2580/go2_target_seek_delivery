@@ -11,6 +11,7 @@ from go2_test_framework.common.execution import execution_from_mapping
 SCENES = ("city", "forest", "airport")
 ROUTES = ("straight", "rectangle", "v_shape")
 ROBOTS = ("go2_1", "go2_2", "go2_3")
+TASK_TYPES = ("perception", "tracking", "path_planning")
 
 
 def read_yaml(path):
@@ -152,6 +153,11 @@ def load_pose_groups(path):
 
 def load_suite(path):
     root = read_yaml(path)
+    task_type = _required(root, "task_type", "root")
+    if task_type not in TASK_TYPES:
+        raise ValueError(
+            f"task_type must be one of {', '.join(TASK_TYPES)}"
+        )
     suite_id = _required(root, "suite_id", "root")
     if not isinstance(suite_id, str) or not suite_id:
         raise ValueError("suite_id must be a non-empty string")
@@ -191,6 +197,10 @@ def load_suite(path):
         name: _parse_pose_group(name, value, "inline_pose_groups")
         for name, value in inline.items()
     }
+    inject_collision_probe = root.get("inject_collision_probe", False)
+    if not isinstance(inject_collision_probe, bool):
+        raise ValueError("inject_collision_probe must be boolean")
+    parsed["inject_collision_probe"] = inject_collision_probe
     parsed["execution"] = execution_from_mapping(
         _required(root, "execution", "root")
     ).to_dict()

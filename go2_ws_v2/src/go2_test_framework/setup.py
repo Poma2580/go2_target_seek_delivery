@@ -29,6 +29,10 @@ setup(
         "console_scripts": [
             "generate_test_worlds = go2_test_framework.world_generator:main",
             "target_test_recorder = go2_test_framework.recorders.target_recorder:main",
+            "tracking_test_recorder = go2_test_framework.recorders.tracking_recorder:main",
+            "nav_chain_probe = go2_test_framework.recorders.nav_chain_probe:main",
+            "path_planning_recorder = go2_test_framework.recorders.path_planning_recorder:main",
+            "collision_probe_spawner = go2_test_framework.recorders.collision_probe_spawner:main",
             "target_test_runner = go2_test_framework.runner.main:main",
         ],
     },
