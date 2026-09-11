@@ -1,6 +1,23 @@
 # 静态五目标感知测试（第一阶段）
 
-独立 City world、单狗单 prompt YOLOE 和轻量 smoke 验证。只使用 `go2_1`，不接入 T1/T2/T3，不启动 walking target、角色选择器、多狗、Nav2 或 RTAB-Map；不包含 Case Runner、Recorder 或指标评估器。
+独立 City world、单狗单 prompt YOLOE、轻量 smoke 验证与静态 100 Case 测试框架。只使用 `go2_1`，不接入 T1/T2/T3，不启动 walking target、角色选择器、多狗、Nav2 或 RTAB-Map。
+
+## 静态 100 Case Runner
+
+五类目标各使用 20 个确定性机器人位姿，按目标优先顺序展开为 100 Cases。正式运行、单类、单 Case 与只读展开命令如下：
+
+```bash
+ros2 run go2_static_perception_test static_test_runner --suite static_100cases.yaml --model-path yoloe-26s-seg.pt --device cuda:0
+ros2 run go2_static_perception_test static_test_runner --target person --model-path yoloe-26s-seg.pt --device cuda:0
+ros2 run go2_static_perception_test static_test_runner --case SP-PERSON-P01 --model-path yoloe-26s-seg.pt --device cuda:0
+ros2 run go2_static_perception_test static_test_runner --case SP-PERSON-P01 --gui --rqt --model-path yoloe-26s-seg.pt --device cuda:0
+ros2 run go2_static_perception_test static_test_runner --no-gui --no-rqt --model-path yoloe-26s-seg.pt --device cuda:0
+ros2 run go2_static_perception_test static_test_runner --dry-run
+```
+
+`static_100cases.yaml` 默认与 T1 一致启用 Gazebo GUI 和 RQT；命令行 `--gui/--no-gui`、`--rqt/--no-rqt` 可覆盖。RQT 固定查看 `/go2_1/static_perception/debug_image`。Runner 在启动 Recorder 前等待 YOLOE 至少发布一条真实 `result_status`，仅用于确认感知流已完成首轮推理，不改变 2 Hz、10 s、0.4 s 时间戳匹配或任何指标定义。
+
+结果目录按 T1 层级保存：默认根目录固定为仓库根目录下的 `TestResults/`，不受启动命令当前工作目录影响；可用 `--results-root PATH` 显式覆盖。`TestResults/batch_YYYYmmdd_HHMMSS/resolved_cases.yaml` 位于批次根目录，静态专项位于 `static_target_test/`，Case 使用 `case_001` 到 `case_100`。每个 Case 根目录保存 `case_config.yaml`、`case_summary.yaml` 和 `attempts/`；原始 CSV、指标和完整日志只保存在最终/各次 `attempts/attempt_XX/` 内，不再复制到 Case 根目录。批次逐类与总体加权统计位于 `static_target_test/summary/`。基础设施或倒地失败最多重启八次，识别/定位算法失败不会重试。Runner 不调用静态 world 验证器。
 
 ## 场景和正式目标
 

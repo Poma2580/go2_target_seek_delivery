@@ -1,0 +1,1 @@
+"""Static perception case runner."""
