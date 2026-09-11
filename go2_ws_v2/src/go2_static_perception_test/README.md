@@ -8,13 +8,13 @@
 
 | target key   | model_name      | 唯一 prompt  |       x |       y |                z |      roll |    pitch |      yaw |
 | ------------ | --------------- | ------------ | ------: | ------: | ---------------: | --------: | -------: | -------: |
-| airplane     | cessna_c172     | airplane     | 45.1531 | 62.8352 |         0.427145 | -0.000106 | -0.06111 | -1.97173 |
+| airplane     | cessna_c172     | airplane     | 45.1531 |      28 |         0.427145 | -0.000106 | -0.06111 | -1.97173 |
 | person       | static_person   | person       |      62 |       5 |                0 |         0 |        0 |        0 |
 | pickup_truck | pickup_truck    | pickup truck |      46 |      10 |    0.00734785678 |         0 |        0 |        0 |
 | ground_robot | pr2             | ground robot |       2 |       2 |                0 |         0 |        0 |        0 |
 | dumpster     | static_dumpster | dumpster     |     -20 |      17 | 0.00137753173193 |         0 |        0 |     3.14 |
 
-位置单位米、角度单位弧度；YAML 中 pose 是 **Gazebo world 坐标系的模型原点**。五个正式目标均显式设为 `<static>true</static>`。飞机采用任务提供的完整 pose，不使用旧 `<state>` 中另一个飞机 pose。
+位置单位米、角度单位弧度；YAML 中 pose 是 **Gazebo world 坐标系的模型原点**。五个正式目标均显式设为 `<static>true</static>`。飞机保留任务提供的 x/z 和姿态，仅将 y 调整为 28.0，使其 10–12 m 测试圆环位于现有 City occupancy map 内；不使用旧 `<state>` 中另一个飞机 pose。
 
 其他位姿的来源：
 
@@ -183,3 +183,11 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /usr/bin/python3 -m pytest \
 如确需重新从源模型生成资产，运行 `tools/static_perception_map/build_static_world.py`（系统 Python，需要 NumPy/SciPy/PyYAML）。它只改写本包的派生 world 和 YAML，不修改源 world、源模型或模型缓存；不会在 launch 时自动运行。模型源文件发生变化后，必须重新验证几何高度、world 静止性和两项感知 smoke。
 
 本次验收记录见仓库 `tools/static_perception_map/artifacts/phase1/`。
+
+## 静态测试位姿生成
+
+五类目标的 100 个确定性 `go2_1` 初始位姿由独立工具
+`tools/static_perception_pose_generator/` 生成，正式配置位于
+`config/poses/static_robot_pose_cases.yaml`。工具只使用 City occupancy map 的
+free/unknown/occupied 状态、0.8 m 障碍 clearance 和 Go2 相机水平视场，不接入
+Runner、Recorder 或指标计算。生成与只读 `--check` 命令详见该工具 README。

@@ -5,7 +5,7 @@ targets:
     prompt: airplane
     pose:
       x: 45.1531
-      y: 62.8352
+      y: 28.0
       z: 0.427145
       roll: -0.000106
       pitch: -0.06111
