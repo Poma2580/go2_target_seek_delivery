@@ -28,8 +28,6 @@ class TestCase:
 
 def expand_cases(suite, routes, pose_groups, require_resolved=False):
     """Expand cases in scene -> route -> pose-group order."""
-    groups = dict(pose_groups)
-    groups.update(suite.get("inline_pose_groups", {}))
     result = []
     index = 0
     settings = {
@@ -45,12 +43,16 @@ def expand_cases(suite, routes, pose_groups, require_resolved=False):
         "inject_collision_probe", False
     )
     for scene in suite["scenes"]:
+        if scene not in pose_groups:
+            raise ValueError(f"pose groups for scene {scene} are not defined")
+        groups = dict(pose_groups[scene])
+        groups.update(suite.get("inline_pose_groups", {}))
         for route_name in suite["routes"]:
             route = routes[scene]["routes"][route_name]
             for group_name in suite["pose_groups"]:
                 index += 1
                 if group_name not in groups:
-                    raise ValueError(f"pose group {group_name} is not defined")
+                    raise ValueError(f"pose group {scene}/{group_name} is not defined")
                 pose_group = groups[group_name]
                 robot_poses = (
                     require_resolved_pose(group_name, pose_group)

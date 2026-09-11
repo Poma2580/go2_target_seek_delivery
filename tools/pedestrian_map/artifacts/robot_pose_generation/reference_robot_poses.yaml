@@ -1,0 +1,176 @@
+schema_version: 1
+scenes:
+  city:
+    reference_robot: go2_1
+    poses:
+      group_01:
+        x: -25.58
+        y: 2.3
+        z: 0.6
+        yaw: 0.13
+      group_02:
+        x: -19.53
+        y: 14.96
+        z: 0.6
+        yaw: -1.01
+      group_03:
+        x: -12.54
+        y: -6.44
+        z: 0.6
+        yaw: 1.58
+      group_04:
+        x: -4.57
+        y: -3.49
+        z: 0.6
+        yaw: 2.4
+      group_05:
+        x: -12.86
+        y: 15.25
+        z: 0.6
+        yaw: -1.4
+      group_06:
+        x: -16.09
+        y: 14.4
+        z: 0.6
+        yaw: -1.25
+      group_07:
+        x: -15.4
+        y: 15.72
+        z: 0.6
+        yaw: -1.34
+      group_08:
+        x: -0.99
+        y: 4.44
+        z: 0.6
+        yaw: -3.1
+      group_09:
+        x: -21.33
+        y: 10.94
+        z: 0.6
+        yaw: -0.68
+      group_10:
+        x: -15.94
+        y: 15.73
+        z: 0.6
+        yaw: -1.3
+      group_11:
+        x: -15.76
+        y: -7.99
+        z: 0.6
+        yaw: 1.32
+  forest:
+    reference_robot: go2_2
+    poses:
+      group_01:
+        x: -34.96
+        y: -5.82
+        z: 0.6
+        yaw: 2.61
+      group_02:
+        x: -29.08
+        y: -6.9
+        z: 0.6
+        yaw: 2.76
+      group_03:
+        x: -32.08
+        y: 2.39
+        z: 0.6
+        yaw: -2.75
+      group_04:
+        x: -31.98
+        y: -0.32
+        z: 0.6
+        yaw: -3.01
+      group_05:
+        x: -34.46
+        y: 2.8
+        z: 0.6
+        yaw: -2.51
+      group_06:
+        x: -35.09
+        y: 3.08
+        z: 0.6
+        yaw: -2.44
+      group_07:
+        x: -33.13
+        y: 1.96
+        z: 0.6
+        yaw: -2.75
+      group_08:
+        x: -33.77
+        y: -8.8
+        z: 0.6
+        yaw: 2.43
+      group_09:
+        x: -33.5
+        y: -0.37
+        z: 0.6
+        yaw: -2.99
+      group_10:
+        x: -33.02
+        y: 3.52
+        z: 0.6
+        yaw: -2.52
+      group_11:
+        x: -33.74
+        y: -5.59
+        z: 0.6
+        yaw: 2.7
+  airport:
+    reference_robot: go2_3
+    poses:
+      group_01:
+        x: 54.1
+        y: -6.02
+        z: 0.6
+        yaw: -1.94
+      group_02:
+        x: 58.1
+        y: -21.63
+        z: 0.6
+        yaw: 2.41
+      group_03:
+        x: 57.24
+        y: -5.03
+        z: 0.6
+        yaw: -2.15
+      group_04:
+        x: 45.95
+        y: -7.08
+        z: 0.6
+        yaw: -1.03
+      group_05:
+        x: 47.75
+        y: -3.35
+        z: 0.6
+        yaw: -1.33
+      group_06:
+        x: 52.55
+        y: -2.25
+        z: 0.6
+        yaw: -1.72
+      group_07:
+        x: 51.16
+        y: -6.46
+        z: 0.6
+        yaw: -1.63
+      group_08:
+        x: 62.37
+        y: -18.24
+        z: 0.6
+        yaw: 2.87
+      group_09:
+        x: 41.63
+        y: -5.54
+        z: 0.6
+        yaw: -0.81
+      group_10:
+        x: 50.19
+        y: -5.12
+        z: 0.6
+        yaw: -1.52
+      group_11:
+        x: 50.35
+        y: -2.22
+        z: 0.6
+        yaw: -1.55

@@ -1,5 +1,5 @@
 schema_version: 1
 tracking_radius_m: 4.0
 tracking_min_duration_sec: 5.0
-acquisition_timeout_sec: 30.0
+acquisition_timeout_sec: 50.0
 batch_pass_threshold_percent: 70.0

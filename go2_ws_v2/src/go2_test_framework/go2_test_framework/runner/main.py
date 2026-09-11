@@ -55,7 +55,7 @@ def _select_cases(cases, requested, run_all):
 
 
 def _resolved(case, groups, inline):
-    all_groups = dict(groups)
+    all_groups = dict(groups[case.scene])
     all_groups.update(inline)
     poses = require_resolved_pose(case.pose_group, all_groups[case.pose_group])
     return replace(case, robot_poses=poses)

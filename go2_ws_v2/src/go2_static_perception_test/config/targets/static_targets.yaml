@@ -1,0 +1,52 @@
+schema_version: 1
+targets:
+  airplane:
+    model_name: cessna_c172
+    prompt: airplane
+    pose:
+      x: 45.1531
+      y: 62.8352
+      z: 0.427145
+      roll: -0.000106
+      pitch: -0.06111
+      yaw: -1.97173
+  person:
+    model_name: static_person
+    prompt: person
+    pose:
+      x: 62.0
+      y: 5.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+  pickup_truck:
+    model_name: pickup_truck
+    prompt: pickup truck
+    pose:
+      x: 46.0
+      y: 10.0
+      z: 0.00734785678
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+  ground_robot:
+    model_name: pr2
+    prompt: ground robot
+    pose:
+      x: 2.0
+      y: 2.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+  dumpster:
+    model_name: static_dumpster
+    prompt: dumpster
+    pose:
+      x: -20.0
+      y: 17.0
+      z: 0.00137753173193
+      roll: 0.0
+      pitch: 0.0
+      yaw: 3.14

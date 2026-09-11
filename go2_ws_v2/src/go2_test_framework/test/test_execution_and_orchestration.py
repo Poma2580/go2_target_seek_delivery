@@ -797,3 +797,41 @@ def test_interrupted_case_preserves_summary_and_stops_retry(tmp_path):
     assert result.summary["exit_status"] == 143
     assert result.summary["attempts_used"] == 1
     assert result.summary["recognition"]["accuracy"] == 91
+
+
+@pytest.mark.parametrize("scene", ["city", "forest", "airport"])
+def test_scene_pose_groups_reach_spawn_commands_unchanged(scene):
+    suite = load_suite(PACKAGE / "config/suites/T1_target_test.yaml")
+    routes = load_routes(PACKAGE / "config/parameters/target_routes.yaml")
+    poses = load_pose_groups(PACKAGE / "config/parameters/robot_pose_groups.yaml")
+    case = next(c for c in expand_cases(suite, routes, poses, require_resolved=True)
+                if c.scene == scene and c.pose_group == "group_01")
+    commands = {}
+    processes = SimpleNamespace(start=lambda name, command: commands.update({name: command}))
+    startup = execution_from_mapping(execution_mapping()).robot_startup
+    spawn_robots(
+        case, processes, 120.0, startup,
+        wait_graph=lambda *a: None,
+        wait_controllers=lambda *a, **k: None,
+        sleep=lambda *a: None,
+    )
+    for robot, pose in poses[scene]["group_01"]["robots"].items():
+        command = commands[f"spawn_{robot}"]
+        assert f"scene:={scene}" in command
+        for field, value in pose.items():
+            assert f"spawn_{field}:={value}" in command
+
+
+@pytest.mark.parametrize("scene", ["city", "forest", "airport"])
+def test_runner_resolves_selected_scene_and_inline_override(scene):
+    from go2_test_framework.runner.main import _resolved
+    suite = load_suite(PACKAGE / "config/suites/T1_target_test.yaml")
+    routes = load_routes(PACKAGE / "config/parameters/target_routes.yaml")
+    poses = load_pose_groups(PACKAGE / "config/parameters/robot_pose_groups.yaml")
+    case = next(c for c in expand_cases(suite, routes, poses) if c.scene == scene)
+    assert _resolved(case, poses, {}).robot_poses == poses[scene]["group_01"]["robots"]
+    inline = {"group_01": poses["city"]["group_02"]}
+    assert _resolved(case, poses, inline).robot_poses == inline["group_01"]["robots"]
+    inline["group_01"] = {"resolved": False, "robots": {}}
+    with pytest.raises(ValueError, match="unresolved"):
+        _resolved(case, poses, inline)

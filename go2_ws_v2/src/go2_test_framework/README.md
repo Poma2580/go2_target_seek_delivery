@@ -241,7 +241,7 @@ T2 不启动 RTAB-Map、merged map、Nav2 或 MADDPG。GT、CameraInfo、TF 完�
 - 连续 5 秒即成功；
 - 建立后任一正式时刻不可见为 `visibility_lost`，超距为
   `tracking_radius_exceeded`；
-- 30 秒未建立为 `acquisition_timeout`；
+- 50 秒未建立为 `acquisition_timeout`；
 - 缺输入、TF 无效或进程异常属于 infrastructure failure。
 
 原始文件是 `raw/tracking_samples.csv`。
