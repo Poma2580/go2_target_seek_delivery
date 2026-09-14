@@ -38,6 +38,9 @@ class EnvConfig:
 
     # Robot and obstacle proxy geometry.
     robot_radius: float = 0.35
+    # Stage 1 of the reproducible curriculum uses one random square; stage 2
+    # adds the random circle used by the deployed final policy.
+    obstacle_count: int = 2
     obstacle_size: float = 1.5
     obstacle_circle_radius: float = 1.0
     # Leave a clear approach before the random obstacle so an episode has
@@ -48,6 +51,11 @@ class EnvConfig:
     # curriculum while retaining the original default-lane cases.
     obstacle_abs_y_range: Tuple[float, float] = (1.7, 2.3)
     obstacle_lane_jitter: float = 0.30
+    # New RL-first experiments mix in completely clear episodes.  Keeping the
+    # default at zero preserves old checkpoint evaluation unless explicitly
+    # enabled by the curriculum launcher.
+    empty_episode_probability: float = 0.0
+    clear_episode_success_x: float = 10.0
 
     # Candidate/path feature thresholds.
     candidate_clearance_cap: float = 3.0
@@ -76,14 +84,22 @@ class EnvConfig:
     pair_path_weight: float = 6.0
     formation_excess_offset_weight: float = 0.60
     formation_switch_weight: float = 0.30
+    formation_oscillation_weight: float = 0.0
+    clear_default_offset_weight: float = 0.60
+    blocked_default_offset_weight: float = 0.60
     formation_route_reversal_weight: float = 0.50
     progress_weight: float = 0.50
 
     # A one-second decision may hold its current candidate or move by one
     # adjacent level only: e.g. 0 m -> {-1, 0, +1} m, never directly to +/-2 m.
     max_action_index_change: int = 1
-    # Once a default corridor is blocked, require several consecutive clear
-    # observations before forcing the agent back toward its default slot.
+    # Legacy checkpoints used obstacle-aware filtering and forced formation
+    # return. New RL-first runs override both flags to False, while defaults
+    # remain True so old checkpoint deployment behavior is unchanged.
+    heuristic_action_mask: bool = True
+    nearest_safe_offset_reward: bool = True
+    # Legacy masks use this latch before forcing a return. RL-first masks do
+    # not force an action; the latch only selects the learned reward regime.
     default_clear_release_steps: int = 3
 
     # The farther obstacle still leaves enough time to pass it, travel another

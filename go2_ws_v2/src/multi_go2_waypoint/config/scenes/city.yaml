@@ -15,8 +15,10 @@ robots:
     spawn: {x: -15.0, y: 4.0, z: 0.30, yaw: 0.0}
     sensors: {lidar: false, camera: false}
   go2_2:
-    spawn: {x: -18.0, y: 6.0, z: 0.30, yaw: 0.0}
+    # go2_1 yaw=0: default follower slot is +2 m forward, +2 m left.
+    spawn: {x: -13.0, y: 6.0, z: 0.30, yaw: 0.0}
     sensors: {lidar: false, camera: false}
   go2_3:
-    spawn: {x: -18.0, y: 2.0, z: 0.30, yaw: 0.0}
+    # go2_1 yaw=0: default follower slot is +2 m forward, -2 m left.
+    spawn: {x: -13.0, y: 2.0, z: 0.30, yaw: 0.0}
     sensors: {lidar: false, camera: false}

@@ -134,6 +134,19 @@
   ros2 topic echo /maddpg_waypoint/errors
   ros2 topic echo /maddpg_waypoint/observations --once
 
+启动脚本会另外打开“maddpg_obstacle_monitor”窗口。该窗口每秒显示：
+  - 当前动作、上一个动作以及是否发生切换。
+  - 雷达接收年龄、消息时间戳年龄和实际扫描周期。
+  - 5 个候选点的端点净空、路径净空和 blocked 标志。
+  - 动作掩码允许的候选点以及 Actor 最终选择。
+
+也可以单独启动监控窗口：
+  ros2 run go2_mapping_nav maddpg_waypoint_monitor.py
+
+如果 action 不为 2，但 action 2 显示 CLEAR，说明侧点选择不是 blocked 硬判断
+直接造成，应优先检查策略偏置和奖励；如果 action 2 显示 BLOCKED，则结合雷达
+年龄与净空距离判断是否存在雷达误检。
+
 查看选点器状态：
   ros2 topic echo /maddpg_waypoint/controller_ready \
     --qos-durability transient_local
@@ -209,5 +222,6 @@ MADDPG 没有运行。
   新版脚本：Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
   旧版脚本：Scripts/start_three_go2_dynamic_tracking.sh
   选点器：go2_ws_v2/src/go2_mapping_nav/go2_mapping_nav/maddpg_waypoint_selector.py
+  障碍监控：go2_ws_v2/src/go2_mapping_nav/scripts/maddpg_waypoint_monitor.py
   场景配置：go2_ws_v2/src/multi_go2_waypoint/config/scenes/city.yaml
-  模型：waypoint_maddpg_v0/runs/two_obstacles_108rays_final_gpu_20260826/best_model.pt
+  模型：waypoint_maddpg_v0/runs/three_seed_obstacle_curriculum_20260908_132129/seed_27/stage2_two_obstacles/best_model.pt

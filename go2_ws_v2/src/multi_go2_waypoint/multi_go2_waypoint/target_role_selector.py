@@ -91,6 +91,7 @@ class TargetRoleSelector(Node):
         self.declare_parameter("confirmation_window", 1.0)
         self.declare_parameter("max_message_age", 0.5)
         self.declare_parameter("role_topic", "/target_role/perception_robot")
+        self.declare_parameter("forced_robot", "")
 
         self.robot_names = tuple(self.get_parameter("robot_names").value)
         confirmation_count = int(self.get_parameter("confirmation_count").value)
@@ -99,6 +100,7 @@ class TargetRoleSelector(Node):
         )
         self.max_message_age = float(self.get_parameter("max_message_age").value)
         self.role_topic = self.get_parameter("role_topic").value
+        self.forced_robot = str(self.get_parameter("forced_robot").value).strip("/")
         if not math.isfinite(self.max_message_age) or self.max_message_age <= 0.0:
             raise ValueError("max_message_age must be finite and positive")
         if not isinstance(self.role_topic, str) or not self.role_topic:
@@ -109,6 +111,11 @@ class TargetRoleSelector(Node):
         )
         role_qos = role_qos_profile()
         self.role_publisher = self.create_publisher(String, self.role_topic, role_qos)
+        if self.forced_robot:
+            if self.forced_robot not in self.robot_names:
+                raise ValueError("forced_robot must be empty or one of robot_names")
+            self.election.selected = self.forced_robot
+            self.role_publisher.publish(String(data=self.forced_robot))
         self.target_subscriptions = [
             self.create_subscription(
                 Odometry,
@@ -127,6 +134,10 @@ class TargetRoleSelector(Node):
                 self.role_topic,
             )
         )
+        if self.forced_robot:
+            self.get_logger().warning(
+                f"Perception role forced for this run: {self.forced_robot}"
+            )
 
     def _target_callback(self, name, message):
         if self.election.selected is not None:

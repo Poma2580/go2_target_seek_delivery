@@ -1,5 +1,6 @@
 """Deploy discrete MADDPG as a one-hertz Nav2 goal selector."""
 
+import json
 import math
 import os
 import sys
@@ -83,6 +84,7 @@ class RobotSample:
     odom_received_at: object = None
     scan: LaserScan = None
     scan_received_at: object = None
+    scan_period: float = None
 
 
 def environment_from_checkpoint(payload):
@@ -202,7 +204,7 @@ class MaddpgWaypointSelector(Node):
         self.declare_parameter("controller_active_topic", "/maddpg_waypoint/controller_active")
         self.declare_parameter("global_frame", "merged_map")
         self.declare_parameter("decision_period", 1.0)
-        self.declare_parameter("nav_goal_update_period", 3.0)
+        self.declare_parameter("nav_goal_update_period", 5.0)
         self.declare_parameter("odom_timeout", 1.0)
         self.declare_parameter("scan_timeout", 1.0)
         self.declare_parameter("tf_timeout", 0.2)
@@ -358,6 +360,9 @@ class MaddpgWaypointSelector(Node):
         self.error_publisher = self.create_publisher(
             Float32MultiArray, "/maddpg_waypoint/errors", 10
         )
+        self.diagnostic_publisher = self.create_publisher(
+            String, "/maddpg_waypoint/decision_diagnostics", 10
+        )
         self.marker_publisher = self.create_publisher(
             MarkerArray, "/maddpg_waypoint/markers", 10
         )
@@ -479,8 +484,14 @@ class MaddpgWaypointSelector(Node):
 
     def _scan_callback(self, name, message):
         sample = self.samples[name]
+        received_at = self.get_clock().now()
+        if sample.scan_received_at is not None:
+            sample.scan_period = max(
+                0.0,
+                (received_at - sample.scan_received_at).nanoseconds * 1e-9,
+            )
         sample.scan = message
-        sample.scan_received_at = self.get_clock().now()
+        sample.scan_received_at = received_at
 
     def _fresh(self, received_at, timeout):
         return received_at is not None and (
@@ -589,6 +600,11 @@ class MaddpgWaypointSelector(Node):
             np.abs(indices[None, :] - self.previous_actions[:, None])
             <= self.config.max_action_index_change
         )
+        if not self.config.heuristic_action_mask:
+            return masks
+
+        # Old checkpoints retain obstacle filtering and forced formation
+        # return. New RL-first checkpoints use adjacency alone.
         for index in range(2):
             if self.blocked_latched[index]:
                 safe = np.asarray([not item["blocked"] for item in metrics_by_agent[index]])
@@ -711,7 +727,100 @@ class MaddpgWaypointSelector(Node):
             markers.markers.append(label)
         self.marker_publisher.publish(markers)
 
-    def _dispatch_goals(self, goals, yaw, force=False):
+    def _publish_decision_diagnostics(
+        self,
+        observations,
+        metrics_by_agent,
+        masks,
+        actions,
+        previous_actions,
+    ):
+        """Publish exactly the obstacle evidence used for this policy decision."""
+        now = self.get_clock().now()
+        now_seconds = now.nanoseconds * 1e-9
+        agents = []
+        lidar_start, lidar_stop = OBSERVATION_SLICES["lidar_sectors"]
+        clearance_span = (
+            self.config.lidar_policy_max_range - self.config.lidar_min_range
+        )
+        for index, name in enumerate(self.follower_names):
+            sample = self.samples[name]
+            scan = sample.scan
+            raw_ranges = np.asarray(scan.ranges, dtype=np.float32)
+            raw_valid = (
+                np.isfinite(raw_ranges)
+                & (raw_ranges >= self.config.lidar_min_range)
+                & (raw_ranges <= self.config.lidar_policy_max_range)
+            )
+            sectors = observations[index, lidar_start:lidar_stop]
+            nearest_policy_range = self.config.lidar_policy_max_range - (
+                float(np.max(sectors)) * clearance_span
+            )
+            scan_stamp = (
+                float(scan.header.stamp.sec)
+                + float(scan.header.stamp.nanosec) * 1e-9
+            )
+            scan_header_age = (
+                max(0.0, now_seconds - scan_stamp) if scan_stamp > 0.0 else None
+            )
+            candidates = []
+            for action, metric in enumerate(metrics_by_agent[index]):
+                candidates.append(
+                    {
+                        "action": action,
+                        "offset": float(self.config.candidate_offsets[action]),
+                        "endpoint_clearance": float(metric["endpoint_clearance"]),
+                        "path_clearance": float(metric["path_clearance"]),
+                        "blocked": bool(metric["blocked"]),
+                        "allowed": bool(masks[index, action]),
+                        "selected": action == int(actions[index]),
+                    }
+                )
+            agents.append(
+                {
+                    "name": name,
+                    "action": int(actions[index]),
+                    "previous_action": int(previous_actions[index]),
+                    "action_changed": int(actions[index])
+                    != int(previous_actions[index]),
+                    "default_blocked_latched": bool(self.blocked_latched[index]),
+                    "scan_receive_age_ms": max(
+                        0.0,
+                        (now - sample.scan_received_at).nanoseconds * 1e-6,
+                    ),
+                    "scan_header_age_ms": (
+                        scan_header_age * 1000.0
+                        if scan_header_age is not None
+                        else None
+                    ),
+                    "scan_period_ms": (
+                        sample.scan_period * 1000.0
+                        if sample.scan_period is not None
+                        else None
+                    ),
+                    "raw_ray_count": int(raw_ranges.size),
+                    "raw_valid_hit_count": int(np.count_nonzero(raw_valid)),
+                    "nearest_policy_range": float(nearest_policy_range),
+                    "candidates": candidates,
+                }
+            )
+        payload = {
+            "stamp": now_seconds,
+            "leader": self.leader_name,
+            "heuristic_action_mask": bool(self.config.heuristic_action_mask),
+            "endpoint_blocked_threshold": float(
+                self.config.endpoint_blocked_clearance
+            ),
+            "path_blocked_threshold": float(self.config.path_blocked_clearance),
+            "default_action": DEFAULT_ACTION,
+            "agents": agents,
+        }
+        self.diagnostic_publisher.publish(
+            String(data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        )
+
+    def _dispatch_goals(self, goals, yaw):
+        """Store the newest goals and send them only on the fixed Nav2 period."""
         self.nav_goals.set_plan(
             SimpleNamespace(
                 slots={
@@ -722,7 +831,7 @@ class MaddpgWaypointSelector(Node):
             )
         )
         self.nav_goals.dispatch_if_due(
-            self.get_clock().now().nanoseconds * 1e-9, force=force
+            self.get_clock().now().nanoseconds * 1e-9
         )
 
     def _decision_callback(self):
@@ -813,12 +922,19 @@ class MaddpgWaypointSelector(Node):
             masks = self._action_masks(metrics)
             actions = self.policy.act(observations, action_masks=masks, deterministic=True)
             goals = np.stack([candidates[index, actions[index]] for index in range(2)])
-            action_changed = not np.array_equal(actions, self.previous_actions)
+            previous_actions = self.previous_actions.copy()
+            self._publish_decision_diagnostics(
+                observations,
+                metrics,
+                masks,
+                actions,
+                previous_actions,
+            )
             self.previous_actions = actions.copy()
             self.current_goals = goals.copy()
             self._publish_debug(actions, goals, leader.yaw, follower_positions)
             if not self.dry_run:
-                self._dispatch_goals(goals, leader.yaw, force=action_changed)
+                self._dispatch_goals(goals, leader.yaw)
             self.get_logger().info(
                 "actions=%s blocked=%s goals=%s%s"
                 % (

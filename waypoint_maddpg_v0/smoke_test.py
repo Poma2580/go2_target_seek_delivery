@@ -18,6 +18,12 @@ def main():
     assert [obstacle["shape"] for obstacle in env.obstacles] == ["square", "circle"]
     assert np.sign(env.obstacles[0]["center"][1]) != np.sign(env.obstacles[1]["center"][1])
     assert env.obstacles[1]["radius"] == 1.0
+    single_obstacle_env = WaypointSelectionEnv(
+        EnvConfig(obstacle_count=1, lidar_noise_std=0.0),
+        seed=2,
+        lidar_noise=False,
+    )
+    assert [obstacle["shape"] for obstacle in single_obstacle_env.obstacles] == ["square"]
     candidates = env._candidate_points()
     np.testing.assert_allclose(candidates[0, :, 1], [4, 3, 2, 1, 0], atol=1e-6)
     np.testing.assert_allclose(candidates[1, :, 1], [0, -1, -2, -3, -4], atol=1e-6)
@@ -49,6 +55,66 @@ def main():
         np.asarray([False, False, True, False, False]),
     )
     observations, info = env.reset(seed=1)
+
+    # New RL-first runs retain only adjacency: obstacle state cannot remove an
+    # action, force action 2, or force a return toward action 2.
+    rl_config = EnvConfig(
+        lidar_noise_std=0.0,
+        heuristic_action_mask=False,
+        nearest_safe_offset_reward=False,
+    )
+    rl_env = WaypointSelectionEnv(rl_config, seed=1, lidar_noise=False)
+    np.testing.assert_array_equal(
+        rl_env.valid_action_masks()[0],
+        np.asarray([False, True, True, True, False]),
+    )
+    rl_env.previous_actions[0] = 1
+    for metrics in rl_env._candidate_metrics[0]:
+        metrics["blocked"] = True
+    np.testing.assert_array_equal(
+        rl_env.valid_action_masks()[0],
+        np.asarray([True, True, True, False, False]),
+    )
+    np.testing.assert_allclose(
+        rl_env._formation_offset_penalties(np.asarray([3, 4])),
+        [-0.6, -1.2],
+        atol=1e-6,
+    )
+
+    # RL-first training explicitly includes obstacle-free episodes.  Nothing
+    # forces action 2, but its learned reward must dominate clear-lane detours.
+    clear_rl_config = EnvConfig(
+        lidar_noise_std=0.0,
+        obstacle_count=1,
+        empty_episode_probability=1.0,
+        heuristic_action_mask=False,
+        nearest_safe_offset_reward=False,
+        clear_default_offset_weight=1.2,
+        blocked_default_offset_weight=0.15,
+        formation_switch_weight=1.0,
+        formation_oscillation_weight=1.5,
+    )
+    clear_rl_env = WaypointSelectionEnv(clear_rl_config, seed=4, lidar_noise=False)
+    assert clear_rl_env.obstacles == []
+    _, _, _, _, side_info = clear_rl_env.step(np.asarray([3, 1]))
+    assert side_info["reward_formation"] < 0.0
+    _, _, _, _, return_info = clear_rl_env.step(np.asarray([2, 2]))
+    np.testing.assert_allclose(
+        return_info["reward_oscillation_penalties"], [-1.5, -1.5]
+    )
+    clear_success_env = WaypointSelectionEnv(
+        clear_rl_config, seed=5, lidar_noise=False
+    )
+    clear_success = False
+    for _ in range(clear_rl_config.max_episode_steps):
+        _, _, terminated, truncated, clear_info = clear_success_env.step(
+            np.asarray([2, 2])
+        )
+        if terminated or truncated:
+            clear_success = bool(clear_info["success"])
+            break
+    assert clear_success
+    assert clear_info["min_obstacle_clearance"] == clear_rl_config.lidar_policy_max_range
 
     # If a one-metre detour is safe, an unnecessary two-metre detour must have
     # a lower formation reward.  If only two metres is safe, it is not charged.

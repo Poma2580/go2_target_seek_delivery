@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Role-aware exclusive Nav2/MADDPG command selector for three Go2 robots."""
 
+import math
 from dataclasses import dataclass
 
 import rclpy
@@ -34,17 +35,22 @@ class FollowerCmdVelMux(Node):
         self.declare_parameter("select_topic", "/dynamic_encircle/use_maddpg")
         self.declare_parameter("role_topic", "/target_role/perception_robot")
         self.declare_parameter("robot_names", list(ROBOT_NAMES))
+        self.declare_parameter("fixed_leader", "")
         self.declare_parameter("nav_topic_suffix", "nav_cmd_vel")
         self.declare_parameter("maddpg_topic_suffix", "maddpg_cmd_vel")
         self.declare_parameter("output_topic_suffix", "cmd_vel")
         self.declare_parameter("publish_rate", 20.0)
         self.declare_parameter("command_timeout", 0.5)
+        self.declare_parameter("max_navigation_linear_speed", 0.0)
 
         self.select_topic = str(self.get_parameter("select_topic").value)
         self.role_topic = str(self.get_parameter("role_topic").value)
         self.robot_names = tuple(self.get_parameter("robot_names").value)
         if len(self.robot_names) != 3 or len(set(self.robot_names)) != 3:
             raise ValueError("robot_names must contain three unique names")
+        self.fixed_leader = str(self.get_parameter("fixed_leader").value).strip("/")
+        if self.fixed_leader and self.fixed_leader not in self.robot_names:
+            raise ValueError("fixed_leader must be empty or one of robot_names")
         self.nav_suffix = str(
             self.get_parameter("nav_topic_suffix").value
         ).strip("/")
@@ -56,12 +62,20 @@ class FollowerCmdVelMux(Node):
         ).strip("/")
         publish_rate = float(self.get_parameter("publish_rate").value)
         self.command_timeout = float(self.get_parameter("command_timeout").value)
+        self.max_navigation_linear_speed = float(
+            self.get_parameter("max_navigation_linear_speed").value
+        )
         if publish_rate <= 0.0 or self.command_timeout <= 0.0:
             raise ValueError("publish_rate and command_timeout must be positive")
+        if not math.isfinite(self.max_navigation_linear_speed) or self.max_navigation_linear_speed < 0.0:
+            raise ValueError("max_navigation_linear_speed must be finite and nonnegative")
 
         self.use_maddpg = False
-        self.perception_dog = None
-        self.navigation_dogs = ()
+        self.perception_dog = self.fixed_leader or None
+        self.navigation_dogs = (
+            navigation_dogs(self.robot_names, self.fixed_leader)
+            if self.fixed_leader else ()
+        )
         self.samples = {
             source: {name: CommandSample() for name in self.robot_names}
             for source in ("nav", "maddpg")
@@ -70,7 +84,7 @@ class FollowerCmdVelMux(Node):
             name: self.create_publisher(
                 Twist, f"/{name}/{self.output_suffix}", 10
             )
-            for name in self.robot_names
+            for name in (self.navigation_dogs or self.robot_names)
         }
         for name in self.robot_names:
             self.create_subscription(
@@ -102,8 +116,25 @@ class FollowerCmdVelMux(Node):
         self.timer = self.create_timer(1.0 / publish_rate, self._timer_cb)
         self.get_logger().info(
             "Follower cmd_vel mux started in Nav2 mode: "
-            f"selector={self.select_topic}, timeout={self.command_timeout:.2f}s"
+            f"selector={self.select_topic}, timeout={self.command_timeout:.2f}s, "
+            f"nav_linear_limit={self.max_navigation_linear_speed:.2f}m/s, "
+            f"leader={self.perception_dog or 'waiting-for-role'}"
         )
+
+    def _limit_navigation_speed(self, message):
+        limit = self.max_navigation_linear_speed
+        speed = math.hypot(message.linear.x, message.linear.y)
+        if limit <= 0.0 or speed <= limit or speed <= 1e-9:
+            return message
+        scale = limit / speed
+        limited = Twist()
+        limited.linear.x = message.linear.x * scale
+        limited.linear.y = message.linear.y * scale
+        limited.linear.z = message.linear.z
+        limited.angular.x = message.angular.x
+        limited.angular.y = message.angular.y
+        limited.angular.z = message.angular.z
+        return limited
 
     def _command_cb(self, source, name, message):
         sample = self.samples[source][name]
@@ -153,9 +184,10 @@ class FollowerCmdVelMux(Node):
                 and (now - sample.receive_time).nanoseconds * 1e-9
                 <= self.command_timeout
             )
-            self.output_pubs[name].publish(
-                sample.message if fresh and sample.message is not None else Twist()
-            )
+            command = sample.message if fresh and sample.message is not None else Twist()
+            if source == "nav" and name in self.navigation_dogs:
+                command = self._limit_navigation_speed(command)
+            self.output_pubs[name].publish(command)
 
     def stop(self):
         names = self.navigation_dogs or self.robot_names

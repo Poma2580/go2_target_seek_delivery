@@ -22,7 +22,8 @@ class WaypointSelectionEnv:
     """A lightweight Nav2 proxy for discrete MADDPG pretraining.
 
     go1 travels along +x.  After a clear straight approach, one 1.5 x 1.5 m
-    square and one radius-1 m circle are spawned, one in each follower lane.
+    square and, when configured, one radius-1 m circle are spawned in randomly
+    assigned follower lanes.
     Their lane assignment and positions are randomized every episode.  The
     followers must avoid them and then recover their straight default formation.
     Actions select one of five formation-relative Nav2 goals and are held for
@@ -51,6 +52,7 @@ class WaypointSelectionEnv:
         self.follower_pos = np.array([[2.0, 2.0], [2.0, -2.0]], dtype=np.float32)
         self.follower_velocity = np.zeros((2, 2), dtype=np.float32)
         self.previous_actions = np.full(2, DEFAULT_ACTION, dtype=np.int64)
+        self.previous_previous_actions = self.previous_actions.copy()
         self.current_goals = self._candidate_points()[:, DEFAULT_ACTION].copy()
         self.last_progress = np.zeros(2, dtype=np.float32)
         self.recovery_hold = 0
@@ -61,6 +63,15 @@ class WaypointSelectionEnv:
         self.default_blocked_latched = np.zeros(2, dtype=bool)
         self.default_clear_counts = np.zeros(2, dtype=np.int64)
 
+        if self.cfg.obstacle_count not in (1, 2):
+            raise ValueError("obstacle_count must be 1 or 2")
+        if not 0.0 <= self.cfg.empty_episode_probability <= 1.0:
+            raise ValueError("empty_episode_probability must be in [0,1]")
+        episode_obstacle_count = (
+            0
+            if self.rng.random() < self.cfg.empty_episode_probability
+            else self.cfg.obstacle_count
+        )
         lane_signs = self.rng.permutation(np.asarray([-1.0, 1.0], dtype=np.float32))
         centers = np.stack(
             [
@@ -71,28 +82,34 @@ class WaypointSelectionEnv:
                     ],
                     dtype=np.float32,
                 )
-                for index in range(2)
+                for index in range(episode_obstacle_count)
             ]
-        )
+        ) if episode_obstacle_count else np.empty((0, 2), dtype=np.float32)
         half = 0.5 * self.cfg.obstacle_size
-        self.obstacles = [
+        self.obstacles = ([
             {
                 "shape": "square",
                 "center": centers[0],
                 "size": float(self.cfg.obstacle_size),
                 "lower": centers[0] - half,
                 "upper": centers[0] + half,
-            },
-            {
+            }
+        ] if episode_obstacle_count else [])
+        if episode_obstacle_count == 2:
+            self.obstacles.append({
                 "shape": "circle",
                 "center": centers[1],
                 "radius": float(self.cfg.obstacle_circle_radius),
-            },
-        ]
+            })
         # Backward-compatible aliases used by fixed-square scenario tooling.
-        self.obstacle_center = self.obstacles[0]["center"]
-        self.obstacle_lower = self.obstacles[0]["lower"]
-        self.obstacle_upper = self.obstacles[0]["upper"]
+        if self.obstacles:
+            self.obstacle_center = self.obstacles[0]["center"]
+            self.obstacle_lower = self.obstacles[0]["lower"]
+            self.obstacle_upper = self.obstacles[0]["upper"]
+        else:
+            self.obstacle_center = np.full(2, np.nan, dtype=np.float32)
+            self.obstacle_lower = self.obstacle_center.copy()
+            self.obstacle_upper = self.obstacle_center.copy()
         observations, self._candidate_metrics = self._build_observations()
         self._update_default_path_state()
         return observations, self._info(False, False, np.inf, np.inf)
@@ -208,8 +225,19 @@ class WaypointSelectionEnv:
         return float(ratio * ratio)
 
     def _formation_offset_penalties(self, actions):
-        """Penalize only displacement beyond the nearest currently safe slot."""
+        """Penalize lateral formation displacement without prescribing an action."""
         offsets = np.abs(np.asarray(self.cfg.candidate_offsets, dtype=np.float32))
+        if not self.cfg.nearest_safe_offset_reward:
+            weights = np.where(
+                self.default_blocked_latched,
+                self.cfg.blocked_default_offset_weight,
+                self.cfg.clear_default_offset_weight,
+            ).astype(np.float32)
+            return (
+                -weights * offsets[actions]
+            ).astype(np.float32)
+
+        # Legacy behavior retained only for evaluating/deploying old models.
         penalties = np.zeros(self.num_agents, dtype=np.float32)
         for index in range(self.num_agents):
             safe_actions = [
@@ -226,12 +254,16 @@ class WaypointSelectionEnv:
         return penalties
 
     def valid_action_masks(self):
-        """Keep clear agents fixed; let blocked agents move adjacently."""
+        """Apply adjacency only, with optional legacy heuristic filtering."""
         action_indices = np.arange(self.num_actions, dtype=np.int64)
         masks = (
             np.abs(action_indices[None, :] - self.previous_actions[:, None])
             <= self.cfg.max_action_index_change
         )
+        if not self.cfg.heuristic_action_mask:
+            return masks
+
+        # Legacy behavior retained only for evaluating/deploying old models.
         for index in range(self.num_agents):
             if self.default_blocked_latched[index]:
                 safe = np.asarray(
@@ -285,6 +317,10 @@ class WaypointSelectionEnv:
         switched = actions != self.previous_actions
         switch_penalties = (
             -self.cfg.formation_switch_weight * switched.astype(np.float32)
+        )
+        oscillated = switched & (actions == self.previous_previous_actions)
+        oscillation_penalties = (
+            -self.cfg.formation_oscillation_weight * oscillated.astype(np.float32)
         )
         reversal_penalties = np.zeros(self.num_agents, dtype=np.float32)
         offsets = np.asarray(self.cfg.candidate_offsets, dtype=np.float32)
@@ -342,7 +378,7 @@ class WaypointSelectionEnv:
                             - obstacle["radius"]
                         )
                     obstacle_clearances.append(clearance)
-                clearance = min(obstacle_clearances)
+                clearance = min(obstacle_clearances) if obstacle_clearances else np.inf
                 min_obstacle_clearances[index] = min(min_obstacle_clearances[index], clearance)
                 if clearance <= 0.0:
                     obstacle_collision[index] = True
@@ -392,15 +428,16 @@ class WaypointSelectionEnv:
             pair_reward -= self.cfg.collision_penalty
 
         # 3) Formation preservation is evaluated independently per follower.
-        # A clear follower stays in its default slot through the action mask;
-        # a blocked follower is penalized only for moving farther than its own
-        # nearest safe slot, switching, or reversing its avoidance direction.
+        # RL-first runs learn a strong clear-lane return preference, a weaker
+        # detour-size preference while blocked, and costs for switching or
+        # oscillating.  No obstacle-aware action is forced by this reward.
         # Inter-follower separation is handled exclusively by pair safety.
         goal_pair_distance = float(np.linalg.norm(goals[0] - goals[1]))
         formation_reward = float(
             np.mean(
                 formation_offset_penalties
                 + switch_penalties
+                + oscillation_penalties
                 + reversal_penalties
             )
         )
@@ -429,18 +466,26 @@ class WaypointSelectionEnv:
 
         # The next observation and its action mask must describe the action
         # that was just executed, not the action from two decisions ago.
+        self.previous_previous_actions = self.previous_actions.copy()
         self.previous_actions = actions.copy()
         next_observations, self._candidate_metrics = self._build_observations()
         self._update_default_path_state()
         next_defaults = self._candidate_points()[:, DEFAULT_ACTION]
         default_errors = np.linalg.norm(self.follower_pos - next_defaults, axis=1)
-        obstacle_end_x = max(
-            float(obstacle["upper"][0])
-            if obstacle["shape"] == "square"
-            else float(obstacle["center"][0] + obstacle["radius"])
-            for obstacle in self.obstacles
-        )
-        obstacle_passed = bool(np.min(self.follower_pos[:, 0]) > obstacle_end_x + 2.0)
+        if self.obstacles:
+            obstacle_end_x = max(
+                float(obstacle["upper"][0])
+                if obstacle["shape"] == "square"
+                else float(obstacle["center"][0] + obstacle["radius"])
+                for obstacle in self.obstacles
+            )
+            obstacle_passed = bool(
+                np.min(self.follower_pos[:, 0]) > obstacle_end_x + 2.0
+            )
+        else:
+            obstacle_passed = bool(
+                np.min(self.follower_pos[:, 0]) > self.cfg.clear_episode_success_x
+            )
         recovered = bool(
             obstacle_passed
             and np.all(actions == DEFAULT_ACTION)
@@ -455,10 +500,15 @@ class WaypointSelectionEnv:
         truncated = self.step_count >= self.cfg.max_episode_steps
 
         rewards = np.full(2, team_reward, dtype=np.float32)
+        reported_obstacle_clearance = (
+            float(np.min(min_obstacle_clearances))
+            if self.obstacles
+            else float(self.cfg.lidar_policy_max_range)
+        )
         info = self._info(
             success,
             bool(np.any(obstacle_collision) or pair_collision),
-            float(np.min(min_obstacle_clearances)),
+            reported_obstacle_clearance,
             min_pair_distance,
         )
         info.update(
@@ -473,6 +523,7 @@ class WaypointSelectionEnv:
                 "default_errors": default_errors.astype(np.float32),
                 "minimum_safe_offset_penalties": formation_offset_penalties.copy(),
                 "reward_switch_penalties": switch_penalties.copy(),
+                "reward_oscillation_penalties": oscillation_penalties.copy(),
                 "reward_route_reversal_penalties": reversal_penalties.copy(),
                 "default_blocked_latched": self.default_blocked_latched.copy(),
                 "reward_task": task_reward,
@@ -505,6 +556,7 @@ class WaypointSelectionEnv:
                 }
                 for obstacle in self.obstacles
             ],
+            "empty_episode": not bool(self.obstacles),
             "min_obstacle_clearance": float(min_obstacle_clearance),
             "min_pair_distance": float(min_pair_distance),
         }
