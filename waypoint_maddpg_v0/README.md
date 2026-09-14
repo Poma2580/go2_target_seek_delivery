@@ -116,6 +116,21 @@ python -m waypoint_maddpg_v0.evaluate \
   waypoint_maddpg_v0/runs/<run>/best_model.pt --episodes 50
 ```
 
+Compare the learned policy against the reproducible random-safe heuristic:
+
+```bash
+python -m waypoint_maddpg_v0.compare_heuristic \
+  waypoint_maddpg_v0/runs/<run>/best_model.pt \
+  --seed 20027 --heuristic-seed 20027 \
+  --output rl_vs_random_safe.gif --report rl_vs_random_safe.json
+```
+
+For each follower, the heuristic evaluates the same five candidate paths as
+the RL policy, removes every candidate whose endpoint or forward path is
+blocked, and samples uniformly from those remaining. If all five paths are
+blocked, it emits no unsafe fallback action and records `no_safe_candidate` in
+the report.
+
 Training outputs are written only below `waypoint_maddpg_v0/runs/`.
 
 ## Reproducible convergence experiment

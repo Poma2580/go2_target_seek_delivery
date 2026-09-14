@@ -1,6 +1,7 @@
-"""Compare a trained policy with a local nearest-safe adjacent heuristic."""
+"""Compare a trained policy with a random safe-candidate heuristic."""
 
 import argparse
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -19,36 +20,35 @@ from .environment import WaypointSelectionEnv
 from .render_episode import _environment_from_checkpoint
 
 
-def heuristic_actions(env):
-    """Pick the smallest-offset clear adjacent action independently per agent."""
-    masks = env.valid_action_masks()
-    offsets = np.abs(np.asarray(env.cfg.candidate_offsets, dtype=np.float32))
+class NoSafeCandidateError(RuntimeError):
+    """Raised when at least one robot has no obstacle-free candidate."""
+
+
+def random_safe_actions(metrics_by_agent, rng):
+    """Randomly select an unblocked candidate independently for every robot.
+
+    ``metrics_by_agent`` uses the same five candidate-path measurements as the
+    RL observation.  A blocked candidate is never returned.  Refusing to emit
+    an action when all five paths are blocked prevents an unsafe fallback from
+    contaminating the heuristic baseline.
+    """
     actions = []
-    for index in range(env.num_agents):
-        valid = np.flatnonzero(masks[index]).tolist()
-        metrics = env._candidate_metrics[index]
-        clear = [action for action in valid if not metrics[action]["blocked"]]
-        if clear:
-            action = min(
-                clear,
-                key=lambda value: (
-                    offsets[value],
-                    -metrics[value]["path_clearance"],
-                    -metrics[value]["endpoint_clearance"],
-                    value,
-                ),
+    for agent_index, metrics in enumerate(metrics_by_agent):
+        clear = np.asarray(
+            [index for index, item in enumerate(metrics) if not item["blocked"]],
+            dtype=np.int64,
+        )
+        if not len(clear):
+            raise NoSafeCandidateError(
+                f"agent {agent_index} has no obstacle-free candidate"
             )
-        else:
-            action = max(
-                valid,
-                key=lambda value: (
-                    metrics[value]["path_clearance"],
-                    metrics[value]["endpoint_clearance"],
-                    -offsets[value],
-                ),
-            )
-        actions.append(action)
+        actions.append(int(rng.choice(clear)))
     return np.asarray(actions, dtype=np.int64)
+
+
+def heuristic_actions(env, rng):
+    """Select from all five clear candidates using an independent RNG."""
+    return random_safe_actions(env._candidate_metrics, rng)
 
 
 def collect(env_config, seed, controller):
@@ -64,7 +64,27 @@ def collect(env_config, seed, controller):
     }]
     total_reward = 0.0
     while True:
-        actions = controller(env, observations)
+        try:
+            actions = controller(env, observations)
+        except NoSafeCandidateError as error:
+            failure_info = dict(frames[-1]["info"])
+            failure_info.update(
+                {
+                    "success": False,
+                    "collision": False,
+                    "no_safe_candidate": True,
+                    "controller_failure": str(error),
+                }
+            )
+            frames.append({
+                "leader": env.leader_pos.copy(),
+                "followers": env.follower_pos.copy(),
+                "goals": env.current_goals.copy(),
+                "actions": env.previous_actions.copy(),
+                "reward": total_reward,
+                "info": failure_info,
+            })
+            return frames
         observations, rewards, terminated, truncated, info = env.step(actions)
         total_reward += float(rewards[0])
         frames.append({
@@ -85,6 +105,8 @@ def summarize(frames):
     return {
         "success": bool(final.get("success", False)),
         "collision": bool(final.get("collision", False)),
+        "no_safe_candidate": bool(final.get("no_safe_candidate", False)),
+        "controller_failure": final.get("controller_failure"),
         "steps": int(final["step"]),
         "total_reward": float(frames[-1]["reward"]),
         "action_switches": int(np.sum(actions[1:] != actions[:-1])),
@@ -149,7 +171,7 @@ def render_comparison(config, seed, rl_frames, heuristic_frames, output, fps):
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), dpi=100, sharey=True)
     axes[0].set_ylabel("y (m)")
-    titles = ("RL (joint learned policy)", "Heuristic (local nearest-safe)")
+    titles = ("RL (joint learned policy)", "Heuristic (random safe candidate)")
     colors = ("#4c78a8", "#f58518")
     artists = []
     for ax, title, frames in zip(axes, titles, histories):
@@ -188,7 +210,15 @@ def render_comparison(config, seed, rl_frames, heuristic_frames, output, fps):
                     follower_history[:, agent, 0], follower_history[:, agent, 1]
                 )
             info = frame["info"]
-            outcome = "SUCCESS" if info.get("success") else "COLLISION" if info.get("collision") else "RUNNING"
+            outcome = (
+                "SUCCESS"
+                if info.get("success")
+                else "COLLISION"
+                if info.get("collision")
+                else "NO SAFE CANDIDATE"
+                if info.get("no_safe_candidate")
+                else "RUNNING"
+            )
             status.set_text(
                 f"seed={seed} step={info['step']:03d} {outcome}\n"
                 f"actions={frame['actions'].tolist()} return={frame['reward']:.1f}"
@@ -196,7 +226,7 @@ def render_comparison(config, seed, rl_frames, heuristic_frames, output, fps):
             changed.extend([leader, *followers, leader_trail, *follower_trails, goals, status])
         return changed
 
-    fig.suptitle("Same obstacle layout: learned MARL policy vs local greedy heuristic")
+    fig.suptitle("Same obstacle layout: learned MARL policy vs random safe heuristic")
     fig.tight_layout()
     output.parent.mkdir(parents=True, exist_ok=True)
     movie = animation.FuncAnimation(
@@ -211,6 +241,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--seed", type=int, default=20027)
+    parser.add_argument(
+        "--heuristic-seed",
+        type=int,
+        default=None,
+        help="random seed for safe-candidate sampling (defaults to --seed)",
+    )
     parser.add_argument("--fps", type=int, default=10)
     parser.add_argument("--output", type=Path, default=Path("rl_vs_heuristic.gif"))
     parser.add_argument("--report", type=Path, default=Path("rl_vs_heuristic.json"))
@@ -231,13 +267,30 @@ def main():
             observations, action_masks=env.valid_action_masks(), deterministic=True
         ),
     )
+    # The heuristic chooses afresh from all five candidates.  Widening only
+    # its transition mask lets the common environment accept that interface;
+    # candidate geometry, lidar blockage tests, dynamics and rewards remain
+    # identical to the checkpoint configuration.
+    heuristic_config = replace(
+        config,
+        max_action_index_change=config.num_actions - 1,
+        heuristic_action_mask=False,
+    )
+    heuristic_seed = args.seed if args.heuristic_seed is None else args.heuristic_seed
+    heuristic_rng = np.random.default_rng(heuristic_seed)
     heuristic_frames = collect(
-        config, args.seed, lambda env, _observations: heuristic_actions(env)
+        heuristic_config,
+        args.seed,
+        lambda env, _observations: heuristic_actions(env, heuristic_rng),
     )
     report = {
         "checkpoint": str(args.checkpoint),
         "seed": args.seed,
-        "baseline": "independent nearest-clear adjacent action; max path clearance fallback",
+        "baseline": (
+            "independent uniform random choice among all five unblocked "
+            "candidate paths; stop when none is safe"
+        ),
+        "heuristic_seed": heuristic_seed,
         "obstacles": [
             {key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in item.items()}
             for item in rl_frames[0]["info"]["obstacles"]
