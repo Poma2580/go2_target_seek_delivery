@@ -18,7 +18,7 @@
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>sensor_msgs_py</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>multi_go2_waypoint</exec_depend>
+  <exec_depend>go2_scenario_config</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
 
   <export>

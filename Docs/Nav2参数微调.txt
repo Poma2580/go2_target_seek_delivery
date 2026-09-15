@@ -1,0 +1,46 @@
+多场景 Nav2 参数调整策略
+
+一、参数作用
+
+1. min_height / max_height
+   位置：go2_ws_v2/src/go2_mapping_nav/launch/go2_1/2/3_mapping_nav.launch.py
+   作用：限制投影到二维 LaserScan 的点云高度。
+   提高 min_height 可过滤低处杂点，降低 min_height 可保留更多低处障碍物。
+
+2. cost_scaling_factor / inflation_radius
+   位置：go2_ws_v2/src/go2_mapping_nav/config/nav2/go2_1/2/3_nav2.yaml
+   作用：调整 global_costmap 和 local_costmap 的障碍物膨胀范围及代价衰减速度。
+   inflation_radius 越大，导航路径距离障碍物越远。
+
+二、不同场景建议值
+
+1. city（默认）
+   min_height: 0.10
+   max_height: 0.50
+   cost_scaling_factor: 1.5
+   inflation_radius: 0.4
+   说明：兼顾城市障碍物识别和狭窄区域通行能力。
+
+2. airport
+   min_height: 0.33
+   max_height: 0.50
+   cost_scaling_factor: 1.5
+   inflation_radius: 0.4
+   说明：机场场景低处杂散点云较多，提高 min_height 以减少虚假障碍；膨胀参数沿用 city。
+
+3. forest
+   min_height: -0.15
+   max_height: 0.50
+   cost_scaling_factor: 1.0
+   inflation_radius: 1.5
+   说明：保留林地低处障碍信息，并扩大树木周围安全距离。
+
+三、场景切换方法
+
+1. 同时修改 go2_1、go2_2、go2_3 三份 mapping_nav.launch.py 中的 min_height 和 max_height。
+2. 同时修改 go2_1、go2_2、go2_3 三份 nav2.yaml 中 global_costmap 和 local_costmap 的 cost_scaling_factor 与 inflation_radius。
+3. 修改后重新启动 RTAB-Map 和 Nav2，使参数生效。
+
+四、当前默认状态
+
+当前三只 Go2 的上述参数均已统一为 city 默认值。

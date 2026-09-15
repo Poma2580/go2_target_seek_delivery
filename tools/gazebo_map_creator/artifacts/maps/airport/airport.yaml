@@ -1,0 +1,10 @@
+free_thresh: 0.9
+negate: 0
+origin:
+- -180.0
+- -75.0
+- 0.0
+resolution: 0.1
+mode: trinary
+occupied_thresh: 0.95
+image: airport.pgm

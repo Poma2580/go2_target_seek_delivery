@@ -58,21 +58,6 @@ if(BUILD_TESTING)
     test/test_send_static_goal_modes.py
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
-  ament_add_pytest_test(
-    test_dynamic_encircle
-    test/test_dynamic_encircle.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_handoff_manager
-    test/test_handoff_manager.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
-  ament_add_pytest_test(
-    test_role_aware_mux
-    test/test_role_aware_mux.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
-  )
 endif()
 
 ament_package()

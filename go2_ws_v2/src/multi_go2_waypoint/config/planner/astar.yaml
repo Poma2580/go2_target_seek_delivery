@@ -1,9 +1,0 @@
-schema_version: 1
-
-astar:
-  # Go2 尺寸、控制误差与路径切点余量的总安全距离（m）。
-  inflation_radius: 0.55
-  # 路径简化后重新采样的最大航点间距（m）。
-  max_waypoint_spacing: 5.0
-  # 围捕点不在自由区域时，允许在请求半径外继续搜索的最大距离（m）。
-  max_goal_radius_expansion: 3.0

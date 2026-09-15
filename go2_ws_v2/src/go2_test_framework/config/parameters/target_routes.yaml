@@ -1,0 +1,65 @@
+schema_version: 1
+scenes:
+  city:
+    base_world: QY_MODEL/target_seek
+    routes:
+      straight:
+        points: [[-10.0, 0.0], [-40.0, 0.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      rectangle:
+        points: [[-13.0, 4.0], [41.0, 4.0], [41.0, 36.0], [-13.0, 36.0]]
+        traversal: closed
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      v_shape:
+        points: [[-15.0, 8.0], [-30.0, -2.0], [-18.0, -15.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+  forest:
+    base_world: KD_MODEL/world/forestV3_dynamic.world
+    routes:
+      straight:
+        points: [[-39.0, -2.0], [-10.0, -16.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      rectangle:
+        points: [[-45.0, 0.0], [-10.0, 0.0], [-10.0, -13.0], [-45.0, -13.0]]
+        traversal: closed
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      v_shape:
+        points: [[-42.0, -3.0], [-18.0, -18.0], [-6.0, 5.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+  airport:
+    base_world: KD_MODEL/world/airport_dynamic.world
+    routes:
+      straight:
+        points: [[48.0, -15.0], [15.0, -15.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      rectangle:
+        points: [[54.0, -17.0], [100.0, -17.0], [100.0, -48.0], [54.0, -48.0]]
+        traversal: closed
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false
+      v_shape:
+        points: [[50.0, -13.0], [48.0, 18.0], [65.0, 25.0]]
+        traversal: ping_pong
+        speed: 0.15
+        turn_duration: 2.0
+        provisional: false

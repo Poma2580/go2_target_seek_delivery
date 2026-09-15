@@ -7,6 +7,7 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(gazebo_dev REQUIRED)
 find_package(gazebo_ros REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -31,8 +32,24 @@ target_link_libraries(walking_target_controller
   ${GAZEBO_LIBRARIES}
 )
 
+ament_python_install_package(${PROJECT_NAME})
+
 install(TARGETS walking_target_controller
   LIBRARY DESTINATION lib
 )
+
+install(
+  PROGRAMS scripts/actor_state_publisher
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(
+    test_actor_state_publisher
+    test/test_actor_state_publisher.py
+    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
+  )
+endif()
 
 ament_package()

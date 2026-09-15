@@ -1,0 +1,2485 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "generation": {
+    "seed": 20260901,
+    "group_count": 11,
+    "radius_min": 8.0,
+    "radius_max": 14.0,
+    "spawn_z": 0.4,
+    "spawn_clearance": 0.2,
+    "max_target_distance": 25.0,
+    "camera_hfov_deg": 50.0,
+    "min_pose_separation": 0.5,
+    "role_overrides": {
+      "go2_2": {
+        "camera_hfov_deg": 60.0,
+        "min_pose_separation": 0.5
+      }
+    },
+    "max_attempts_per_robot": 1000000
+  },
+  "responsibility": {
+    "go2_1": "city",
+    "go2_2": "forest",
+    "go2_3": "airport"
+  },
+  "anchors": {
+    "city": [
+      -12.666666666666666,
+      4.0
+    ],
+    "forest": [
+      -42.0,
+      -1.6666666666666667
+    ],
+    "airport": [
+      50.666666666666664,
+      -15.0
+    ]
+  },
+  "sampling": {
+    "go2_1": {
+      "scene": "city",
+      "attempts": 18,
+      "accepted": 11,
+      "rejected": {
+        "annulus": 0,
+        "map": 4,
+        "distance": 0,
+        "fov": 3,
+        "los": 0,
+        "separation": 0
+      }
+    },
+    "go2_2": {
+      "scene": "forest",
+      "attempts": 60,
+      "accepted": 11,
+      "rejected": {
+        "annulus": 0,
+        "map": 32,
+        "distance": 0,
+        "fov": 0,
+        "los": 16,
+        "separation": 1
+      }
+    },
+    "go2_3": {
+      "scene": "airport",
+      "attempts": 19,
+      "accepted": 11,
+      "rejected": {
+        "annulus": 0,
+        "map": 8,
+        "distance": 0,
+        "fov": 0,
+        "los": 0,
+        "separation": 0
+      }
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -25.58,
+            "y": 2.3,
+            "z": 0.4,
+            "yaw": 0.13
+          },
+          "responsibility": "city",
+          "radius_m": 13.024752503513367,
+          "yaw_error_rad": 0.0008941686865029663,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.2634557485580444
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.115810394287109
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.829289436340332
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 15.748853926556052,
+              "distance_pass": true,
+              "angle_offset_deg": 15.846096693750365,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 12.694345197764237,
+              "distance_pass": true,
+              "angle_offset_deg": 0.24760038531586973,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 12.017753533834847,
+              "distance_pass": true,
+              "angle_offset_deg": 20.865220520050165,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -34.96,
+            "y": -5.82,
+            "z": 0.4,
+            "yaw": 2.61
+          },
+          "responsibility": "forest",
+          "radius_m": 8.173847183412335,
+          "yaw_error_rad": 0.0014133582153021962,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.0316689014434814
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.8991377353668213
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.032567501068115
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 5.560035971106662,
+              "distance_pass": true,
+              "angle_offset_deg": 12.938704464464363,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 11.604912752795688,
+              "distance_pass": true,
+              "angle_offset_deg": 0.35794898338120484,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 7.583798520530459,
+              "distance_pass": true,
+              "angle_offset_deg": 8.628547328806562,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 54.1,
+            "y": -6.02,
+            "z": 0.4,
+            "yaw": -1.94
+          },
+          "responsibility": "airport",
+          "radius_m": 9.613957446222539,
+          "yaw_error_rad": 0.004021273575996354,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.5375656485557556
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.68694806098938
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.233061790466309
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 10.85589240919419,
+              "distance_pass": true,
+              "angle_offset_deg": 13.033957750318372,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 10.980455363963737,
+              "distance_pass": true,
+              "angle_offset_deg": 20.632007196723286,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 8.095084928522986,
+              "distance_pass": true,
+              "angle_offset_deg": 9.275846548571687,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -19.53,
+            "y": 14.96,
+            "z": 0.4,
+            "yaw": -1.01
+          },
+          "responsibility": "city",
+          "radius_m": 12.931625746380247,
+          "yaw_error_rad": 0.0013226708451525848,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 10.884653091430664
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.6629202365875244
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.311700820922852
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 17.73760130344574,
+              "distance_pass": true,
+              "angle_offset_deg": 0.3671814487229348,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 12.757840726392535,
+              "distance_pass": true,
+              "angle_offset_deg": 1.3446534550123357,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 8.304366321399847,
+              "distance_pass": true,
+              "angle_offset_deg": 0.9273137978303972,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -29.08,
+            "y": -6.9,
+            "z": 0.4,
+            "yaw": 2.76
+          },
+          "responsibility": "forest",
+          "radius_m": 13.939662039582517,
+          "yaw_error_rad": 0.003265383442303982,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.682807445526123
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.263813018798828
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.8047380447387695
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 11.064194502990267,
+              "distance_pass": true,
+              "angle_offset_deg": 4.423494806877693,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 17.35097691774155,
+              "distance_pass": true,
+              "angle_offset_deg": 1.5690841576372418,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 13.495791936748287,
+              "distance_pass": true,
+              "angle_offset_deg": 5.066810457632734,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 58.1,
+            "y": -21.63,
+            "z": 0.4,
+            "yaw": 2.41
+          },
+          "responsibility": "airport",
+          "radius_m": 9.960489166925713,
+          "yaw_error_rad": 0.0032550224416736384,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.8292893767356873
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.1224606037139893
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 14.094388008117676
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 12.08167620820886,
+              "distance_pass": true,
+              "angle_offset_deg": 8.63484929752777,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 6.18440781320249,
+              "distance_pass": true,
+              "angle_offset_deg": 6.557002458778501,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 11.835831191766804,
+              "distance_pass": true,
+              "angle_offset_deg": 4.897330155446331,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 3,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -12.54,
+            "y": -6.44,
+            "z": 0.4,
+            "yaw": 1.58
+          },
+          "responsibility": "city",
+          "radius_m": 10.440768383813735,
+          "yaw_error_rad": 0.0029285539862038412,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.883946657180786
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.261725425720215
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.700033664703369
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 6.9228029005598595,
+              "distance_pass": true,
+              "angle_offset_deg": 22.052100554516485,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 10.450129185804357,
+              "distance_pass": true,
+              "angle_offset_deg": 1.9955632492074542,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 14.648044238054446,
+              "distance_pass": true,
+              "angle_offset_deg": 9.140765780655226,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -32.08,
+            "y": 2.39,
+            "z": 0.4,
+            "yaw": -2.75
+          },
+          "responsibility": "forest",
+          "radius_m": 10.717413141446237,
+          "yaw_error_rad": 0.003404782652432825,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.329289436340332
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.2186663150787354
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.332413673400879
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 8.195028981034785,
+              "distance_pass": true,
+              "angle_offset_deg": 9.954152060564578,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 13.139197083535967,
+              "distance_pass": true,
+              "angle_offset_deg": 11.956245778133546,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 11.289751990190043,
+              "distance_pass": true,
+              "angle_offset_deg": 6.08069612578405,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 57.24,
+            "y": -5.03,
+            "z": 0.4,
+            "yaw": -2.15
+          },
+          "responsibility": "airport",
+          "radius_m": 11.941926608010583,
+          "yaw_error_rad": 0.0036894292473985675,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.4057716131210327
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.461087226867676
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.649583578109741
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 13.593325568086716,
+              "distance_pass": true,
+              "angle_offset_deg": 9.637821930328473,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 12.400745945305063,
+              "distance_pass": true,
+              "angle_offset_deg": 18.040219808696786,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 10.767474169924904,
+              "distance_pass": true,
+              "angle_offset_deg": 9.066286532633262,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 4,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -4.57,
+            "y": -3.49,
+            "z": 0.4,
+            "yaw": 2.4
+          },
+          "responsibility": "city",
+          "radius_m": 11.029782913145258,
+          "yaw_error_rad": 0.00490299110784731,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.4425638914108276
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.2121320366859436
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.7097386121749878
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 6.454843142943134,
+              "distance_pass": true,
+              "angle_offset_deg": 9.760236209288992,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 11.276745984547137,
+              "distance_pass": true,
+              "angle_offset_deg": 0.869248152655455,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 15.517892898199808,
+              "distance_pass": true,
+              "angle_offset_deg": 5.2784042049217925,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -31.98,
+            "y": -0.32,
+            "z": 0.4,
+            "yaw": -3.01
+          },
+          "responsibility": "forest",
+          "radius_m": 10.110089569885675,
+          "yaw_error_rad": 0.002004675528113342,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.456981658935547
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.9588524103164673
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.998805999755859
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 7.218226929101079,
+              "distance_pass": true,
+              "angle_offset_deg": 5.918980942992786,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 13.023931818003348,
+              "distance_pass": true,
+              "angle_offset_deg": 8.947611427266109,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 10.372212878648412,
+              "distance_pass": true,
+              "angle_offset_deg": 7.4344131291387034,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 45.95,
+            "y": -7.08,
+            "z": 0.4,
+            "yaw": -1.03
+          },
+          "responsibility": "airport",
+          "radius_m": 9.218098743474405,
+          "yaw_error_rad": 0.0036636363937552208,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.6721110343933105
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.6263455152511597
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.636730194091797
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 8.181008495289563,
+              "distance_pass": true,
+              "angle_offset_deg": 16.47348994328141,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 12.77532387065001,
+              "distance_pass": true,
+              "angle_offset_deg": 8.073704010112259,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 7.172788857898995,
+              "distance_pass": true,
+              "angle_offset_deg": 3.3915278845710146,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 5,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -12.86,
+            "y": 15.25,
+            "z": 0.4,
+            "yaw": -1.55
+          },
+          "responsibility": "city",
+          "radius_m": 11.251661111932663,
+          "yaw_error_rad": 0.003612833080288258,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.729289531707764
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.6292893886566162
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.321853160858154
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 15.515866073152345,
+              "distance_pass": true,
+              "angle_offset_deg": 9.430381942506571,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 11.25087107738774,
+              "distance_pass": true,
+              "angle_offset_deg": 1.9045190964059482,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 7.5592393797259785,
+              "distance_pass": true,
+              "angle_offset_deg": 17.63668827761986,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -34.46,
+            "y": 2.8,
+            "z": 0.4,
+            "yaw": -2.61
+          },
+          "responsibility": "forest",
+          "radius_m": 8.76371559962503,
+          "yaw_error_rad": 0.0032169903308814085,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.300508975982666
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.1133224964141846
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.035624980926514
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 6.6069357496497565,
+              "distance_pass": true,
+              "angle_offset_deg": 16.136530195848845,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 10.905576555139117,
+              "distance_pass": true,
+              "angle_offset_deg": 15.58074668015304,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 9.5127072907769,
+              "distance_pass": true,
+              "angle_offset_deg": 7.110576557972345,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 47.75,
+            "y": -3.35,
+            "z": 0.4,
+            "yaw": -1.33
+          },
+          "responsibility": "airport",
+          "radius_m": 12.009556380001904,
+          "yaw_error_rad": 0.004518923326998214,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.436208724975586
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.3292893171310425
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.808525323867798
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 11.652682094693908,
+              "distance_pass": true,
+              "angle_offset_deg": 12.567278761122619,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 15.012827848210343,
+              "distance_pass": true,
+              "angle_offset_deg": 10.80526775777176,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 9.908834442052203,
+              "distance_pass": true,
+              "angle_offset_deg": 0.6719759991895548,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 6,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -16.09,
+            "y": 14.4,
+            "z": 0.4,
+            "yaw": -1.25
+          },
+          "responsibility": "city",
+          "radius_m": 10.948936528773519,
+          "yaw_error_rad": 0.0028004481209038534,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.9292893409729
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.8447654247283936
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 8.485573768615723
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 15.634836104033838,
+              "distance_pass": true,
+              "angle_offset_deg": 4.54403637258977,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 10.849336385235736,
+              "distance_pass": true,
+              "angle_offset_deg": 1.8327811200625854,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 6.4921568064858075,
+              "distance_pass": true,
+              "angle_offset_deg": 8.714829178628095,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -35.09,
+            "y": 3.08,
+            "z": 0.4,
+            "yaw": -2.54
+          },
+          "responsibility": "forest",
+          "radius_m": 8.383253810093334,
+          "yaw_error_rad": 0.00030560344291874486,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.400121212005615
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.4589952230453491
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.650152683258057
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 6.410499200530328,
+              "distance_pass": true,
+              "angle_offset_deg": 17.946339510027038,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 10.377596060745471,
+              "distance_pass": true,
+              "angle_offset_deg": 17.203623016320595,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 9.204048022473588,
+              "distance_pass": true,
+              "angle_offset_deg": 6.875318591723029,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 52.55,
+            "y": -2.25,
+            "z": 0.4,
+            "yaw": -1.72
+          },
+          "responsibility": "airport",
+          "radius_m": 12.88834529505027,
+          "yaw_error_rad": 0.0025517166158932625,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.517317295074463
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.6935951709747314
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.329289436340332
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 13.53754039698497,
+              "distance_pass": true,
+              "angle_offset_deg": 11.090848319568055,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 14.821099824237066,
+              "distance_pass": true,
+              "angle_offset_deg": 14.163167861547176,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 11.048303037118414,
+              "distance_pass": true,
+              "angle_offset_deg": 4.7957102272387395,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 7,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -15.4,
+            "y": 15.72,
+            "z": 0.4,
+            "yaw": -1.34
+          },
+          "responsibility": "city",
+          "radius_m": 12.034513330879282,
+          "yaw_error_rad": 0.001672287781104176,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.229289531707764
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.4292893409729004
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 9.00948715209961
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 16.621624469347154,
+              "distance_pass": true,
+              "angle_offset_deg": 5.7345279526365065,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 11.963210271494855,
+              "distance_pass": true,
+              "angle_offset_deg": 1.6507278047914486,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 7.730355748605623,
+              "distance_pass": true,
+              "angle_offset_deg": 10.257614562482562,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -33.13,
+            "y": 1.96,
+            "z": 0.4,
+            "yaw": -2.75
+          },
+          "responsibility": "forest",
+          "radius_m": 9.582776795434143,
+          "yaw_error_rad": 0.0034641774614510012,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.798701763153076
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.349815607070923
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.012368202209473
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 7.08085446821215,
+              "distance_pass": true,
+              "angle_offset_deg": 11.567653459895256,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 12.030731482333065,
+              "distance_pass": true,
+              "angle_offset_deg": 13.060407812327796,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 10.162603013008033,
+              "distance_pass": true,
+              "angle_offset_deg": 6.776802438545553,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 51.16,
+            "y": -6.46,
+            "z": 0.4,
+            "yaw": -1.63
+          },
+          "responsibility": "airport",
+          "radius_m": 8.55423741649586,
+          "yaw_error_rad": 0.0015004335064445762,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.461087226867676
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.732064962387085
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.279119491577148
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 9.105888204892478,
+              "distance_pass": true,
+              "angle_offset_deg": 16.913533340514768,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 10.91591498684375,
+              "distance_pass": true,
+              "angle_offset_deg": 18.47230496452024,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 6.642077988099808,
+              "distance_pass": true,
+              "angle_offset_deg": 6.665829337264378,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 8,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -0.99,
+            "y": 4.44,
+            "z": 0.4,
+            "yaw": -3.1
+          },
+          "responsibility": "city",
+          "radius_m": 11.684953763042643,
+          "yaw_error_rad": 0.0039284868298632425,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.329289436340332
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.135237693786621
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.8656182289123535
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 10.04458560618605,
+              "distance_pass": true,
+              "angle_offset_deg": 23.85033952160869,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 12.018057247325793,
+              "distance_pass": true,
+              "angle_offset_deg": 0.2849258918130713,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 14.455230887121797,
+              "distance_pass": true,
+              "angle_offset_deg": 16.64043375373589,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -33.77,
+            "y": -8.8,
+            "z": 0.4,
+            "yaw": 2.43
+          },
+          "responsibility": "forest",
+          "radius_m": 10.891159003726115,
+          "yaw_error_rad": 0.0025443020572559765,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.529289245605469
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.7364230155944824
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 8.838833808898926
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 8.578630426822219,
+              "distance_pass": true,
+              "angle_offset_deg": 11.664224382661692,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 14.26719664124666,
+              "distance_pass": true,
+              "angle_offset_deg": 2.6884626916389283,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 10.068410996776004,
+              "distance_pass": true,
+              "angle_offset_deg": 5.597418831149701,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 62.37,
+            "y": -18.24,
+            "z": 0.4,
+            "yaw": 2.87
+          },
+          "responsibility": "airport",
+          "radius_m": 12.143541950811183,
+          "yaw_error_rad": 0.0015127106718071384,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.7895218729972839
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.5541703701019287
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 15.734352111816406
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 14.730733179309166,
+              "distance_pass": true,
+              "angle_offset_deg": 2.855115259276601,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 8.46135331965283,
+              "distance_pass": true,
+              "angle_offset_deg": 7.134143775973064,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 13.434079797291659,
+              "distance_pass": true,
+              "angle_offset_deg": 7.3966699737986525,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 9,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -21.33,
+            "y": 10.94,
+            "z": 0.4,
+            "yaw": -0.68
+          },
+          "responsibility": "city",
+          "radius_m": 11.100312808405194,
+          "yaw_error_rad": 0.004602489845654922,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 8.070542335510254
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.0387916564941406
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.9525327682495117
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 15.749682536483075,
+              "distance_pass": true,
+              "angle_offset_deg": 5.0355888299905285,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 10.842163068318055,
+              "distance_pass": true,
+              "angle_offset_deg": 0.8376748708837707,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 6.979434074479103,
+              "distance_pass": true,
+              "angle_offset_deg": 14.0483835694693,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -33.5,
+            "y": -0.37,
+            "z": 0.4,
+            "yaw": -2.99
+          },
+          "responsibility": "forest",
+          "radius_m": 8.598333817923356,
+          "yaw_error_rad": 0.00021071428249985757,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.5967133045196533
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.263813018798828
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.459986209869385
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 5.736453608284477,
+              "distance_pass": true,
+              "angle_offset_deg": 7.822288973676038,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 11.505950634345691,
+              "distance_pass": true,
+              "angle_offset_deg": 10.528412996585388,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 8.897578322217793,
+              "distance_pass": true,
+              "angle_offset_deg": 8.507063350279468,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 41.63,
+            "y": -5.54,
+            "z": 0.4,
+            "yaw": -0.81
+          },
+          "responsibility": "airport",
+          "radius_m": 13.082543500575275,
+          "yaw_error_rad": 0.001718824865560853,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.7731982469558716
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.233129858970642
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.029289484024048
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 11.404757779102544,
+              "distance_pass": true,
+              "angle_offset_deg": 9.635610780620043,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 16.862636211458753,
+              "distance_pass": true,
+              "angle_offset_deg": 3.596481840930932,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 11.211980199768458,
+              "distance_pass": true,
+              "angle_offset_deg": 4.6996534000262775,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 10,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -15.94,
+            "y": 15.73,
+            "z": 0.4,
+            "yaw": -1.3
+          },
+          "responsibility": "city",
+          "radius_m": 12.178161236866226,
+          "yaw_error_rad": 0.0013373013957784785,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.829289436340332
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 1.4425638914108276
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 9.37862777709961
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 16.814175567062453,
+              "distance_pass": true,
+              "angle_offset_deg": 5.17217193744187,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 12.092828453261049,
+              "distance_pass": true,
+              "angle_offset_deg": 1.4447691743330995,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 7.786944201675007,
+              "distance_pass": true,
+              "angle_offset_deg": 8.582124773128943,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -33.02,
+            "y": 3.52,
+            "z": 0.4,
+            "yaw": -2.62
+          },
+          "responsibility": "forest",
+          "radius_m": 10.370241612957292,
+          "yaw_error_rad": 0.0021782582393408134,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 4.204801082611084
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.3818247318267822
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.196338176727295
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 8.138230765958898,
+              "distance_pass": true,
+              "angle_offset_deg": 12.82433228163717,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 12.486424628371402,
+              "distance_pass": true,
+              "angle_offset_deg": 13.511054477577249,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 11.097333012936033,
+              "distance_pass": true,
+              "angle_offset_deg": 6.096764549362,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 50.19,
+            "y": -5.12,
+            "z": 0.4,
+            "yaw": -1.52
+          },
+          "responsibility": "airport",
+          "radius_m": 9.891491854675467,
+          "yaw_error_rad": 0.002588093363878663,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 3.8203046321868896
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.5292893648147583
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.747364521026611
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 10.119807310418512,
+              "distance_pass": true,
+              "angle_offset_deg": 15.40851771849034,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 12.475996954151599,
+              "distance_pass": true,
+              "angle_offset_deg": 14.870998002129337,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 7.882290276309291,
+              "distance_pass": true,
+              "angle_offset_deg": 4.2916447335542385,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    },
+    {
+      "id": 11,
+      "robots": {
+        "go2_1": {
+          "pass": true,
+          "pose": {
+            "x": -15.76,
+            "y": -7.99,
+            "z": 0.4,
+            "yaw": 1.32
+          },
+          "responsibility": "city",
+          "radius_m": 12.38260114479632,
+          "yaw_error_rad": 0.0016906830895950795,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.09068489074707
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 0.851243793964386
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 7.9199090003967285
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -10.0,
+                0.0
+              ],
+              "distance_m": 9.849756342164003,
+              "distance_pass": true,
+              "angle_offset_deg": 21.418305069440603,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -13.0,
+                4.0
+              ],
+              "distance_m": 12.303564524153153,
+              "distance_pass": true,
+              "angle_offset_deg": 1.4063683211131428,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -15.0,
+                8.0
+              ],
+              "distance_m": 16.008051099368718,
+              "distance_pass": true,
+              "angle_offset_deg": 11.648367383190957,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_2": {
+          "pass": true,
+          "pose": {
+            "x": -33.74,
+            "y": -5.59,
+            "z": 0.4,
+            "yaw": 2.7
+          },
+          "responsibility": "forest",
+          "radius_m": 9.144405089695251,
+          "yaw_error_rad": 0.0018392196211025615,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.1496498584747314
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.775339365005493
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 6.906394958496094
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                -39.0,
+                -2.0
+              ],
+              "distance_m": 6.368335732355823,
+              "distance_pass": true,
+              "angle_offset_deg": 9.012512753060067,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                -45.0,
+                0.0
+              ],
+              "distance_m": 12.571225079521883,
+              "distance_pass": true,
+              "angle_offset_deg": 1.1005946747097566,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                -42.0,
+                -3.0
+              ],
+              "distance_m": 8.656540879589258,
+              "distance_pass": true,
+              "angle_offset_deg": 7.892092567720863,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        },
+        "go2_3": {
+          "pass": true,
+          "pose": {
+            "x": 50.35,
+            "y": -2.22,
+            "z": 0.4,
+            "yaw": -1.55
+          },
+          "responsibility": "airport",
+          "radius_m": 12.783922628746536,
+          "yaw_error_rad": 0.00397690350289559,
+          "map_checks": {
+            "city": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.5515666007995605
+            },
+            "forest": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 2.0101547241210938
+            },
+            "airport": {
+              "pass": true,
+              "reason": null,
+              "clearance_m": 5.229289531707764
+            }
+          },
+          "visibility": [
+            {
+              "route": "straight",
+              "target": [
+                48.0,
+                -15.0
+              ],
+              "distance_m": 12.99426411921814,
+              "distance_pass": true,
+              "angle_offset_deg": 11.610758776832274,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "rectangle",
+              "target": [
+                54.0,
+                -17.0
+              ],
+              "distance_m": 15.224023778226305,
+              "distance_pass": true,
+              "angle_offset_deg": 12.68040010346659,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            },
+            {
+              "route": "v_shape",
+              "target": [
+                50.0,
+                -13.0
+              ],
+              "distance_m": 10.785680321611613,
+              "distance_pass": true,
+              "angle_offset_deg": 3.0511410934679617,
+              "fov_pass": true,
+              "los_pass": true,
+              "pass": true
+            }
+          ],
+          "separation_pass": true
+        }
+      }
+    }
+  ],
+  "notes": [
+    "Forest/go2_2 uses 90 deg HFOV and 0.5 m inter-group separation because the original 60 deg/2.0 m constraints have no solution in the 6-10 m annulus."
+  ]
+}

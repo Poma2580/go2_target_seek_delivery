@@ -1,0 +1,1051 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="airport_search_field">
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 90 0 0 0</pose>
+      <diffuse>0.85 0.85 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.4 0.25 -0.9</direction>
+    </light>
+
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+
+      <update_rate>20.0</update_rate>
+    </plugin>
+
+
+    <!-- Field size is X Y Z. Change X to tune overall length and Y to tune width. -->
+    <model name="airport_flat_field">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <visual name="grass_visual">
+          <!-- Visual layers sit below the common collision surface (z = 0.01). -->
+          <pose>0 0 0.008 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>360 120 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.48 0.24 1</ambient>
+            <diffuse>0.36 0.56 0.28 1</diffuse>
+          </material>
+        </visual>
+        <collision name="flat_ground_collision">
+          <geometry>
+            <box>
+              <size>360 150 0.02</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Two horizontal strips: runway above, taxiway below. -->
+    <model name="runway_04_22">
+      <static>true</static>
+      <pose>0 18 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="runway_visual">
+          <pose>0 0 0.0065 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 14 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>model://asphalt_plane/materials/scripts</uri>
+              <uri>model://asphalt_plane/materials/textures</uri>
+              <name>vrc/asphalt</name>
+            </script>
+          </material>
+        </visual>
+        <collision name="runway_collision">
+          <geometry>
+            <box>
+              <size>300 14 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="runway_centerline">
+      <static>true</static>
+      <pose>0 18 0.0155 0 0 0</pose>
+      <link name="link">
+        <visual name="line">
+          <geometry>
+            <box>
+              <size>260 0.8 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.92 0.92 0.85 1</ambient>
+            <diffuse>0.92 0.92 0.85 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="runway_left_shoulder">
+      <static>true</static>
+      <pose>0 27 0.0115 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>305 2.5 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.65 0.65 0.6 1</ambient>
+            <diffuse>0.65 0.65 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="runway_right_shoulder">
+      <static>true</static>
+      <pose>0 9 0.0115 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>305 2.5 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.65 0.65 0.6 1</ambient>
+            <diffuse>0.65 0.65 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="parallel_taxiway">
+      <static>true</static>
+      <pose>0 -10 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="taxiway_visual">
+          <pose>0 0 0.0065 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 12 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="taxiway_collision">
+          <geometry>
+            <box>
+              <size>300 12 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="taxiway_yellow_line">
+      <static>true</static>
+      <pose>0 -10 0.0155 0 0 0</pose>
+      <link name="link">
+        <visual name="line">
+          <geometry>
+            <box>
+              <size>275 0.6 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.95 0.72 0.02 1</ambient>
+            <diffuse>0.95 0.72 0.02 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="north_runway_exit">
+      <static>true</static>
+      <pose>-95 3.5 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>16 31 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>16 31 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="south_runway_exit">
+      <static>true</static>
+      <pose>65 3.5 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>16 31 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>16 31 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="center_runway_exit">
+      <static>true</static>
+      <pose>0 3.5 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>16 31 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>16 31 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Apron and terminal are concentrated below the taxiway. -->
+    <model name="main_apron">
+      <static>true</static>
+      <pose>15 -37 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>210 22 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.42 0.42 0.39 1</ambient>
+            <diffuse>0.42 0.42 0.39 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>210 22 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="terminal_connector_1">
+      <static>true</static>
+      <pose>-35 -24 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>14 26 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>14 26 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="terminal_connector_2">
+      <static>true</static>
+      <pose>80 -24 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>14 26 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.055 0.055 0.055 1</ambient>
+            <diffuse>0.055 0.055 0.055 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>14 26 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="terminal_building">
+      <static>true</static>
+      <pose>15 -60 5 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>210 14 10</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.72 0.72 0.68 1</ambient>
+            <diffuse>0.72 0.72 0.68 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>210 14 10</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="right_service_road">
+      <static>true</static>
+      <pose>145 -35 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>14 70 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.06 0.06 0.06 1</ambient>
+            <diffuse>0.06 0.06 0.06 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>14 70 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="apron_to_service_road">
+      <static>true</static>
+      <pose>92 -48 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0085 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>90 10 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.06 0.06 0.06 1</ambient>
+            <diffuse>0.06 0.06 0.06 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>90 10 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="fuel_depot_pad">
+      <static>true</static>
+      <pose>0 52 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>70 28 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.31 0.28 1</ambient>
+            <diffuse>0.32 0.31 0.28 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>70 28 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="fire_station_pad">
+      <static>true</static>
+      <pose>125 52 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <pose>0 0 0.0065 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>90 28 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.32 0.31 0.28 1</ambient>
+            <diffuse>0.32 0.31 0.28 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>90 28 0.01</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="robot_start_zone">
+      <static>true</static>
+      <pose>155 -55 0.0155 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>16 16 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.03 0.2 0.06 1</ambient>
+            <diffuse>0.04 0.45 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Official Gazebo models used as perception and collision targets. -->
+    <include>
+      <uri>model://cessna</uri>
+      <name>parked_cessna_1</name>
+      <pose>-140 40 0.55 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>parked_cessna_2</name>
+      <pose>-115 40 0.55 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>parked_cessna_3</name>
+      <pose>-90 40 0.55 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://radio_tower</uri>
+      <name>control_radio_tower</name>
+      <pose>-57 45 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://fire_station</uri>
+      <name>airport_fire_station</name>
+      <pose>112 45 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://fire_truck</uri>
+      <name>fire_truck_1</name>
+      <pose>92 45 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://fire_truck</uri>
+      <name>fire_truck_2</name>
+      <pose>82 45 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://gas_station</uri>
+      <name>airport_fuel_station</name>
+      <pose>4.8 40 0 0 0 -1.57</pose>
+    </include>
+
+    <include>
+      <uri>model://water_tower</uri>
+      <name>fuel_depot_tank_1</name>
+      <pose>132 50 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://water_tower</uri>
+      <name>fuel_depot_tank_2</name>
+      <pose>147 38 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://water_tower</uri>
+      <name>fuel_depot_tank_3</name>
+      <pose>132 38 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://water_tower</uri>
+      <name>fuel_depot_tank_4</name>
+      <pose>147 50 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://truss_bridge</uri>
+      <name>jet_bridge_1</name>
+      <pose>-35 -38 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <uri>model://truss_bridge</uri>
+      <name>jet_bridge_2</name>
+      <pose>80 -38 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <uri>model://stop_sign</uri>
+      <name>stop_sign_main_gate</name>
+      <pose>158 -42 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://stop_sign</uri>
+      <name>stop_sign_taxiway_crossing</name>
+      <pose>-95 -9 0 0 0 1.5708</pose>
+    </include>
+
+    <include>
+      <uri>model://construction_cone</uri>
+      <name>cone_apron_1</name>
+      <pose>-45 -24 0 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://construction_cone</uri>
+      <name>cone_apron_2</name>
+      <pose>90 -24 0 0 0 0</pose>
+    </include>
+
+    <!-- BEGIN airport landmarks from Plan/8.txt -->
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_01</name>
+      <pose>-4 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_02</name>
+      <pose>20 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://cessna</uri>
+      <name>apron_cessna_03</name>
+      <pose>44 -30 0.5 0 0 1.57</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://grocery_store</uri>
+      <name>west_grocery_store</name>
+      <pose>-133 -36 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://radio_tower</uri>
+      <name>west_radio_tower</name>
+      <pose>-160 0.3 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_01</name>
+      <pose>-144 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_02</name>
+      <pose>-127 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_03</name>
+      <pose>-110 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_04</name>
+      <pose>-93 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_05</name>
+      <pose>-76 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_06</name>
+      <pose>-59 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_07</name>
+      <pose>-42 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_08</name>
+      <pose>-25 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_09</name>
+      <pose>-8 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_10</name>
+      <pose>9 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_11</name>
+      <pose>26 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_12</name>
+      <pose>43 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_13</name>
+      <pose>60 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_14</name>
+      <pose>77 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_15</name>
+      <pose>94 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_16</name>
+      <pose>111 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_17</name>
+      <pose>128 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>runway_south_barrier_18</name>
+      <pose>145 8 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_01</name>
+      <pose>-144 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_02</name>
+      <pose>-127 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_03</name>
+      <pose>-110 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_04</name>
+      <pose>-93 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_05</name>
+      <pose>-76 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_06</name>
+      <pose>-59 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_07</name>
+      <pose>-42 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_08</name>
+      <pose>-25 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_09</name>
+      <pose>-8 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_10</name>
+      <pose>9 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_11</name>
+      <pose>26 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_12</name>
+      <pose>43 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_13</name>
+      <pose>60 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_14</name>
+      <pose>77 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_15</name>
+      <pose>94 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_16</name>
+      <pose>111 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_17</name>
+      <pose>128 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://jersey_barrier</uri>
+      <name>taxiway_north_barrier_18</name>
+      <pose>145 -2 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://ambulance</uri>
+      <name>airport_ambulance_01</name>
+      <pose>106 -30 0 0 0 3.14</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://ambulance</uri>
+      <name>airport_ambulance_02</name>
+      <pose>128 -30 0 0 0 3.14</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://bus</uri>
+      <name>airport_bus_01</name>
+      <pose>-70 -33 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://bus</uri>
+      <name>airport_bus_02</name>
+      <pose>-95 -34 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://suv</uri>
+      <name>airport_suv_01</name>
+      <pose>26 46 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://suv</uri>
+      <name>airport_suv_02</name>
+      <pose>26 34 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://pier</uri>
+      <name>airport_pier_01</name>
+      <pose>56 30 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_01</name>
+      <pose>167 -40 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_02</name>
+      <pose>167 -20 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_03</name>
+      <pose>167 0 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://polaris_ranger_ev</uri>
+      <name>service_ev_04</name>
+      <pose>167 20 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_01</name>
+      <pose>154 -54 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_02</name>
+      <pose>154 -36 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_03</name>
+      <pose>154 -18 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_04</name>
+      <pose>154 0 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <include>
+      <uri>model://construction_barrel</uri>
+      <name>service_barrel_05</name>
+      <pose>154 18 0 0 0 0</pose>
+      <static>true</static>
+    </include>
+
+    <!-- END airport landmarks from Plan/8.txt -->
+
+
+    <include>
+      <uri>model://uav1_iris_depth_camera</uri>
+      <pose>-15 -2 50 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://pickup</uri>
+      <name>airpor_cart_target</name>
+      <pose>80 -25 0 0 0 1.5</pose>
+      <static>true</static>
+    </include>
+
+    <actor name="walking_target">
+      <pose>0 0 0 0 0 0</pose>
+      <skin>
+        <filename>model://actor/meshes/SKIN_man_blue_shirt.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walking">
+        <filename>model://actor/meshes/ANIMATION_walking.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0</delay_start>
+        <auto_start>false</auto_start>
+        <trajectory id="0" type="walking">
+          <!-- Generated by go2_test_framework; scene=airport route=v_shape status=resolved. -->
+          <waypoint><time>0.000</time><pose>50.000000 -13.000000 0 0 0 1.635223</pose></waypoint>
+          <waypoint><time>207.096</time><pose>48.000000 18.000000 0 0 0 1.635223</pose></waypoint>
+          <waypoint><time>209.096</time><pose>48.000000 18.000000 0 0 0 0.390607</pose></waypoint>
+          <waypoint><time>331.662</time><pose>65.000000 25.000000 0 0 0 0.390607</pose></waypoint>
+          <waypoint><time>333.662</time><pose>65.000000 25.000000 0 0 0 3.532200</pose></waypoint>
+          <waypoint><time>456.227</time><pose>48.000000 18.000000 0 0 0 3.532200</pose></waypoint>
+          <waypoint><time>458.227</time><pose>48.000000 18.000000 0 0 0 4.776816</pose></waypoint>
+          <waypoint><time>665.323</time><pose>50.000000 -13.000000 0 0 0 4.776816</pose></waypoint>
+          <waypoint><time>667.323</time><pose>50.000000 -13.000000 0 0 0 1.635223</pose></waypoint>
+        </trajectory>
+      </script>
+      <plugin name="walking_target_controller"
+              filename="libwalking_target_controller.so">
+        <service_prefix>/walking_target</service_prefix>
+        <animation_factor>4.5</animation_factor>
+        <actor_pose_offset>0 0 0.98 1.5707 0 1.5707</actor_pose_offset>
+      </plugin>
+    </actor>
+  </world>
+</sdf>

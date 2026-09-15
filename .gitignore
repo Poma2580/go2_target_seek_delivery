@@ -9,21 +9,32 @@ __pycache__/
 *.pyc
 .pytest_cache/
 /Docs/本地启动.txt
-/Docs/Git开发手册.txt
+# 旧联调与情况说明文档（仅保留在本地）
+/Docs/情况说明0611.txt
+/Docs/情况说明0612.txt
+/Docs/情况说明0615.txt
+/Docs/情况说明0616.txt
+/Docs/情况说明0617.txt
+/Docs/情况说明0623.txt
+/Docs/情况说明0629txt
+/Docs/情况说明0630.txt
+/Docs/情况说明0701.txt
+/Docs/情况说明0707.txt
+/Docs/情况说明0708.txt
+/Docs/情况说明0714.txt
+/Docs/情况说明0715.txt
+/Docs/情况说明_0610.txt
+/Docs/情况说明_0610.2.txt
+/Docs/情况说明_0819.txt
+/Docs/更正说明0609.txt
 /Plan
+/Middle_Report
 # YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
 *.pt
 # 暂时停止跟踪 Nav2 多 Go2 包
 /go2_ws_v2/src/multi_go2_nav2/
-/go2_ws_v2/src/go2_mapping_nav/runtime/maps/*
-!/go2_ws_v2/src/go2_mapping_nav/runtime/maps/.gitkeep
-/go2_ws_v2/src/go2_mapping_nav/runtime/logs/*
-!/go2_ws_v2/src/go2_mapping_nav/runtime/logs/.gitkeep
-
-# 暂停跟踪建图转换包与 go2_mapping_nav 测试目录
-/go2_ws_v2/src/world_to_grid/
-/go2_ws_v2/src/go2_mapping_nav/test/
-/go2_ws_v2/src/go2_mapping_nav/tests/
+/go2_ws_v2/runtime/
+/go2_ws_v2/src/go2_mapping_nav/runtime/
 
 # 复制来的小朱老师建图包
 /update_package
@@ -33,7 +44,7 @@ __pycache__/
 /Figure/A_star_Nav.png
 /Figure/BEV_airport.png
 /Figure/Nav2_single_go2_city.png
-
+/Figure/multi_go2_dynam_track_urban.png
 # ROS2 build artifacts
 build/
 install/
@@ -52,3 +63,6 @@ __pycache__/
 
 # Backup archive
 go2_ws_v2.zip
+
+# 测试产物
+/TestResults

@@ -1,0 +1,3 @@
+schema_version: 1
+metric: mean_relative_localization_error
+pass_threshold_percent: 15.0

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DELIVERY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE="${DELIVERY_ROOT}/go2_ws_v2"
-RUNTIME_DIR="${WORKSPACE}/src/go2_mapping_nav/runtime"
+RUNTIME_DIR="${WORKSPACE}/runtime"
 LOG_DIR="${RUNTIME_DIR}/logs"
 USE_RVIZ="${USE_RVIZ:-true}"
 
