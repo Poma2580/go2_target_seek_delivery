@@ -378,8 +378,10 @@ def run_attempt(
                 ("go2_1", "go2_2", "go2_3"), start=1
             ):
                 processes.start(f"mapping_nav_{robot}", [
-                    "ros2", "launch", "go2_mapping_nav",
-                    f"{robot}_mapping_nav.launch.py",
+                    "ros2", "launch", "go2_test_framework",
+                    "t3_mapping_nav.launch.py",
+                    f"robot_name:={robot}",
+                    f"scene:={case.scene}",
                     "use_sim_time:=true", "use_merged_map:=true",
                     "use_rviz:=false", "delete_db_on_start:=true",
                     f"cmd_vel_topic:=/{robot}/nav_cmd_vel",

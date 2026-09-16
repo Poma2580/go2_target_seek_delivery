@@ -18,7 +18,7 @@ execution:
     restart_delay_sec: 1.0
 suite_id: T3
 formal: true
-scenes: [forest]
+scenes: [city, forest, airport]
 routes: [straight, rectangle, v_shape]
 pose_groups: [group_01, group_02, group_03, group_04, group_05, group_06, group_07, group_08, group_09, group_10, group_11]
 evaluation_rate_hz: 2.0

@@ -11859,7 +11859,7 @@
 
     <include>
       <uri>model://uav1_iris_depth_camera</uri>
-      <pose>-15 -2 0 0 0 0</pose>
+      <pose>-15 -2 5 0 0 0</pose>
     </include>
 
     <include>
