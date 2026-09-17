@@ -31,6 +31,8 @@ def evaluation_score(metrics):
         + 0.75 * metrics["clear_default_action_rate"]
         - 0.50 * metrics["action_switch_rate"]
         - 0.75 * metrics["action_oscillation_rate"]
+        - 0.50 * metrics["over_avoidance_rate"]
+        - 1.00 * metrics["extreme_avoidance_rate"]
         + 0.25 * metrics["empty_success_rate"]
         + 0.25 * metrics["obstacle_success_rate"]
         + 0.001 * metrics["reward"]
@@ -50,6 +52,8 @@ def evaluate(policy, env_config, episodes, seed):
     clear_default_actions = 0
     clear_default_opportunities = 0
     empty_successes, obstacle_successes = [], []
+    over_avoidance_events = 0
+    extreme_avoidance_events = 0
     for episode in range(episodes):
         env = WaypointSelectionEnv(env_config, seed=seed + episode, lidar_noise=True)
         observations, _ = env.reset(seed=seed + episode)
@@ -80,6 +84,12 @@ def evaluate(policy, env_config, episodes, seed):
                     clear_default_opportunities += 1
                     clear_default_actions += int(actions[index] == 2)
             observations, reward, terminated, truncated, final_info = env.step(actions)
+            over_avoidance_events += int(
+                np.count_nonzero(final_info["over_avoidance_agents"])
+            )
+            extreme_avoidance_events += int(
+                np.count_nonzero(final_info["extreme_avoidance_agents"])
+            )
             episode_reward += float(reward[0])
             episode_min_clearance = min(
                 episode_min_clearance, final_info["min_obstacle_clearance"]
@@ -121,6 +131,12 @@ def evaluate(policy, env_config, episodes, seed):
         "action_switch_rate": float(action_switches / max(agent_decisions, 1)),
         "action_oscillation_rate": float(
             action_oscillations / max(agent_decisions, 1)
+        ),
+        "over_avoidance_rate": float(
+            over_avoidance_events / max(agent_decisions, 1)
+        ),
+        "extreme_avoidance_rate": float(
+            extreme_avoidance_events / max(agent_decisions, 1)
         ),
         "clear_default_action_rate": float(
             clear_default_actions / max(clear_default_opportunities, 1)
@@ -188,6 +204,20 @@ def parse_args():
         default=EnvConfig().obstacle_abs_y_range[1],
     )
     parser.add_argument(
+        "--obstacle-y-min",
+        type=float,
+        default=None,
+        help="Direct signed obstacle-centre y minimum; requires --obstacle-y-max.",
+    )
+    parser.add_argument(
+        "--obstacle-y-max",
+        type=float,
+        default=None,
+        help="Direct signed obstacle-centre y maximum; requires --obstacle-y-min.",
+    )
+    parser.add_argument("--over-avoidance-weight", type=float, default=0.0)
+    parser.add_argument("--extreme-avoidance-weight", type=float, default=0.0)
+    parser.add_argument(
         "--curriculum-steps",
         type=int,
         default=0,
@@ -250,6 +280,8 @@ def main():
         "blocked_default_offset_weight",
         "switch_weight",
         "oscillation_weight",
+        "over_avoidance_weight",
+        "extreme_avoidance_weight",
     ):
         if getattr(args, name) < 0.0:
             raise ValueError(f"--{name.replace('_', '-')} must be nonnegative")
@@ -285,6 +317,18 @@ def main():
             eval_episodes=2,
             log_interval_episodes=2,
         )
+    signed_y_requested = (
+        args.obstacle_y_min is not None or args.obstacle_y_max is not None
+    )
+    if signed_y_requested and (
+        args.obstacle_y_min is None or args.obstacle_y_max is None
+    ):
+        raise ValueError("--obstacle-y-min and --obstacle-y-max must be provided together")
+    if signed_y_requested and args.obstacle_y_max <= args.obstacle_y_min:
+        raise ValueError("--obstacle-y-max must be greater than --obstacle-y-min")
+    if signed_y_requested and args.curriculum_steps > 0:
+        raise ValueError("signed obstacle-y sampling does not use --curriculum-steps")
+
     env_cfg = replace(
         EnvConfig(),
         leader_speed=args.leader_speed,
@@ -295,11 +339,18 @@ def main():
         blocked_default_offset_weight=args.blocked_default_offset_weight,
         formation_switch_weight=args.switch_weight,
         formation_oscillation_weight=args.oscillation_weight,
+        over_avoidance_weight=args.over_avoidance_weight,
+        extreme_avoidance_weight=args.extreme_avoidance_weight,
         heuristic_action_mask=not args.adjacent_only_mask,
         nearest_safe_offset_reward=not args.direct_offset_formation_reward,
         obstacle_abs_y_range=(
             EnvConfig().obstacle_abs_y_range[0],
             args.max_obstacle_abs_y,
+        ),
+        obstacle_y_range=(
+            (args.obstacle_y_min, args.obstacle_y_max)
+            if signed_y_requested
+            else None
         ),
     )
     if args.max_obstacle_abs_y < EnvConfig().obstacle_abs_y_range[1]:
@@ -339,6 +390,11 @@ def main():
                 "curriculum": {
                     "initial_obstacle_abs_y": list(EnvConfig().obstacle_abs_y_range),
                     "final_obstacle_abs_y": list(env_cfg.obstacle_abs_y_range),
+                    "obstacle_y_range": (
+                        list(env_cfg.obstacle_y_range)
+                        if env_cfg.obstacle_y_range is not None
+                        else None
+                    ),
                     "steps": args.curriculum_steps,
                 },
                 "shared_actor": args.shared_actor,
@@ -419,6 +475,8 @@ def main():
             "clear_default_action_rate",
             "action_switch_rate",
             "action_oscillation_rate",
+            "over_avoidance_rate",
+            "extreme_avoidance_rate",
             "empty_success_rate",
             "obstacle_success_rate",
         ),
@@ -431,6 +489,7 @@ def main():
         else env_cfg.obstacle_abs_y_range
     )
     env.set_obstacle_abs_y_range(initial_y_range)
+    env.set_obstacle_y_range(env_cfg.obstacle_y_range)
     observations, _ = env.reset(seed=train_cfg.seed)
     episode_reward, episode_length, episode_index = 0.0, 0, 0
     reward_component_keys = (
@@ -438,6 +497,8 @@ def main():
         "reward_obstacle",
         "reward_pair",
         "reward_formation",
+        "reward_over_avoidance",
+        "reward_extreme_avoidance",
         "reward_progress",
     )
     episode_components = {key: 0.0 for key in reward_component_keys}
@@ -451,13 +512,18 @@ def main():
     completed_step = 0
     final_eval_metrics = None
     last_losses = {"actor_loss": float("nan"), "critic_loss": float("nan")}
+    obstacle_y_description = (
+        f"signed_uniform{env_cfg.obstacle_y_range}"
+        if env_cfg.obstacle_y_range is not None
+        else f"legacy_abs{initial_y_range}->{env_cfg.obstacle_abs_y_range}"
+    )
     print(
         f"run={run_dir}\ndevice={device} obs={env.obs_dim} actions={env.num_actions} "
         f"lidar={env_cfg.lidar_sim_rays}->{env_cfg.lidar_observation_size}\n"
         f"initialized_from={args.init_checkpoint}\n"
         f"shared_actor={args.shared_actor}\n"
         f"obstacles={env_cfg.obstacle_count} eval_seed={args.eval_seed}\n"
-        f"obstacle_abs_y={initial_y_range}->{env_cfg.obstacle_abs_y_range} "
+        f"active_obstacle_y_sampler={obstacle_y_description} "
         f"curriculum_steps={args.curriculum_steps}"
     )
 
@@ -494,6 +560,8 @@ def main():
                 "clear_default_action_rate",
                 "action_switch_rate",
                 "action_oscillation_rate",
+                "over_avoidance_rate",
+                "extreme_avoidance_rate",
                 "empty_success_rate",
                 "obstacle_success_rate",
             ):
@@ -514,6 +582,11 @@ def main():
             "curriculum": {
                 "initial_obstacle_abs_y": list(initial_y_range),
                 "final_obstacle_abs_y": list(env_cfg.obstacle_abs_y_range),
+                "obstacle_y_range": (
+                    list(env_cfg.obstacle_y_range)
+                    if env_cfg.obstacle_y_range is not None
+                    else None
+                ),
                 "steps": args.curriculum_steps,
             },
             "shared_actor": args.shared_actor,
@@ -702,6 +775,8 @@ def main():
                         "clear_default_action_rate",
                         "action_switch_rate",
                         "action_oscillation_rate",
+                        "over_avoidance_rate",
+                        "extreme_avoidance_rate",
                         "empty_success_rate",
                         "obstacle_success_rate",
                     ):
@@ -724,6 +799,11 @@ def main():
                     "curriculum": {
                         "initial_obstacle_abs_y": list(initial_y_range),
                         "final_obstacle_abs_y": list(env_cfg.obstacle_abs_y_range),
+                        "obstacle_y_range": (
+                            list(env_cfg.obstacle_y_range)
+                            if env_cfg.obstacle_y_range is not None
+                            else None
+                        ),
                         "steps": args.curriculum_steps,
                     },
                     "shared_actor": args.shared_actor,

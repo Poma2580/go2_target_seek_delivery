@@ -7,7 +7,7 @@ point-cloud mapping filter so that nearby geometry is not compressed by the
 """
 
 from dataclasses import asdict, dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,10 @@ class EnvConfig:
     # one box appears on either side.  Training may expand the upper bound as a
     # curriculum while retaining the original default-lane cases.
     obstacle_abs_y_range: Tuple[float, float] = (1.7, 2.3)
+    # New unbiased runs sample obstacle centres directly across the complete
+    # lateral corridor, including go1's y=0 lane.  ``None`` preserves the
+    # legacy signed-lane sampler required by existing checkpoints.
+    obstacle_y_range: Optional[Tuple[float, float]] = None
     obstacle_lane_jitter: float = 0.30
     # New RL-first experiments mix in completely clear episodes.  Keeping the
     # default at zero preserves old checkpoint evaluation unless explicitly
@@ -71,8 +75,8 @@ class EnvConfig:
     pair_path_safe_distance: float = 1.50
     pair_collision_distance: float = 0.70
 
-    # Five-term reward constants: task, obstacle safety, pair safety,
-    # formation preservation, and forward progress.  Success must outweigh the
+    # Reward constants: task, obstacle safety, pair safety, formation,
+    # avoidance efficiency, and forward progress. Success must outweigh the
     # return available by delaying termination near the end of an episode.
     time_penalty: float = 0.02
     success_bonus: float = 50.0
@@ -88,6 +92,11 @@ class EnvConfig:
     clear_default_offset_weight: float = 0.60
     blocked_default_offset_weight: float = 0.60
     formation_route_reversal_weight: float = 0.50
+    # RL-only route-efficiency objectives.  If a nearer safe candidate exists,
+    # a farther candidate on the same side is over-avoidance; choosing the
+    # farther candidate on the opposite side is extreme/wrong-side avoidance.
+    over_avoidance_weight: float = 0.0
+    extreme_avoidance_weight: float = 0.0
     progress_weight: float = 0.50
 
     # A one-second decision may hold its current candidate or move by one

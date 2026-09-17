@@ -1,4 +1,4 @@
-"""Run the reproducible three-seed one-to-two-obstacle curriculum."""
+"""Run one reproducible seed through the one-to-two-obstacle curriculum."""
 
 import argparse
 import subprocess
@@ -7,14 +7,15 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_SEEDS = (7, 17, 27)
+DEFAULT_SEED = 27
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seeds", nargs="+", type=int, default=DEFAULT_SEEDS)
-    parser.add_argument("--stage1-steps", type=int, default=150_000)
-    parser.add_argument("--stage2-steps", type=int, default=200_000)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--stage1-min-steps", type=int, default=200_000)
+    parser.add_argument("--stage1-steps", type=int, default=250_000)
+    parser.add_argument("--stage2-steps", type=int, default=400_000)
     parser.add_argument("--eval-interval", type=int, default=10_000)
     parser.add_argument("--eval-episodes", type=int, default=100)
     parser.add_argument("--eval-seed", type=int, default=10_000)
@@ -51,20 +52,21 @@ def run_stage(common, run_dir, extra, smoke):
 
 def main():
     args = parse_args()
-    if len(args.seeds) != 3:
-        raise ValueError("this convergence experiment requires exactly three seeds")
-    if len(set(args.seeds)) != len(args.seeds):
-        raise ValueError("training seeds must be distinct")
-
+    if args.stage1_min_steps < 0:
+        raise ValueError("--stage1-min-steps must be nonnegative")
+    if args.stage1_steps < args.stage1_min_steps:
+        raise ValueError("--stage1-steps must be at least --stage1-min-steps")
+    if args.stage2_steps <= 0:
+        raise ValueError("--stage2-steps must be positive")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_root = args.output_root or (
         Path(__file__).resolve().parent
         / "runs"
-        / f"three_seed_obstacle_curriculum_{timestamp}"
+        / f"single_seed_obstacle_curriculum_{timestamp}"
     )
     output_root.mkdir(parents=True, exist_ok=False)
 
-    for seed in args.seeds:
+    for seed in (args.seed,):
         seed_root = output_root / f"seed_{seed}"
         seed_root.mkdir()
         stage1_dir = seed_root / "stage1_one_obstacle"
@@ -80,7 +82,9 @@ def main():
             str(args.eval_episodes),
             "--sim-rays",
             "108",
-            "--max-obstacle-abs-y",
+            "--obstacle-y-min",
+            "-3.5",
+            "--obstacle-y-max",
             "3.5",
             "--shared-actor",
             "--adjacent-only-mask",
@@ -95,6 +99,10 @@ def main():
             "1.00",
             "--oscillation-weight",
             "1.50",
+            "--over-avoidance-weight",
+            "1.00",
+            "--extreme-avoidance-weight",
+            "3.00",
             "--device",
             args.device,
         ]
@@ -124,7 +132,7 @@ def main():
                 "--epsilon-decay-steps",
                 "150000",
                 "--min-steps-before-stop",
-                "100" if args.smoke else "1",
+                "100" if args.smoke else str(args.stage1_min_steps),
                 "--early-stop-success-rate",
                 "0.0" if args.smoke else "0.95",
                 "--early-stop-max-collision-rate",

@@ -30,10 +30,9 @@ def main():
     }
     if "candidate_offsets" in environment_values:
         environment_values["candidate_offsets"] = tuple(environment_values["candidate_offsets"])
-    if "obstacle_abs_y_range" in environment_values:
-        environment_values["obstacle_abs_y_range"] = tuple(
-            environment_values["obstacle_abs_y_range"]
-        )
+    for name in ("obstacle_abs_y_range", "obstacle_y_range"):
+        if name in environment_values and environment_values[name] is not None:
+            environment_values[name] = tuple(environment_values[name])
     env_cfg = EnvConfig(**environment_values)
     if args.sim_rays is not None:
         env_cfg = replace(env_cfg, lidar_sim_rays=args.sim_rays)

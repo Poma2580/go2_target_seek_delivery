@@ -31,8 +31,11 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 import tf2_geometry_msgs  # noqa: F401
 
-from .dynamic_encircle.geometry import quaternion_to_yaw, yaw_to_quaternion_components
-from .dynamic_encircle.nav_goal_manager import NavGoalManager
+from go2_dynamic_encircle.geometry import (
+    quaternion_to_yaw,
+    yaw_to_quaternion_components,
+)
+from go2_dynamic_encircle.nav_goal_manager import NavGoalManager
 
 
 DEFAULT_ACTION = 2
@@ -91,8 +94,13 @@ def environment_from_checkpoint(payload):
     values = payload.get("metadata", {}).get("environment", {})
     valid = {field.name for field in fields(EnvConfig)}
     values = {key: value for key, value in values.items() if key in valid}
-    for name in ("candidate_offsets", "obstacle_spawn_x", "obstacle_abs_y_range"):
-        if name in values:
+    for name in (
+        "candidate_offsets",
+        "obstacle_spawn_x",
+        "obstacle_abs_y_range",
+        "obstacle_y_range",
+    ):
+        if name in values and values[name] is not None:
             values[name] = tuple(values[name])
     return EnvConfig(**values)
 

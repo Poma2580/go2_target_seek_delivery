@@ -13,10 +13,7 @@ install(
 
 install(
   PROGRAMS
-    scripts/check_three_go2_attitude.py
-    scripts/dynamic_encircle.py
     scripts/diagnose_lidar_ground.py
-    scripts/follower_cmd_vel_mux.py
     scripts/gazebo_maddpg_finetuner.py
     scripts/known_pose_map_merger.py
     scripts/leader_pedestrian_tracker.py
@@ -37,11 +34,6 @@ if(BUILD_TESTING)
     test_gazebo_maddpg_finetuner
     test/test_gazebo_maddpg_finetuner.py
     ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1;DELIVERY_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/../../.."
-  )
-  ament_add_pytest_test(
-    test_check_three_go2_attitude
-    test/test_check_three_go2_attitude.py
-    ENV "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
   )
   ament_add_pytest_test(
     test_known_pose_map_merger

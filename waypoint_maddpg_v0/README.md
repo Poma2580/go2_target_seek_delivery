@@ -20,7 +20,9 @@ existing continuous-action MADDPG environments or Gazebo controllers.
 - Episode layout: 10% completely obstacle-free episodes; otherwise a clear
   approach, obstacle avoidance, then recovery in the default formation.
 - Curriculum obstacles: stage 1 has one random axis-aligned 1.5 x 1.5 m box;
-  stage 2 adds a random radius-1 m circle in the opposite follower lane.
+  stage 2 adds a random radius-1 m circle. New unbiased runs sample each
+  obstacle centre independently across `y=[-3.5,+3.5]`, including go1's lane;
+  legacy checkpoints retain their opposite-lane sampler through metadata.
 - An episode allows 130 decisions and succeeds only after both followers have
   passed the obstacle by 2 m and held the recovered default formation.
 
@@ -45,7 +47,7 @@ and a 3 m forward corridor from that waypoint. This is necessary because a
 formation-relative goal advances only about 0.1 m per one-second decision when
 go1 travels at the configured pretraining speed.
 
-The team reward has five semantic terms:
+The team reward has seven semantic terms:
 
 1. Task completion: `+50` on success and `-0.02` per decision.
 2. Obstacle avoidance: continuous executed/path clearance costs, `-5` for a
@@ -56,7 +58,11 @@ The team reward has five semantic terms:
    lateral offset while the default corridor is clear and `-0.15` while it is
    blocked, `-1.00` per action change, `-1.50` for a two-step oscillation such
    as `2->3->2`, and `-0.50` for reversing the detour side while blocked.
-5. Forward progress: up to `+0.50` per decision to prevent standing still.
+5. Learned over-avoidance cost: when a nearer safe candidate exists on the
+   same detour side, each unnecessary candidate level costs `-1.00`.
+6. Learned extreme-avoidance cost: selecting a farther safe candidate on the
+   side opposite the nearest safe route costs `-3.00` per excess level.
+7. Forward progress: up to `+0.50` per decision to prevent standing still.
 
 Continuous proximity penalties are clipped before squaring. Success requires
 both followers to learn to return to their default slots; there is no forced
@@ -86,7 +92,9 @@ Start the default experiment:
 
 ```bash
 python -m waypoint_maddpg_v0.train --total-steps 200000 \
-  --adjacent-only-mask --direct-offset-formation-reward
+  --adjacent-only-mask --direct-offset-formation-reward \
+  --obstacle-y-min -3.5 --obstacle-y-max 3.5 \
+  --over-avoidance-weight 1.0 --extreme-avoidance-weight 3.0
 ```
 
 Warm-start a curriculum fine-tune while expanding one random obstacle from the
@@ -135,11 +143,14 @@ Training outputs are written only below `waypoint_maddpg_v0/runs/`.
 
 ## Reproducible convergence experiment
 
-The convergence experiment uses three independent training seeds (`7`, `17`,
-`27`). Each seed trains from scratch with one random square obstacle and then
-fine-tunes its own best checkpoint with the random square plus random circle.
-Both stages mix in 10% fully clear episodes so that returning to and holding
-action 2 is learned explicitly instead of being imposed by a rule.
+The convergence experiment uses one configurable training seed (`27` by
+default). It trains from scratch with one random square obstacle and then
+fine-tunes its best checkpoint with the random square plus random circle.
+Both stages independently sample obstacle centres over the complete signed
+`[-3.5,+3.5]` lateral range and mix in 10% fully clear episodes, so that
+returning to and holding action 2 is learned explicitly instead of being
+imposed by a rule. Go1 remains a straight moving reference and is not stopped
+by obstacle collision, but it remains visible to follower lidar.
 The 83-D observation, five actions, safety reward weights, 108-to-36-ray
 preprocessing, and shared-actor settings are retained.
 
@@ -152,26 +163,28 @@ offset rather than distance beyond an oracle "nearest safe" action. Legacy
 checkpoints retain their original heuristic-mask behavior through metadata
 defaults. Every stage evaluates at step 0 before learning for a visible baseline.
 
-Stage 1 trains for at most 150000 steps. It moves to stage 2 early only after
-three consecutive fixed-set evaluations each reach at least 95% success, at
-most 2% collisions, and at least 98% action-2 choices whenever the default
-corridor is clear. A qualifying checkpoint is saved as `converged_model.pt`.
-If the criterion is still unmet at 150000 steps, the seed moves to stage 2
-anyway and initializes it from the best stage-1 checkpoint. Stage 2 always
-trains for 200000 steps; its convergence status is evaluated at the final step.
+Stage 1 trains for at least 200000 and at most 250000 steps. After the minimum,
+it moves to stage 2 only after three consecutive fixed-set evaluations each
+reach at least 95% success, at most 2% collisions, and at least 98% action-2
+choices whenever the default corridor is clear. A qualifying checkpoint is
+saved as `converged_model.pt`. If the criterion is still unmet at 250000 steps,
+the seed moves to stage 2 anyway and initializes it from the best stage-1
+checkpoint. Stage 2 always trains for 400000 steps; its convergence status is
+evaluated at the final step.
 
-Install TensorBoard once, then launch all six sequential training stages:
+Install TensorBoard once, then launch both sequential training stages:
 
 ```bash
 python3 -m pip install tensorboard
-python3 -m waypoint_maddpg_v0.train_curriculum --device cuda
+python3 -m waypoint_maddpg_v0.train_curriculum --seed 27 --device cuda
 ```
 
 For every stage, TensorBoard records episode return, 50-episode moving reward,
-success/collision rates, all five reward components, actor/critic losses,
+success/collision rates, all seven reward components, actor/critic losses,
 exploration schedules, deterministic evaluation return and success rate,
 clear-lane action-2 rate, switch/oscillation rates, clear/obstacle subset
-success, clearances, action fractions, and evaluation episode length. Evaluation always
+success, clearances, over/extreme-avoidance rates, action fractions, and
+evaluation episode length. Evaluation always
 uses the same 100 seeds starting at seed 10000. An event directory, CSV files,
 and a checkpoint are saved every 10000 steps.
 

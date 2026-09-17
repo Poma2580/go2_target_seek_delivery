@@ -18,7 +18,6 @@ def generate_launch_description():
     use_sim_time_param = ParameterValue(use_sim_time, value_type=bool)
     model_path = LaunchConfiguration("model_path")
     forced_robot = LaunchConfiguration("forced_robot")
-    package_share = get_package_share_directory("multi_go2_waypoint")
     package_share = get_package_share_directory("go2_target_perception")
     perception_config = os.path.join(
         package_share, "config", "target_perception.yaml"

@@ -36,6 +36,11 @@ class WaypointSelectionEnv:
         self.lidar_noise = bool(lidar_noise)
         self.lidar = PlanarLidar(self.cfg, self.rng)
         self.obstacle_abs_y_range = tuple(self.cfg.obstacle_abs_y_range)
+        self.obstacle_y_range = (
+            tuple(self.cfg.obstacle_y_range)
+            if self.cfg.obstacle_y_range is not None
+            else None
+        )
         self.obs_dim = 83
         self.num_agents = self.cfg.num_agents
         self.num_actions = self.cfg.num_actions
@@ -67,6 +72,11 @@ class WaypointSelectionEnv:
             raise ValueError("obstacle_count must be 1 or 2")
         if not 0.0 <= self.cfg.empty_episode_probability <= 1.0:
             raise ValueError("empty_episode_probability must be in [0,1]")
+        if self.obstacle_y_range is not None and (
+            len(self.obstacle_y_range) != 2
+            or self.obstacle_y_range[1] <= self.obstacle_y_range[0]
+        ):
+            raise ValueError("obstacle_y_range must be an increasing (min,max) pair")
         episode_obstacle_count = (
             0
             if self.rng.random() < self.cfg.empty_episode_probability
@@ -78,7 +88,12 @@ class WaypointSelectionEnv:
                 np.asarray(
                     [
                         self.rng.uniform(*self.cfg.obstacle_spawn_x),
-                        lane_signs[index] * self.rng.uniform(*self.obstacle_abs_y_range),
+                        (
+                            self.rng.uniform(*self.obstacle_y_range)
+                            if self.obstacle_y_range is not None
+                            else lane_signs[index]
+                            * self.rng.uniform(*self.obstacle_abs_y_range)
+                        ),
                     ],
                     dtype=np.float32,
                 )
@@ -119,6 +134,16 @@ class WaypointSelectionEnv:
         if len(value) != 2 or value[0] < 0.0 or value[1] < value[0]:
             raise ValueError("obstacle_abs_y_range must be nonnegative (min,max)")
         self.obstacle_abs_y_range = value
+
+    def set_obstacle_y_range(self, value):
+        """Select direct signed-y sampling, or ``None`` for legacy lanes."""
+        if value is None:
+            self.obstacle_y_range = None
+            return
+        value = tuple(float(item) for item in value)
+        if len(value) != 2 or value[1] <= value[0]:
+            raise ValueError("obstacle_y_range must be an increasing (min,max) pair")
+        self.obstacle_y_range = value
 
     def _candidate_points(self):
         forward = np.array([math.cos(self.leader_yaw), math.sin(self.leader_yaw)], dtype=np.float32)
@@ -253,6 +278,56 @@ class WaypointSelectionEnv:
             penalties[index] = -self.cfg.formation_excess_offset_weight * excess_offset
         return penalties
 
+    def _avoidance_efficiency_penalties(self, actions):
+        """Penalize safe but unnecessarily distant learned detours.
+
+        This shapes reward only; it never filters, replaces, or forces an
+        action.  A farther safe action on the nearest-safe side is classified
+        as over-avoidance.  A farther safe action on the opposite side is the
+        stronger extreme-avoidance error.
+        """
+        over = np.zeros(self.num_agents, dtype=np.float32)
+        extreme = np.zeros(self.num_agents, dtype=np.float32)
+        over_events = np.zeros(self.num_agents, dtype=bool)
+        extreme_events = np.zeros(self.num_agents, dtype=bool)
+        distances = np.abs(
+            np.arange(self.num_actions, dtype=np.int64) - DEFAULT_ACTION
+        )
+
+        for index in range(self.num_agents):
+            safe = np.asarray(
+                [not metrics["blocked"] for metrics in self._candidate_metrics[index]],
+                dtype=bool,
+            )
+            selected = int(actions[index])
+            if not safe[selected] or not np.any(safe):
+                continue
+            nearest_distance = int(np.min(distances[safe]))
+            selected_distance = int(distances[selected])
+            excess = selected_distance - nearest_distance
+            if excess <= 0:
+                continue
+
+            nearest_actions = np.flatnonzero(safe & (distances == nearest_distance))
+            selected_direction = int(np.sign(selected - DEFAULT_ACTION))
+            nearest_directions = {
+                int(np.sign(action - DEFAULT_ACTION)) for action in nearest_actions
+            }
+            # If action 2 is the nearest safe choice, either detour direction
+            # is ordinary over-avoidance.  Otherwise a side mismatch is the
+            # stronger extreme/wrong-side behavior.
+            wrong_side = (
+                0 not in nearest_directions
+                and selected_direction not in nearest_directions
+            )
+            if wrong_side:
+                extreme[index] = -self.cfg.extreme_avoidance_weight * excess
+                extreme_events[index] = True
+            else:
+                over[index] = -self.cfg.over_avoidance_weight * excess
+                over_events[index] = True
+        return over, extreme, over_events, extreme_events
+
     def valid_action_masks(self):
         """Apply adjacency only, with optional legacy heuristic filtering."""
         action_indices = np.arange(self.num_actions, dtype=np.int64)
@@ -314,6 +389,12 @@ class WaypointSelectionEnv:
         goals = np.stack([candidates[i, actions[i]] for i in range(2)])
         selected_metrics = [self._candidate_metrics[i][actions[i]] for i in range(2)]
         formation_offset_penalties = self._formation_offset_penalties(actions)
+        (
+            over_avoidance_penalties,
+            extreme_avoidance_penalties,
+            over_avoidance_events,
+            extreme_avoidance_events,
+        ) = self._avoidance_efficiency_penalties(actions)
         switched = actions != self.previous_actions
         switch_penalties = (
             -self.cfg.formation_switch_weight * switched.astype(np.float32)
@@ -441,6 +522,8 @@ class WaypointSelectionEnv:
                 + reversal_penalties
             )
         )
+        over_avoidance_reward = float(np.mean(over_avoidance_penalties))
+        extreme_avoidance_reward = float(np.mean(extreme_avoidance_penalties))
 
         # 4) Forward progress prevents a collision-free policy from learning to
         # stand still.  5) The task term charges time and later adds success.
@@ -460,6 +543,8 @@ class WaypointSelectionEnv:
             + obstacle_reward
             + pair_reward
             + formation_reward
+            + over_avoidance_reward
+            + extreme_avoidance_reward
             + progress_reward
         )
         terminated = bool(np.any(obstacle_collision) or pair_collision)
@@ -525,11 +610,17 @@ class WaypointSelectionEnv:
                 "reward_switch_penalties": switch_penalties.copy(),
                 "reward_oscillation_penalties": oscillation_penalties.copy(),
                 "reward_route_reversal_penalties": reversal_penalties.copy(),
+                "reward_over_avoidance_penalties": over_avoidance_penalties.copy(),
+                "reward_extreme_avoidance_penalties": extreme_avoidance_penalties.copy(),
+                "over_avoidance_agents": over_avoidance_events.copy(),
+                "extreme_avoidance_agents": extreme_avoidance_events.copy(),
                 "default_blocked_latched": self.default_blocked_latched.copy(),
                 "reward_task": task_reward,
                 "reward_obstacle": obstacle_reward,
                 "reward_pair": pair_reward,
                 "reward_formation": formation_reward,
+                "reward_over_avoidance": over_avoidance_reward,
+                "reward_extreme_avoidance": extreme_avoidance_reward,
                 "reward_progress": progress_reward,
             }
         )

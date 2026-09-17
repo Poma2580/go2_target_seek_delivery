@@ -27,8 +27,9 @@ def _environment_from_checkpoint(payload):
         values["candidate_offsets"] = tuple(values["candidate_offsets"])
     if "obstacle_spawn_x" in values:
         values["obstacle_spawn_x"] = tuple(values["obstacle_spawn_x"])
-    if "obstacle_abs_y_range" in values:
-        values["obstacle_abs_y_range"] = tuple(values["obstacle_abs_y_range"])
+    for name in ("obstacle_abs_y_range", "obstacle_y_range"):
+        if name in values and values[name] is not None:
+            values[name] = tuple(values[name])
     return EnvConfig(**values)
 
 

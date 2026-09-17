@@ -16,6 +16,7 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>go2_config</exec_depend>
+  <exec_depend>go2_dynamic_encircle</exec_depend>
   <exec_depend>multi_go2_waypoint</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

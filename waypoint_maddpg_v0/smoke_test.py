@@ -18,6 +18,24 @@ def main():
     assert [obstacle["shape"] for obstacle in env.obstacles] == ["square", "circle"]
     assert np.sign(env.obstacles[0]["center"][1]) != np.sign(env.obstacles[1]["center"][1])
     assert env.obstacles[1]["radius"] == 1.0
+    signed_y_env = WaypointSelectionEnv(
+        EnvConfig(
+            obstacle_count=2,
+            obstacle_y_range=(-3.5, 3.5),
+            empty_episode_probability=0.0,
+            lidar_noise_std=0.0,
+        ),
+        seed=3,
+        lidar_noise=False,
+    )
+    signed_y_samples = []
+    for sample_seed in range(20, 60):
+        signed_y_env.reset(seed=sample_seed)
+        signed_y_samples.extend(
+            float(obstacle["center"][1]) for obstacle in signed_y_env.obstacles
+        )
+    assert all(-3.5 <= value <= 3.5 for value in signed_y_samples)
+    assert any(abs(value) < 1.7 for value in signed_y_samples)
     single_obstacle_env = WaypointSelectionEnv(
         EnvConfig(obstacle_count=1, lidar_noise_std=0.0),
         seed=2,
@@ -128,6 +146,34 @@ def main():
     env._candidate_metrics[1][3] = safe(True)
     necessary_detour = env._formation_offset_penalties(np.asarray([3, 4]))
     assert necessary_detour[1] == 0.0
+
+    # New RL objectives do not force an action.  With action 3 as the nearest
+    # safe detour, action 4 is over-avoidance while action 0 is the stronger
+    # opposite-side/extreme avoidance error.
+    efficiency_env = WaypointSelectionEnv(
+        EnvConfig(
+            lidar_noise_std=0.0,
+            heuristic_action_mask=False,
+            over_avoidance_weight=1.0,
+            extreme_avoidance_weight=3.0,
+        ),
+        seed=6,
+        lidar_noise=False,
+    )
+    efficiency_env._candidate_metrics = [
+        [safe(False), safe(True), safe(True), safe(False), safe(False)],
+        [safe(False), safe(True), safe(True), safe(False), safe(False)],
+    ]
+    over, extreme, over_events, extreme_events = (
+        efficiency_env._avoidance_efficiency_penalties(np.asarray([4, 0]))
+    )
+    np.testing.assert_allclose(over, [-1.0, 0.0])
+    np.testing.assert_allclose(extreme, [0.0, -3.0])
+    np.testing.assert_array_equal(over_events, [True, False])
+    np.testing.assert_array_equal(extreme_events, [False, True])
+    preferred = efficiency_env._avoidance_efficiency_penalties(np.asarray([3, 3]))
+    np.testing.assert_allclose(preferred[0], [0.0, 0.0])
+    np.testing.assert_allclose(preferred[1], [0.0, 0.0])
     observations, info = env.reset(seed=1)
 
     device = torch.device("cpu")
