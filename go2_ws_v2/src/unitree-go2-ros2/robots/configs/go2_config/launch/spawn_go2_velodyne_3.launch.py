@@ -177,8 +177,8 @@ def generate_launch_description():
         parameters=[
             robot_description,
             {"use_tf_static": False},
-            {"publish_frequency": 200.0},
-            {"ignore_timestamp": True},
+            {"publish_frequency": 50.0},
+            {"ignore_timestamp": False},
             {"use_sim_time": use_sim_time_param},
             {"frame_prefix": f"{ROBOT_NAME}/"},
         ],

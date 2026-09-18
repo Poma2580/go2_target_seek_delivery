@@ -134,8 +134,8 @@ local_costmap:
           raytrace_max_range: 3.5
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 1.5
-        inflation_radius: 0.4
+        cost_scaling_factor: 1.0
+        inflation_radius: 1.5
       always_send_full_costmap: true
 
 global_costmap:
@@ -169,8 +169,8 @@ global_costmap:
           raytrace_max_range: 20.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 1.5
-        inflation_radius: 0.4
+        cost_scaling_factor: 1.0
+        inflation_radius: 1.5
       always_send_full_costmap: true
 
 planner_server:

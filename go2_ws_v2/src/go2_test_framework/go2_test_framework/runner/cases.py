@@ -1,4 +1,4 @@
-"""Stable Cartesian expansion of T1 target-test cases."""
+"""Stable Cartesian expansion of configuration-driven test cases."""
 
 from dataclasses import asdict, dataclass
 
@@ -13,6 +13,7 @@ class TestCase:
     case_index: int
     case_id: str
     suite_id: str
+    task_type: str
     formal: bool
     scene: str
     route: str
@@ -27,8 +28,6 @@ class TestCase:
 
 def expand_cases(suite, routes, pose_groups, require_resolved=False):
     """Expand cases in scene -> route -> pose-group order."""
-    groups = dict(pose_groups)
-    groups.update(suite.get("inline_pose_groups", {}))
     result = []
     index = 0
     settings = {
@@ -40,13 +39,20 @@ def expand_cases(suite, routes, pose_groups, require_resolved=False):
             "min_camera_depth_m", "max_camera_depth_m",
         )
     }
+    settings["inject_collision_probe"] = suite.get(
+        "inject_collision_probe", False
+    )
     for scene in suite["scenes"]:
+        if scene not in pose_groups:
+            raise ValueError(f"pose groups for scene {scene} are not defined")
+        groups = dict(pose_groups[scene])
+        groups.update(suite.get("inline_pose_groups", {}))
         for route_name in suite["routes"]:
             route = routes[scene]["routes"][route_name]
             for group_name in suite["pose_groups"]:
                 index += 1
                 if group_name not in groups:
-                    raise ValueError(f"pose group {group_name} is not defined")
+                    raise ValueError(f"pose group {scene}/{group_name} is not defined")
                 pose_group = groups[group_name]
                 robot_poses = (
                     require_resolved_pose(group_name, pose_group)
@@ -61,6 +67,7 @@ def expand_cases(suite, routes, pose_groups, require_resolved=False):
                     case_index=index,
                     case_id=case_id,
                     suite_id=suite["suite_id"],
+                    task_type=suite["task_type"],
                     formal=suite["formal"],
                     scene=scene,
                     route=route_name,

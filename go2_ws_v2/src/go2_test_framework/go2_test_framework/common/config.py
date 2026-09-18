@@ -11,9 +11,10 @@ from go2_test_framework.common.execution import execution_from_mapping
 SCENES = ("city", "forest", "airport")
 ROUTES = ("straight", "rectangle", "v_shape")
 ROBOTS = ("go2_1", "go2_2", "go2_3")
+TASK_TYPES = ("perception", "tracking", "path_planning")
 
 
-def read_yaml(path):
+def read_yaml(path, schema_version=1):
     path = Path(path)
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -21,8 +22,8 @@ def read_yaml(path):
         raise ValueError(f"failed to read YAML {path}: {error}") from error
     if not isinstance(value, dict):
         raise ValueError(f"{path}: root must be a mapping")
-    if value.get("schema_version") != 1:
-        raise ValueError(f"{path}: schema_version must be 1")
+    if type(value.get("schema_version")) is not int or value["schema_version"] != schema_version:
+        raise ValueError(f"{path}: schema_version must be {schema_version}")
     return value
 
 
@@ -138,20 +139,37 @@ def _parse_pose_group(name, raw, where):
 
 
 def load_pose_groups(path):
-    root = read_yaml(path)
-    if root.get("coordinate_mode") != "shared_absolute":
-        raise ValueError("coordinate_mode must be shared_absolute")
-    groups = _required(root, "pose_groups", "root")
-    if not isinstance(groups, dict):
-        raise ValueError("root.pose_groups must be a mapping")
-    expected = tuple(f"group_{index:02d}" for index in range(1, 12))
-    if tuple(groups) != expected:
-        raise ValueError("pose_groups must contain group_01..group_11 in order")
-    return {name: _parse_pose_group(name, groups[name], "pose_groups") for name in expected}
+    root = read_yaml(path, schema_version=2)
+    if root.get("coordinate_mode") != "scene_absolute":
+        raise ValueError("coordinate_mode must be scene_absolute")
+    scenes = _required(root, "scenes", "root")
+    if not isinstance(scenes, dict):
+        raise ValueError("root.scenes must be a mapping")
+    expected = tuple(f"group_{index:02d}" for index in range(1, 16))
+    result = {}
+    for scene in SCENES:
+        entry = _required(scenes, scene, "scenes")
+        if not isinstance(entry, dict):
+            raise ValueError(f"scenes.{scene} must be a mapping")
+        where = f"scenes.{scene}.pose_groups"
+        groups = _required(entry, "pose_groups", f"scenes.{scene}")
+        if not isinstance(groups, dict):
+            raise ValueError(f"{where} must be a mapping")
+        if tuple(groups) != expected:
+            raise ValueError(f"{where} must contain group_01..group_15 in order")
+        result[scene] = {
+            name: _parse_pose_group(name, groups[name], where) for name in expected
+        }
+    return result
 
 
 def load_suite(path):
     root = read_yaml(path)
+    task_type = _required(root, "task_type", "root")
+    if task_type not in TASK_TYPES:
+        raise ValueError(
+            f"task_type must be one of {', '.join(TASK_TYPES)}"
+        )
     suite_id = _required(root, "suite_id", "root")
     if not isinstance(suite_id, str) or not suite_id:
         raise ValueError("suite_id must be a non-empty string")
@@ -191,6 +209,10 @@ def load_suite(path):
         name: _parse_pose_group(name, value, "inline_pose_groups")
         for name, value in inline.items()
     }
+    inject_collision_probe = root.get("inject_collision_probe", False)
+    if not isinstance(inject_collision_probe, bool):
+        raise ValueError("inject_collision_probe must be boolean")
+    parsed["inject_collision_probe"] = inject_collision_probe
     parsed["execution"] = execution_from_mapping(
         _required(root, "execution", "root")
     ).to_dict()

@@ -17,6 +17,7 @@ def write_yaml(path, value):
 
 def evaluate_csv(csv_path, metrics_dir, infrastructure_valid=True, provisional=False,
                  recognition_threshold=80.0, localization_threshold=15.0):
+    """Evaluate the legacy perception CSV without changing its public output."""
     with Path(csv_path).open(newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     recognition = evaluate_recognition(rows, recognition_threshold)
@@ -39,3 +40,13 @@ def evaluate_csv(csv_path, metrics_dir, infrastructure_valid=True, provisional=F
     elif not infrastructure_valid:
         summary["reason"] = "test infrastructure data was incomplete"
     return summary
+
+
+def evaluate_task_csv(task_type, *args, **kwargs):
+    """Dispatch CSV evaluation by suite task type."""
+    evaluators = {"perception": evaluate_csv}
+    try:
+        evaluator = evaluators[task_type]
+    except KeyError as error:
+        raise ValueError(f"no evaluator registered for task_type {task_type!r}") from error
+    return evaluator(*args, **kwargs)

@@ -64,42 +64,53 @@ PASS，`1` 表示路线有效但碰撞或安全距离检查失败，`2` 表示�
 
 ## 生成机器人初始位姿
 
-使用固定 seed 生成并验证 11 组位姿，同时更新正式 YAML、JSON 报告和三张复核图：
+每个场景独立维护 15 组三狗位姿，正式 YAML 使用 `schema_version: 2` 和
+`coordinate_mode: scene_absolute`，数据路径为 `scenes.<scene>.pose_groups.<group>`。
+city 固定 go2_1，forest 固定 go2_2，airport 固定 go2_3。45 个感知狗位姿
+保存在 `artifacts/robot_pose_generation/reference_robot_poses.yaml`；新增的
+group_12～group_15 分别复用 group_01～group_04 的固定感知狗位姿。
+生成时只读取该基准，不从输出 YAML 提取基准，也不重新计算固定狗的 yaw。
 
 ```bash
+conda deactivate 2>/dev/null || true
+which python3  # 必须输出 /usr/bin/python3
 /usr/bin/python3 tools/pedestrian_map/scripts/poses/generate_robot_pose_groups.py \
-  --radius-min 6.0 \
-  --radius-max 12.0 \
-  --spawn-z 0.4 \
-  --spawn-clearance 0.2 \
-  --max-target-distance 25.0 \
-  --camera-hfov-deg 60.0 \
-  --min-pose-separation 0.5 \
-  --go2-2-camera-hfov-deg 60.0 \
-  --go2-2-min-pose-separation 0.5 \
-  --seed 20260901 \
-  --max-attempts-per-robot 1000000
+  --neighbor-radius-min 3.0 \
+  --neighbor-radius-max 8.0 \
+  --spawn-clearance 0.8 \
+  --min-robot-separation 2.0 \
+  --seed 20260901
 ```
 
-常用路径参数：
+每组另外两只导航狗围绕固定感知狗进行圆环面积均匀采样，只检查当前场景的
+地图范围、free space、障碍距离、参考狗距离以及两只导航狗之间的间距。
+未知栅格按占用处理。不同组之间不施加间距条件，导航狗不要求看到行人。
+新狗默认继承该组固定狗的 z（当前 `0.60 m`），yaw 朝向该场景三条路线 P1
+的平均 anchor；`--spawn-z` 仅覆盖新狗高度。坐标舍入至两位小数后再检查约束。
+每个场景、每个组使用独立且可复现的随机序列。
 
-- `--routes`：目标路线 YAML，默认使用测试框架正式配置。
-- `--maps-root`：地图根目录，默认使用 `tools/gazebo_map_creator/artifacts/maps`。
+常用参数：
+
+- `--routes`：目标路线 YAML，默认使用测试框架正式配置，只读。
+- `--maps-root`：地图根目录，默认 `tools/gazebo_map_creator/artifacts/maps`。
+- `--reference-poses`：冻结感知狗基准，默认上述 `reference_robot_poses.yaml`。
 - `--output`：正式位姿 YAML，默认写回测试框架配置目录。
-- `--report-dir`：报告目录，默认使用 `artifacts/robot_pose_generation`。
-- `--check`：只复验现有 YAML，不写入任何结果。
+- `--report-dir`：报告与图片目录，默认 `artifacts/robot_pose_generation`。
+- `--max-attempts-per-robot`：每组每只新狗的尝试上限，默认 1000000。
+- `--check`：按相同参数重新生成、比较并复验现有 YAML，不写入文件。
 
-其余采样参数及默认值以 `--help` 为准。当前正式 YAML 的出生高度已调整为
-`0.8 m`，其余二维位姿仍来自已保存报告中的生成参数。对应的只读复验命令为：
+旧的 `--radius-min/max`、FOV、目标可见距离和跨组间距参数已移除，使用上面的
+邻域参数。默认参数的只读复验命令：
 
 ```bash
-/usr/bin/python3 tools/pedestrian_map/scripts/poses/generate_robot_pose_groups.py \
-  --check --radius-min 8.0 --radius-max 14.0 --spawn-z 0.8 \
-  --spawn-clearance 0.2 --max-target-distance 25.0 \
-  --camera-hfov-deg 50.0 --min-pose-separation 0.5 \
-  --go2-2-camera-hfov-deg 60.0 --go2-2-min-pose-separation 0.5 \
-  --seed 20260901 --max-attempts-per-robot 1000000
+/usr/bin/python3 tools/pedestrian_map/scripts/poses/generate_robot_pose_groups.py --check
 ```
+
+采样或验证失败时不放宽约束、不替换正式输出。成功后输出 YAML、三张场景图和
+`validation_report.json`。报告包括 135 条机器人记录、固定基准文件校验和、采样统计、
+距离与 clearance（米）、朝向误差（弧度）及各项检查结果。固定狗记录的半径和
+导航狗间距检查标记为不适用。每张图仅显示本场景位姿，包含全图概览及局部放大，
+标出机器人颜色、组号、朝向、组内连线、P1 和 anchor。
 
 ## 运行测试
 

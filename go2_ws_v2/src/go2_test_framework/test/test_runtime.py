@@ -44,39 +44,25 @@ def test_batch_lock_refuses_a_second_runner(tmp_path):
         assert f"pid={os.getpid()}" in path.read_text()
 
 
-def test_cleanup_uses_term_then_reports_completion(monkeypatch):
-    stale = record(10, 20, "marked", {"GO2_TEST_RUN_ID": "old"})
-    signals = []
-    reports = []
-    alive_checks = iter([True, False])
-    monkeypatch.setattr(
-        "go2_test_framework.runner.runtime.scan_processes", lambda: [stale]
-    )
-    monkeypatch.setattr(
-        "go2_test_framework.runner.runtime.os.killpg",
-        lambda group, signum: signals.append((group, signum)),
-    )
-    monkeypatch.setattr(
-        "go2_test_framework.runner.runtime._group_exists",
-        lambda _group: next(alive_checks),
-    )
-    monkeypatch.setattr("go2_test_framework.runner.runtime.time.sleep", lambda _: None)
-    cleanup_stale_test_processes(timeout=1.0, reporter=reports.append)
-    assert signals[0][0] == 20
-    assert signals[0][1].name == "SIGTERM"
-    assert all(item[1].name != "SIGKILL" for item in signals)
-    assert any("PID=10 PGID=20" in message for message in reports)
+def test_stale_cleanup_uses_shared_shutdown(monkeypatch, tmp_path):
+    from go2_test_framework.runner import lifecycle
+    stale = lifecycle.Identity(123456, 10, 123456, "S", "test", run="old")
+    monkeypatch.setattr(lifecycle, "identities", lambda: ([stale], []))
+    monkeypatch.setattr("go2_test_framework.runner.runtime.scan_processes", lambda: [])
+    captured = []
+    def shutdown(self, timeouts):
+        captured.append((list(self.known), timeouts))
+        return {"success": True}
+    monkeypatch.setattr(lifecycle.OwnedProcesses, "shutdown", shutdown)
+    assert cleanup_stale_test_processes(output_dir=tmp_path) == [123456]
+    assert captured == [([(123456, 10)], (15.0, 5.0, 3.0))]
+    assert (tmp_path / "cleanup_summary.yaml").exists()
 
 
-def test_cleanup_escalates_only_a_still_live_group(monkeypatch):
-    stale = record(10, 20, "marked", {"GO2_TEST_RUN_ID": "old"})
-    signals = []
-    monkeypatch.setattr(
-        "go2_test_framework.runner.runtime.scan_processes", lambda: [stale]
-    )
-    monkeypatch.setattr(
-        "go2_test_framework.runner.runtime.os.killpg",
-        lambda group, signum: signals.append((group, signum)),
-    )
-    cleanup_stale_test_processes(timeout=0.0, reporter=lambda _: None)
-    assert [item[1].name for item in signals] == ["SIGTERM", "SIGKILL"]
+def test_stale_cleanup_failure_blocks(monkeypatch, tmp_path):
+    from go2_test_framework.runner import lifecycle
+    monkeypatch.setattr(lifecycle, "identities", lambda: ([], []))
+    monkeypatch.setattr("go2_test_framework.runner.runtime.scan_processes", lambda: [])
+    monkeypatch.setattr(lifecycle.OwnedProcesses, "shutdown", lambda *a: {"success": False})
+    with pytest.raises(lifecycle.BatchSafetyError, match="could not confirm"):
+        cleanup_stale_test_processes(output_dir=tmp_path)

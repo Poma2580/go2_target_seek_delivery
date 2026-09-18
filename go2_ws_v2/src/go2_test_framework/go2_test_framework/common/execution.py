@@ -28,6 +28,7 @@ class ExecutionConfig:
     rqt: bool
     robot_startup: RobotStartupConfig
     attitude_check: AttitudeCheckConfig
+    rviz: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -64,9 +65,9 @@ def execution_from_mapping(raw):
     if not isinstance(raw, dict):
         raise ValueError("execution must be a mapping")
     expected = {"gazebo_gui", "rqt", "robot_startup", "attitude_check"}
-    if set(raw) != expected:
+    if not expected <= set(raw) or set(raw) - expected - {"rviz"}:
         raise ValueError(
-            f"execution must contain exactly {sorted(expected)}"
+            f"execution must contain {sorted(expected)} and optionally rviz"
         )
     startup = raw["robot_startup"]
     if not isinstance(startup, dict):
@@ -104,6 +105,7 @@ def execution_from_mapping(raw):
     return ExecutionConfig(
         gazebo_gui=_boolean(raw["gazebo_gui"], "execution.gazebo_gui"),
         rqt=_boolean(raw["rqt"], "execution.rqt"),
+        rviz=_boolean(raw.get("rviz", False), "execution.rviz"),
         robot_startup=RobotStartupConfig(
             world_to_first_delay_sec=_positive_float(
                 startup["world_to_first_delay_sec"],
@@ -153,7 +155,7 @@ def execution_from_mapping(raw):
 
 def apply_execution_overrides(
     config, *, gazebo_gui=None, rqt=None, attitude_enabled=None,
-    max_restarts=None, enable_lidar=None,
+    max_restarts=None, enable_lidar=None, rviz=None,
 ):
     """Return a new config with explicitly supplied CLI values applied."""
     if max_restarts is not None:
@@ -162,6 +164,7 @@ def apply_execution_overrides(
     return ExecutionConfig(
         gazebo_gui=config.gazebo_gui if gazebo_gui is None else gazebo_gui,
         rqt=config.rqt if rqt is None else rqt,
+        rviz=config.rviz if rviz is None else _boolean(rviz, "--rviz"),
         robot_startup=RobotStartupConfig(
             world_to_first_delay_sec=(
                 config.robot_startup.world_to_first_delay_sec

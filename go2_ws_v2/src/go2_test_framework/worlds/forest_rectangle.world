@@ -612,132 +612,6 @@
       </link>
       <pose>18.5357 -8.6846 0 0 -0 0</pose>
     </model>
-    <model name='oak_tree_clone_6'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-6.56011 -13.5116 0 0 -0 0</pose>
-    </model>
-    <model name='oak_tree_clone_7'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-18.1817 3.8328 0 0 -0 0</pose>
-    </model>
     <model name='oak_tree_clone_8'>
       <static>1</static>
       <link name='link'>
@@ -1178,132 +1052,6 @@
         <kinematic>0</kinematic>
       </link>
       <pose>-30.1433 10.0247 0 0 -0 0</pose>
-    </model>
-    <model name='oak_tree_clone_16'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-31.3491 -2.20169 0 0 -0 0</pose>
-    </model>
-    <model name='oak_tree_clone_17'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-29.6711 -15.9655 0 0 -0 0</pose>
     </model>
     <model name='oak_tree_clone_18'>
       <static>1</static>
@@ -3383,132 +3131,6 @@
         <kinematic>0</kinematic>
       </link>
       <pose>-39.5409 19.8319 0 0 -0 0</pose>
-    </model>
-    <model name='oak_tree_clone_11_clone_clone_11'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-39.9129 -8.11068 0 0 -0 0</pose>
-    </model>
-    <model name='oak_tree_clone_11_clone_clone_12'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <visual name='branch'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Branch</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Branch</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='bark'>
-          <geometry>
-            <mesh>
-              <uri>model://forest/oak_tree/meshes/oak_tree.dae</uri>
-              <submesh>
-                <name>Bark</name>
-              </submesh>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>model://forest/oak_tree/materials/scripts/</uri>
-              <uri>model://forest/oak_tree/materials/textures/</uri>
-              <name>OakTree/Bark</name>
-            </script>
-          </material>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <pose>-39.7271 5.09254 0 0 -0 0</pose>
     </model>
     <model name='oak_tree_clone_11_clone_clone_13'>
       <static>1</static>
@@ -27135,26 +26757,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-      <model name='oak_tree_clone_11_clone_clone_11'>
-        <pose>-39.9129 -8.11068 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-39.9129 -8.11068 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='oak_tree_clone_11_clone_clone_12'>
-        <pose>-39.7271 5.09254 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-39.7271 5.09254 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
       <model name='oak_tree_clone_11_clone_clone_13'>
         <pose>-41.2619 -20.0382 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -27260,26 +26862,6 @@
         <scale>1 1 1</scale>
         <link name='link'>
           <pose>-30.1433 10.0247 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='oak_tree_clone_16'>
-        <pose>-31.3491 -2.20169 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-31.3491 -2.20169 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='oak_tree_clone_17'>
-        <pose>-29.6711 -15.9655 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-29.6711 -15.9655 0 0 -0 0</pose>
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>
@@ -29305,26 +28887,6 @@
           <wrench>0 0 0 0 -0 0</wrench>
         </link>
       </model>
-      <model name='oak_tree_clone_6'>
-        <pose>-6.56011 -13.5116 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-6.56011 -13.5116 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='oak_tree_clone_7'>
-        <pose>-19.7047 8.54908 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-19.7047 8.54908 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
       <model name='oak_tree_clone_8'>
         <pose>-19.9913 -7.29111 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -30966,15 +30528,15 @@
         <auto_start>false</auto_start>
         <trajectory id="0" type="walking">
           <!-- Generated by go2_test_framework; scene=forest route=rectangle status=resolved. -->
-          <waypoint><time>0.000</time><pose>-45.000000 0.000000 0 0 0 0.000000</pose></waypoint>
-          <waypoint><time>233.333</time><pose>-10.000000 0.000000 0 0 0 0.000000</pose></waypoint>
-          <waypoint><time>235.333</time><pose>-10.000000 0.000000 0 0 0 -1.570796</pose></waypoint>
-          <waypoint><time>322.000</time><pose>-10.000000 -13.000000 0 0 0 -1.570796</pose></waypoint>
-          <waypoint><time>324.000</time><pose>-10.000000 -13.000000 0 0 0 -3.141593</pose></waypoint>
-          <waypoint><time>557.333</time><pose>-45.000000 -13.000000 0 0 0 -3.141593</pose></waypoint>
-          <waypoint><time>559.333</time><pose>-45.000000 -13.000000 0 0 0 -4.712389</pose></waypoint>
-          <waypoint><time>646.000</time><pose>-45.000000 0.000000 0 0 0 -4.712389</pose></waypoint>
-          <waypoint><time>648.000</time><pose>-45.000000 0.000000 0 0 0 -6.283185</pose></waypoint>
+          <waypoint><time>0.000</time><pose>-45.000000 0.000000 0 0 0 -1.570796</pose></waypoint>
+          <waypoint><time>86.667</time><pose>-45.000000 -13.000000 0 0 0 -1.570796</pose></waypoint>
+          <waypoint><time>88.667</time><pose>-45.000000 -13.000000 0 0 0 0.000000</pose></waypoint>
+          <waypoint><time>322.000</time><pose>-10.000000 -13.000000 0 0 0 0.000000</pose></waypoint>
+          <waypoint><time>324.000</time><pose>-10.000000 -13.000000 0 0 0 1.570796</pose></waypoint>
+          <waypoint><time>410.667</time><pose>-10.000000 0.000000 0 0 0 1.570796</pose></waypoint>
+          <waypoint><time>412.667</time><pose>-10.000000 0.000000 0 0 0 3.141593</pose></waypoint>
+          <waypoint><time>646.000</time><pose>-45.000000 0.000000 0 0 0 3.141593</pose></waypoint>
+          <waypoint><time>648.000</time><pose>-45.000000 0.000000 0 0 0 4.712389</pose></waypoint>
         </trajectory>
       </script>
       <plugin name="walking_target_controller"

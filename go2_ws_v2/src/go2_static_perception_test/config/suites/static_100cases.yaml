@@ -1,0 +1,23 @@
+schema_version: 1
+suite_id: static_100cases
+targets: [construction_barrel, person, fire_hydrant, ground_robot, dumpster]
+poses: [pose_01, pose_02, pose_03, pose_04, pose_05, pose_06, pose_07, pose_08, pose_09, pose_10, pose_11, pose_12, pose_13, pose_14, pose_15, pose_16, pose_17, pose_18, pose_19, pose_20]
+evaluation_rate_hz: 2.0
+evaluation_duration_sec: 10.0
+match_timeout_sec: 0.4
+result_settle_delay_sec: 1.5
+startup_timeout_sec: 120.0
+data_ready_timeout_sec: 60.0
+min_camera_depth_m: 0.3
+max_camera_depth_m: 25.0
+consider_occlusion: false
+execution:
+  gazebo_gui: true
+  rqt: true
+  world_to_robot_delay_sec: 3.0
+  attitude_settle_delay_sec: 3.0
+  attitude_roll_limit_deg: 90.0
+  attitude_sample_frames: 5
+  attitude_timeout_sec: 10.0
+  max_restarts: 8
+  restart_delay_sec: 1.0

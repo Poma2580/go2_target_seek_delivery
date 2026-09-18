@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate deterministic, cross-scene-valid Go2 spawn pose groups."""
+"""Generate deterministic, scene-local Go2 spawn pose groups around frozen reference robots."""
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import json
 import math
 import os
@@ -25,12 +25,14 @@ from .paths import MAPS_ROOT, ROBOT_POSE_GROUPS, ROBOT_POSE_REPORT_ROOT, TARGET_
 SCENES = ("city", "forest", "airport")
 ROUTES = ("straight", "rectangle", "v_shape")
 ROBOTS = ("go2_1", "go2_2", "go2_3")
-RESPONSIBILITY = dict(zip(ROBOTS, SCENES))
+REFERENCE_ROBOTS = dict(zip(SCENES, ROBOTS))
+DEFAULT_REFERENCE_POSES = ROBOT_POSE_REPORT_ROOT / "reference_robot_poses.yaml"
 DEFAULT_ROUTES = TARGET_ROUTES
 DEFAULT_MAPS_ROOT = MAPS_ROOT
 DEFAULT_OUTPUT = ROBOT_POSE_GROUPS
 DEFAULT_REPORT_DIR = ROBOT_POSE_REPORT_ROOT
 OUTPUT_DECIMALS = 2
+DEFAULT_GROUP_COUNT = 15
 
 
 class TwoDecimalSafeDumper(yaml.SafeDumper):
@@ -95,55 +97,70 @@ class OccupancyMap:
 @dataclass(frozen=True)
 class GenerationParameters:
     seed: int = 20260901
-    group_count: int = 11
-    radius_min: float = 6.0
-    radius_max: float = 10.0
-    spawn_z: float = 0.4
+    group_count: int = DEFAULT_GROUP_COUNT
+    neighbor_radius_min: float = 3.0
+    neighbor_radius_max: float = 8.0
+    spawn_z: Optional[float] = None
     spawn_clearance: float = 0.8
-    max_target_distance: float = 25.0
-    camera_hfov_deg: float = 60.0
-    min_pose_separation: float = 2.0
-    go2_2_camera_hfov_deg: float = 90.0
-    go2_2_min_pose_separation: float = 0.5
+    min_robot_separation: float = 2.0
     max_attempts_per_robot: int = 1_000_000
 
     def validate(self) -> None:
-        numeric_positive = {
-            "radius_min": self.radius_min,
-            "radius_max": self.radius_max,
-            "spawn_z": self.spawn_z,
-            "spawn_clearance": self.spawn_clearance,
-            "max_target_distance": self.max_target_distance,
-            "camera_hfov_deg": self.camera_hfov_deg,
-            "min_pose_separation": self.min_pose_separation,
-            "go2_2_camera_hfov_deg": self.go2_2_camera_hfov_deg,
-            "go2_2_min_pose_separation": self.go2_2_min_pose_separation,
-        }
-        for name, value in numeric_positive.items():
-            if not math.isfinite(value) or value <= 0.0:
+        for name in ("neighbor_radius_min", "neighbor_radius_max",
+                     "spawn_clearance", "min_robot_separation"):
+            if _finite(getattr(self, name), name) <= 0.0:
                 raise ValueError(f"{name} must be finite and positive")
-        if self.radius_min >= self.radius_max:
-            raise ValueError("radius_min must be less than radius_max")
-        for name, value in (
-            ("camera_hfov_deg", self.camera_hfov_deg),
-            ("go2_2_camera_hfov_deg", self.go2_2_camera_hfov_deg),
-        ):
-            if value > 360.0:
-                raise ValueError(f"{name} must not exceed 360 degrees")
-        if self.group_count <= 0:
-            raise ValueError("group_count must be positive")
-        if self.max_attempts_per_robot <= 0:
-            raise ValueError("max_attempts_per_robot must be positive")
+        if self.spawn_z is not None and _finite(self.spawn_z, "spawn_z") <= 0.0:
+            raise ValueError("spawn_z must be finite and positive")
+        if self.spawn_z is not None and round(self.spawn_z, OUTPUT_DECIMALS) <= 0.0:
+            raise ValueError("spawn_z must remain positive after rounding")
+        if self.neighbor_radius_min >= self.neighbor_radius_max:
+            raise ValueError("neighbor_radius_min must be less than neighbor_radius_max")
+        for name in ("group_count", "max_attempts_per_robot"):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if type(self.seed) is not int:
+            raise ValueError("seed must be an integer")
 
-    def hfov_deg(self, robot: str) -> float:
-        return self.go2_2_camera_hfov_deg if robot == "go2_2" else self.camera_hfov_deg
 
-    def separation(self, robot: str) -> float:
-        return (
-            self.go2_2_min_pose_separation
-            if robot == "go2_2"
-            else self.min_pose_separation
-        )
+def _group_names(group_count: int) -> tuple[str, ...]:
+    return tuple(f"group_{index:02d}" for index in range(1, group_count + 1))
+
+
+def _parse_pose(raw: object, label: str) -> dict[str, float]:
+    if not isinstance(raw, dict):
+        raise ValueError(f"{label} must be a mapping")
+    try:
+        pose = {field: _finite(raw[field], f"{label}.{field}")
+                for field in ("x", "y", "z", "yaw")}
+    except KeyError as error:
+        raise ValueError(f"{label}.{error.args[0]} is required") from error
+    if pose["z"] <= 0.0:
+        raise ValueError(f"{label}.z must be positive")
+    return pose
+
+
+def load_reference_poses(path: Path, group_count: int = DEFAULT_GROUP_COUNT) -> dict:
+    """Load the frozen pre-migration perception poses, never the generated output."""
+    try:
+        document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or type(document.get("schema_version")) is not int or document["schema_version"] != 1:
+            raise ValueError("reference poses schema_version must be 1")
+        scenes = document["scenes"]
+        result = {}
+        for scene, robot in REFERENCE_ROBOTS.items():
+            entry = scenes[scene]
+            if entry["reference_robot"] != robot:
+                raise ValueError(f"{scene}.reference_robot must be {robot}")
+            groups = entry["poses"]
+            if not isinstance(groups, dict) or tuple(groups) != _group_names(group_count):
+                raise ValueError(f"{scene}.poses must contain ordered reference groups")
+            result[scene] = {name: _parse_pose(groups[name], f"{scene}.{name}.{robot}")
+                             for name in _group_names(group_count)}
+        return result
+    except (OSError, yaml.YAMLError, KeyError, TypeError) as error:
+        raise ValueError(f"invalid reference poses {path}: {error}") from error
 
 
 def load_occupancy_map(scene: str, yaml_path: Path) -> OccupancyMap:
@@ -345,165 +362,133 @@ def _rounded_pose(
     }
 
 
-def _first_visibility_rejection(items: Sequence[Mapping[str, object]]) -> str:
-    if any(not item["distance_pass"] for item in items):
-        return "distance"
-    if any(not item["fov_pass"] for item in items):
-        return "fov"
-    return "los"
-
-
 def generate_poses(
     maps: Mapping[str, OccupancyMap],
     p1s: Mapping[str, Mapping[str, tuple[float, float]]],
     parameters: GenerationParameters,
-) -> tuple[dict[str, list[dict[str, float]]], dict[str, object]]:
+    reference_poses: Mapping[str, Mapping[str, Mapping[str, float]]],
+) -> tuple[dict, dict]:
     parameters.validate()
     anchors = compute_anchors(p1s)
-    rng = random.Random(parameters.seed)
-    generated: dict[str, list[dict[str, float]]] = {}
-    statistics: dict[str, object] = {}
-
-    for robot in ROBOTS:
-        scene = RESPONSIBILITY[robot]
-        accepted: list[dict[str, float]] = []
-        attempts = 0
-        rejected = {
-            "annulus": 0,
-            "map": 0,
-            "distance": 0,
-            "fov": 0,
-            "los": 0,
-            "separation": 0,
-        }
-        while len(accepted) < parameters.group_count:
-            if attempts >= parameters.max_attempts_per_robot:
-                raise RuntimeError(
-                    f"{robot}/{scene}: accepted {len(accepted)}/{parameters.group_count} "
-                    f"after {attempts} attempts; rejected={rejected}"
-                )
-            attempts += 1
-            pose = _rounded_pose(
-                sample_annulus(
-                    rng, anchors[scene], parameters.radius_min, parameters.radius_max
-                ),
-                anchors[scene],
-                parameters.spawn_z,
-            )
-            point = pose["x"], pose["y"]
-            radius = math.dist(point, anchors[scene])
-            if not parameters.radius_min <= radius <= parameters.radius_max:
-                rejected["annulus"] += 1
-                continue
-            map_checks = {
-                name: check_map_position(map_data, point, parameters.spawn_clearance)
-                for name, map_data in maps.items()
-            }
-            if not all(check["pass"] for check in map_checks.values()):
-                rejected["map"] += 1
-                continue
-            visibility = check_visibility(
-                maps[scene],
-                pose,
-                p1s[scene],
-                parameters.max_target_distance,
-                parameters.hfov_deg(robot),
-            )
-            if not all(item["pass"] for item in visibility):
-                rejected[_first_visibility_rejection(visibility)] += 1
-                continue
-            if any(
-                math.dist(point, (old["x"], old["y"]))
-                < parameters.separation(robot) - 1e-12
-                for old in accepted
-            ):
-                rejected["separation"] += 1
-                continue
-            accepted.append(pose)
-        generated[robot] = accepted
-        statistics[robot] = {
-            "scene": scene,
-            "attempts": attempts,
-            "accepted": len(accepted),
-            "rejected": rejected,
-        }
+    generated, statistics = {}, {}
+    for scene in SCENES:
+        generated[scene], statistics[scene] = {}, {}
+        reference_robot = REFERENCE_ROBOTS[scene]
+        for name in _group_names(parameters.group_count):
+            reference = _parse_pose(reference_poses[scene][name], f"{scene}/{name}/{reference_robot}")
+            center = reference["x"], reference["y"]
+            reference_check = check_map_position(maps[scene], center, parameters.spawn_clearance)
+            if not reference_check["pass"]:
+                raise ValueError(f"{scene}/{name}/{reference_robot}: fixed reference failed: {reference_check}")
+            # String seeding is stable across Python processes; each group is independent.
+            rng = random.Random(f"{parameters.seed}:{scene}:{name}")
+            robots, accepted = {}, []
+            statistics[scene][name] = {}
+            for robot in ROBOTS:
+                if robot == reference_robot:
+                    robots[robot] = dict(reference)
+                    continue
+                rejected = {"annulus": 0, "map": 0, "separation": 0}
+                for attempt in range(1, parameters.max_attempts_per_robot + 1):
+                    pose = _rounded_pose(
+                        sample_annulus(rng, center, parameters.neighbor_radius_min,
+                                       parameters.neighbor_radius_max),
+                        anchors[scene],
+                        reference["z"] if parameters.spawn_z is None else parameters.spawn_z,
+                    )
+                    # All acceptance checks use the actual serialized XY coordinates.
+                    point = pose["x"], pose["y"]
+                    radius = math.dist(point, center)
+                    if not parameters.neighbor_radius_min <= radius <= parameters.neighbor_radius_max:
+                        rejected["annulus"] += 1
+                        continue
+                    if not check_map_position(maps[scene], point, parameters.spawn_clearance)["pass"]:
+                        rejected["map"] += 1
+                        continue
+                    if any(math.dist(point, old) < parameters.min_robot_separation for old in accepted):
+                        rejected["separation"] += 1
+                        continue
+                    robots[robot] = pose
+                    accepted.append(point)
+                    statistics[scene][name][robot] = {
+                        "attempts": attempt, "accepted": 1, "rejected": rejected,
+                    }
+                    break
+                else:
+                    raise RuntimeError(
+                        f"{scene}/{name}/{robot}: accepted 0/1 after "
+                        f"{parameters.max_attempts_per_robot} attempts; rejected={rejected}"
+                    )
+            generated[scene][name] = {"resolved": True, "robots": robots}
     return generated, {"anchors": anchors, "sampling": statistics}
 
 
 def validate_generated_poses(
-    poses: Mapping[str, Sequence[Mapping[str, float]]],
+    poses: Mapping,
     maps: Mapping[str, OccupancyMap],
     p1s: Mapping[str, Mapping[str, tuple[float, float]]],
     parameters: GenerationParameters,
+    reference_poses: Mapping,
 ) -> list[dict[str, object]]:
-    anchors = compute_anchors(p1s)
-    for robot in ROBOTS:
-        if len(poses.get(robot, ())) != parameters.group_count:
-            raise ValueError(f"{robot} must contain {parameters.group_count} poses")
-    details = []
-    for index in range(parameters.group_count):
-        group = {"id": index + 1, "robots": {}}
-        for robot in ROBOTS:
-            scene = RESPONSIBILITY[robot]
-            pose = dict(poses[robot][index])
-            point = float(pose["x"]), float(pose["y"])
-            expected_yaw = yaw_toward(point, anchors[scene])
-            yaw_error = abs(normalize_angle(float(pose["yaw"]) - expected_yaw))
-            radius = math.dist(point, anchors[scene])
-            map_checks = {
-                name: check_map_position(map_data, point, parameters.spawn_clearance)
-                for name, map_data in maps.items()
-            }
-            visibility = check_visibility(
-                maps[scene],
-                pose,
-                p1s[scene],
-                parameters.max_target_distance,
-                parameters.hfov_deg(robot),
+    parameters.validate()
+    # Validate shape and numeric fields independently of the generation routine.
+    poses = poses_from_document(pose_groups_document(poses, parameters.group_count),
+                                parameters.group_count)
+    anchors, details = compute_anchors(p1s), []
+    for scene in SCENES:
+        reference_robot = REFERENCE_ROBOTS[scene]
+        for name in _group_names(parameters.group_count):
+            robots = poses[scene][name]["robots"]
+            reference = _parse_pose(reference_poses[scene][name], f"{scene}/{name}/reference")
+            center = reference["x"], reference["y"]
+            navigation = [robot for robot in ROBOTS if robot != reference_robot]
+            navigation_separation = math.dist(
+                (robots[navigation[0]]["x"], robots[navigation[0]]["y"]),
+                (robots[navigation[1]]["x"], robots[navigation[1]]["y"]),
             )
-            prior = poses[robot][:index]
-            separation_pass = all(
-                math.dist(point, (float(old["x"]), float(old["y"])))
-                >= parameters.separation(robot) - 1e-12
-                for old in prior
-            )
-            passed = (
-                parameters.radius_min - 1e-8 <= radius <= parameters.radius_max + 1e-8
-                and yaw_error <= 0.5 * 10**-OUTPUT_DECIMALS + 1e-12
-                and float(pose["z"]) == round(parameters.spawn_z, OUTPUT_DECIMALS)
-                and all(item["pass"] for item in map_checks.values())
-                and all(item["pass"] for item in visibility)
-                and separation_pass
-            )
-            group["robots"][robot] = {
-                "pass": passed,
-                "pose": pose,
-                "responsibility": scene,
-                "radius_m": radius,
-                "yaw_error_rad": yaw_error,
-                "map_checks": map_checks,
-                "visibility": visibility,
-                "separation_pass": separation_pass,
-            }
-            if not passed:
-                raise ValueError(f"group_{index + 1:02d}.{robot} failed validation")
-        details.append(group)
+            for robot in ROBOTS:
+                pose = robots[robot]
+                point = pose["x"], pose["y"]
+                radius = math.dist(point, center)
+                map_check = check_map_position(maps[scene], point, parameters.spawn_clearance)
+                is_reference = robot == reference_robot
+                yaw_error = abs(normalize_angle(pose["yaw"] - yaw_toward(point, anchors[scene])))
+                reference_match = pose == reference if is_reference else None
+                radius_pass = None if is_reference else parameters.neighbor_radius_min <= radius <= parameters.neighbor_radius_max
+                separation_pass = None if is_reference else navigation_separation >= parameters.min_robot_separation
+                expected_z = reference["z"] if parameters.spawn_z is None else round(parameters.spawn_z, OUTPUT_DECIMALS)
+                passed = map_check["pass"] and (
+                    reference_match if is_reference else
+                    radius_pass and separation_pass
+                    and yaw_error <= 0.5 * 10**-OUTPUT_DECIMALS + 1e-12
+                    and pose["z"] == expected_z
+                )
+                details.append({
+                    "scene": scene, "group": name, "robot": robot,
+                    "reference_robot": reference_robot, "is_reference": is_reference,
+                    "pose": pose, "distance_to_reference_robot": radius,
+                    "clearance": map_check["clearance_m"], "map_check": map_check,
+                    "robot_separation": {
+                        other: math.dist(point, (other_pose["x"], other_pose["y"]))
+                        for other, other_pose in robots.items() if other != robot
+                    },
+                    "navigation_robot_separation": navigation_separation,
+                    "reference_match": reference_match, "radius_pass": radius_pass,
+                    "separation_pass": separation_pass,
+                    "yaw_error_rad": None if is_reference else yaw_error,
+                    "pass": bool(passed),
+                })
     return details
 
 
-def pose_groups_document(
-    poses: Mapping[str, Sequence[Mapping[str, float]]], group_count: int
-) -> dict[str, object]:
+def pose_groups_document(poses: Mapping, group_count: int) -> dict:
+    for scene in SCENES:
+        if scene not in poses or tuple(poses[scene]) != _group_names(group_count):
+            raise ValueError(f"{scene} must contain {group_count} ordered pose groups")
     return {
-        "schema_version": 1,
-        "coordinate_mode": "shared_absolute",
-        "pose_groups": {
-            f"group_{index + 1:02d}": {
-                "resolved": True,
-                "robots": {robot: dict(poses[robot][index]) for robot in ROBOTS},
-            }
-            for index in range(group_count)
-        },
+        "schema_version": 2,
+        "coordinate_mode": "scene_absolute",
+        "scenes": {scene: {"pose_groups": poses[scene]} for scene in SCENES},
     }
 
 
@@ -516,66 +501,51 @@ def dump_pose_groups_yaml(document: Mapping[str, object]) -> str:
     )
 
 
-def poses_from_document(
-    document: Mapping[str, object], group_count: int = 11
-) -> dict[str, list[dict[str, float]]]:
+def poses_from_document(document: Mapping, group_count: int = DEFAULT_GROUP_COUNT) -> dict:
+    if not isinstance(document, dict) or type(document.get("schema_version")) is not int or document["schema_version"] != 2:
+        raise ValueError("pose groups schema_version must be 2")
+    if document.get("coordinate_mode") != "scene_absolute":
+        raise ValueError("coordinate_mode must be scene_absolute")
     try:
-        groups = document["pose_groups"]
-        result = {robot: [] for robot in ROBOTS}
-        for index in range(1, group_count + 1):
-            group = groups[f"group_{index:02d}"]
-            if group["resolved"] is not True:
-                raise ValueError(f"group_{index:02d} is not resolved")
-            for robot in ROBOTS:
-                result[robot].append(
-                    {key: float(group["robots"][robot][key]) for key in ("x", "y", "z", "yaw")}
-                )
+        result = {}
+        for scene in SCENES:
+            groups = document["scenes"][scene]["pose_groups"]
+            if not isinstance(groups, dict) or tuple(groups) != _group_names(group_count):
+                raise ValueError(f"{scene} must contain {group_count} ordered pose groups")
+            result[scene] = {}
+            for name in _group_names(group_count):
+                group = groups[name]
+                if group["resolved"] is not True:
+                    raise ValueError(f"{scene}/{name} is not resolved")
+                robots = {robot: _parse_pose(group["robots"][robot], f"{scene}/{name}/{robot}")
+                          for robot in ROBOTS}
+                result[scene][name] = {"resolved": True, "robots": robots}
+        return result
     except (KeyError, TypeError) as error:
         raise ValueError(f"invalid robot pose groups document: {error}") from error
-    return result
-
-
-def _parameters_dict(parameters: GenerationParameters) -> dict[str, object]:
-    return {
-        "seed": parameters.seed,
-        "group_count": parameters.group_count,
-        "radius_min": parameters.radius_min,
-        "radius_max": parameters.radius_max,
-        "spawn_z": parameters.spawn_z,
-        "spawn_clearance": parameters.spawn_clearance,
-        "max_target_distance": parameters.max_target_distance,
-        "camera_hfov_deg": parameters.camera_hfov_deg,
-        "min_pose_separation": parameters.min_pose_separation,
-        "role_overrides": {
-            "go2_2": {
-                "camera_hfov_deg": parameters.go2_2_camera_hfov_deg,
-                "min_pose_separation": parameters.go2_2_min_pose_separation,
-            }
-        },
-        "max_attempts_per_robot": parameters.max_attempts_per_robot,
-    }
 
 
 def build_report(
     parameters: GenerationParameters,
     generation: Mapping[str, object],
     validation: Sequence[Mapping[str, object]],
+    reference_path: Path,
 ) -> dict[str, object]:
-    anchors = {
-        scene: [point[0], point[1]]
-        for scene, point in generation["anchors"].items()
-    }
+    import hashlib
+
     return {
-        "schema_version": 1,
-        "status": "PASS",
-        "generation": _parameters_dict(parameters),
-        "responsibility": RESPONSIBILITY,
-        "anchors": anchors,
+        "schema_version": 2,
+        "status": "PASS" if all(item["pass"] for item in validation) else "FAIL",
+        "units": {"distance": "m", "yaw": "rad"},
+        "generation": asdict(parameters),
+        "reference_source": {
+            "filename": Path(reference_path).name,
+            "sha256": hashlib.sha256(Path(reference_path).read_bytes()).hexdigest(),
+        },
+        "reference_robots": REFERENCE_ROBOTS,
+        "anchors": {scene: list(point) for scene, point in generation["anchors"].items()},
         "sampling": generation["sampling"],
-        "groups": list(validation),
-        "notes": [
-            "Forest/go2_2 uses 90 deg HFOV and 0.5 m inter-group separation because the original 60 deg/2.0 m constraints have no solution in the 6-10 m annulus."
-        ],
+        "robots": list(validation),
     }
 
 
@@ -589,29 +559,80 @@ def _world_to_pixel(map_data: OccupancyMap, point: tuple[float, float]) -> tuple
 def render_scene(
     scene: str,
     map_data: OccupancyMap,
-    poses: Mapping[str, Sequence[Mapping[str, float]]],
+    poses: Mapping,
     p1s: Mapping[str, tuple[float, float]],
     anchor: tuple[float, float],
 ) -> bytes:
-    image = cv2.cvtColor(map_data.pixels, cv2.COLOR_GRAY2BGR)
-    colors = {"go2_1": (40, 70, 230), "go2_2": (50, 180, 60), "go2_3": (220, 90, 40)}
-    responsible = ROBOTS[SCENES.index(scene)]
-    for pose in poses[responsible]:
-        start = _world_to_pixel(map_data, (pose["x"], pose["y"]))
-        for target in p1s.values():
-            cv2.line(image, start, _world_to_pixel(map_data, target), (170, 170, 170), 1, cv2.LINE_AA)
-    for robot in ROBOTS:
-        for index, pose in enumerate(poses[robot], start=1):
-            pixel = _world_to_pixel(map_data, (pose["x"], pose["y"]))
-            cv2.circle(image, pixel, 5, colors[robot], -1, cv2.LINE_AA)
-            cv2.putText(image, str(index), (pixel[0] + 5, pixel[1] - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.3, colors[robot], 1, cv2.LINE_AA)
-    for route, target in p1s.items():
-        pixel = _world_to_pixel(map_data, target)
-        cv2.drawMarker(image, pixel, (200, 30, 200), cv2.MARKER_DIAMOND, 14, 2, cv2.LINE_AA)
-        cv2.putText(image, route, (pixel[0] + 7, pixel[1] + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 30, 200), 1, cv2.LINE_AA)
-    cv2.drawMarker(image, _world_to_pixel(map_data, anchor), (0, 180, 255), cv2.MARKER_STAR, 20, 2, cv2.LINE_AA)
-    cv2.rectangle(image, (0, 0), (min(image.shape[1] - 1, 720), 32), (255, 255, 255), -1)
-    cv2.putText(image, f"{scene}: all poses; LOS={responsible}", (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (20, 20, 20), 2, cv2.LINE_AA)
+    """Render an overview and a readable local view of one scene's pose groups."""
+    groups = poses[scene]
+    colors = {"go2_1": (40, 70, 230), "go2_2": (50, 160, 60), "go2_3": (220, 90, 40)}
+    pixels = [_world_to_pixel(map_data, (pose["x"], pose["y"]))
+              for group in groups.values() for pose in group["robots"].values()]
+    pixels += [_world_to_pixel(map_data, point) for point in (*p1s.values(), anchor)]
+    margin = int(math.ceil(3.0 / map_data.resolution))
+    x0 = max(0, min(p[0] for p in pixels) - margin)
+    y0 = max(0, min(p[1] for p in pixels) - margin)
+    x1 = min(map_data.width, max(p[0] for p in pixels) + margin + 1)
+    y1 = min(map_data.height, max(p[1] for p in pixels) + margin + 1)
+
+    def panel(bounds, width, height, detailed):
+        left, top, right, bottom = bounds
+        crop = map_data.pixels[top:bottom, left:right]
+        scale = min(width / crop.shape[1], height / crop.shape[0])
+        resized = cv2.resize(crop, (max(1, round(crop.shape[1] * scale)),
+                                    max(1, round(crop.shape[0] * scale))),
+                             interpolation=cv2.INTER_NEAREST)
+        image = np.full((height, width, 3), 245, dtype=np.uint8)
+        image[:resized.shape[0], :resized.shape[1]] = cv2.cvtColor(resized, cv2.COLOR_GRAY2BGR)
+
+        def pixel(point):
+            x, y = _world_to_pixel(map_data, point)
+            return round((x - left) * scale), round((y - top) * scale)
+
+        for name, group in groups.items():
+            reference = group["robots"][REFERENCE_ROBOTS[scene]]
+            start = pixel((reference["x"], reference["y"]))
+            for robot, pose in group["robots"].items():
+                position = pixel((pose["x"], pose["y"]))
+                if detailed and robot != REFERENCE_ROBOTS[scene]:
+                    cv2.line(image, start, position, (175, 175, 175), 1, cv2.LINE_AA)
+        for name, group in groups.items():
+            for robot, pose in group["robots"].items():
+                position = pixel((pose["x"], pose["y"]))
+                cv2.circle(image, position, 5 if detailed else 3, colors[robot], -1, cv2.LINE_AA)
+                if detailed:
+                    length = max(10, round(0.9 * scale / map_data.resolution))
+                    end = (round(position[0] + length * math.cos(pose["yaw"])),
+                           round(position[1] - length * math.sin(pose["yaw"])))
+                    cv2.arrowedLine(image, position, end, colors[robot], 1, cv2.LINE_AA, tipLength=0.3)
+                    if robot == REFERENCE_ROBOTS[scene]:
+                        cv2.circle(image, position, 8, colors[robot], 1, cv2.LINE_AA)
+                    cv2.putText(image, name[-2:], (position[0] + 7, position[1] - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, colors[robot], 1, cv2.LINE_AA)
+        for route, point in p1s.items():
+            position = pixel(point)
+            cv2.drawMarker(image, position, (200, 30, 200), cv2.MARKER_DIAMOND, 12, 2)
+            if detailed:
+                cv2.putText(image, route + " P1", (position[0] + 8, position[1] + 16),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 30, 200), 1, cv2.LINE_AA)
+        cv2.drawMarker(image, pixel(anchor), (0, 160, 255), cv2.MARKER_STAR, 16, 2)
+        if not detailed:
+            cv2.rectangle(image, (round(x0 * scale), round(y0 * scale)),
+                          (round(x1 * scale), round(y1 * scale)), (0, 130, 255), 2)
+        return image
+
+    overview = panel((0, 0, map_data.width, map_data.height), 480, 860, False)
+    local = panel((x0, y0, x1, y1), 1000, 860, True)
+    image = np.full((950, 1480, 3), 255, dtype=np.uint8)
+    image[90:, :480] = overview
+    image[90:, 480:] = local
+    cv2.putText(image, f"{scene}: {len(groups)} groups / {len(groups) * len(ROBOTS)} robots; "
+                f"reference={REFERENCE_ROBOTS[scene]} (ring)",
+                (15, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (20, 20, 20), 2, cv2.LINE_AA)
+    cv2.putText(image, "Overview (orange = detail area)       Local view: group numbers, yaw arrows, group links; star = P1 mean anchor",
+                (15, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (30, 30, 30), 1, cv2.LINE_AA)
+    for index, (robot, color) in enumerate(colors.items()):
+        cv2.putText(image, robot, (15 + index * 150, 77), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
     ok, encoded = cv2.imencode(".png", image)
     if not ok:
         raise RuntimeError(f"failed to encode {scene} visualization")
@@ -661,18 +682,11 @@ def write_outputs(
 
 
 def _print_summary(report: Mapping[str, object]) -> None:
-    print("Target anchors:")
-    for scene, point in report["anchors"].items():
-        print(f"  {scene:7s} ({point[0]:.6f}, {point[1]:.6f})")
-    for group in report["groups"]:
-        print(f"Group {group['id']:02d}")
-        for robot in ROBOTS:
-            item = group["robots"][robot]
-            visible = sum(target["pass"] for target in item["visibility"])
-            print(
-                f"  {robot} PASS  maps=3/3  "
-                f"{item['responsibility']} P1 visibility={visible}/3"
-            )
+    print(f"Validation: {report['status']} ({len(report['robots'])} robot poses)")
+    for scene in SCENES:
+        records = [item for item in report["robots"] if item["scene"] == scene]
+        print(f"  {scene}: {sum(item['pass'] for item in records)}/{len(records)} PASS; "
+              f"reference={REFERENCE_ROBOTS[scene]}")
 
 
 def run(
@@ -682,21 +696,28 @@ def run(
     report_dir: Path,
     parameters: GenerationParameters,
     check: bool = False,
+    reference_path: Path = DEFAULT_REFERENCE_POSES,
 ) -> dict[str, object]:
+    parameters.validate()
+    reference_poses = load_reference_poses(reference_path, parameters.group_count)
     p1s = load_route_p1s(routes_path)
     maps = load_maps(maps_root)
-    poses, generation = generate_poses(maps, p1s, parameters)
+    poses, generation = generate_poses(maps, p1s, parameters, reference_poses)
     document = pose_groups_document(poses, parameters.group_count)
     if check:
         try:
             existing = yaml.safe_load(Path(output_path).read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError) as error:
             raise ValueError(f"failed to read frozen poses {output_path}: {error}") from error
+        poses = poses_from_document(existing, parameters.group_count)
         if existing != document:
             raise ValueError(f"{output_path} does not match deterministic generation")
-        poses = poses_from_document(existing, parameters.group_count)
-    validation = validate_generated_poses(poses, maps, p1s, parameters)
-    report = build_report(parameters, generation, validation)
+    validation = validate_generated_poses(poses, maps, p1s, parameters, reference_poses)
+    report = build_report(parameters, generation, validation, reference_path)
+    if report["status"] != "PASS":
+        failed = [f"{item['scene']}/{item['group']}/{item['robot']}"
+                  for item in validation if not item["pass"]]
+        raise ValueError(f"pose validation failed: {', '.join(failed)}")
     if not check:
         anchors = compute_anchors(p1s)
         images = {
@@ -714,16 +735,14 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--maps-root", type=Path, default=DEFAULT_MAPS_ROOT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
+    parser.add_argument("--reference-poses", type=Path, default=DEFAULT_REFERENCE_POSES)
     parser.add_argument("--seed", type=int, default=20260901)
-    parser.add_argument("--radius-min", type=float, default=6.0)
-    parser.add_argument("--radius-max", type=float, default=10.0)
-    parser.add_argument("--spawn-z", type=float, default=0.4)
+    parser.add_argument("--neighbor-radius-min", type=float, default=3.0)
+    parser.add_argument("--neighbor-radius-max", type=float, default=8.0)
+    parser.add_argument("--spawn-z", type=float, default=None,
+                        help="New robot height; default: inherit the group's reference height")
     parser.add_argument("--spawn-clearance", type=float, default=0.8)
-    parser.add_argument("--max-target-distance", type=float, default=25.0)
-    parser.add_argument("--camera-hfov-deg", type=float, default=60.0)
-    parser.add_argument("--min-pose-separation", type=float, default=2.0)
-    parser.add_argument("--go2-2-camera-hfov-deg", type=float, default=90.0)
-    parser.add_argument("--go2-2-min-pose-separation", type=float, default=0.5)
+    parser.add_argument("--min-robot-separation", type=float, default=2.0)
     parser.add_argument("--max-attempts-per-robot", type=int, default=1_000_000)
     parser.add_argument("--check", action="store_true")
     return parser.parse_args(argv)
@@ -733,20 +752,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     parameters = GenerationParameters(
         seed=args.seed,
-        group_count=11,
-        radius_min=args.radius_min,
-        radius_max=args.radius_max,
+        neighbor_radius_min=args.neighbor_radius_min,
+        neighbor_radius_max=args.neighbor_radius_max,
         spawn_z=args.spawn_z,
         spawn_clearance=args.spawn_clearance,
-        max_target_distance=args.max_target_distance,
-        camera_hfov_deg=args.camera_hfov_deg,
-        min_pose_separation=args.min_pose_separation,
-        go2_2_camera_hfov_deg=args.go2_2_camera_hfov_deg,
-        go2_2_min_pose_separation=args.go2_2_min_pose_separation,
+        min_robot_separation=args.min_robot_separation,
         max_attempts_per_robot=args.max_attempts_per_robot,
     )
     try:
-        run(args.routes, args.maps_root, args.output, args.report_dir, parameters, args.check)
+        run(args.routes, args.maps_root, args.output, args.report_dir, parameters,
+            args.check, args.reference_poses)
     except (ValueError, RuntimeError) as error:
         print(f"ERROR: {error}")
         return 1

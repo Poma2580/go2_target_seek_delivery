@@ -54,6 +54,18 @@ def generate_launch_description():
                 }
             ],
         ),
+        Node(
+            package="tf2_ros",
+            executable="static_transform_publisher",
+            name="merged_map_to_world",
+            output="screen",
+            arguments=[
+                "--x", "0", "--y", "0", "--z", "0",
+                "--yaw", "0", "--pitch", "0", "--roll", "0",
+                "--frame-id", "merged_map",
+                "--child-frame-id", "world",
+            ],
+        ),
     ]
 
     for robot_name in ROBOT_NAMES:

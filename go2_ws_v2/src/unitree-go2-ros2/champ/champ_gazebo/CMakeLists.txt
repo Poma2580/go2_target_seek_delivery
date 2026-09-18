@@ -10,6 +10,7 @@ find_package(champ REQUIRED)
 find_package(champ_msgs REQUIRED)
 find_package(gazebo_ros2_control REQUIRED)
 find_package(gazebo_ros REQUIRED)
+find_package(std_msgs REQUIRED)
 
 set(dependencies
   rclcpp
@@ -18,6 +19,7 @@ set(dependencies
   champ_msgs
   gazebo_ros2_control
   gazebo_ros
+  std_msgs
 )
 
 install(PROGRAMS
@@ -39,8 +41,13 @@ add_executable(contact_sensor src/contact_sensor.cpp)
 target_link_libraries(contact_sensor ${GAZEBO_LIBRARIES})
 ament_target_dependencies(contact_sensor ${dependencies})
 
+add_executable(body_contact_monitor src/body_contact_monitor.cpp)
+target_link_libraries(body_contact_monitor ${GAZEBO_LIBRARIES})
+ament_target_dependencies(body_contact_monitor ${dependencies})
+
 install(TARGETS 
   contact_sensor
+  body_contact_monitor
     DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
