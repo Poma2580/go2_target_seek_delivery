@@ -1,4 +1,6 @@
 import copy
+import hashlib
+import json
 import math
 from pathlib import Path
 import random
@@ -149,7 +151,7 @@ def test_los_and_fov_include_boundaries_and_wrap_angles():
     assert not line_of_sight(grid, (0.0, 0.0), target)
 
 
-def references(group_count=11):
+def references(group_count=15):
     return {
         scene: {f"group_{index:02d}": {"x": 0.0, "y": 0.0, "z": 0.6, "yaw": 0.13}
                 for index in range(1, group_count + 1)}
@@ -176,7 +178,7 @@ def test_scene_generation_preserves_references_constraints_and_serialization():
     assert first == second and first != different
     assert frozen == original
     for scene in SCENES:
-        assert len(first[scene]) == 11
+        assert len(first[scene]) == 15
         for name, group in first[scene].items():
             assert set(group["robots"]) == set(ROBOTS)
             reference = frozen[scene][name]
@@ -190,7 +192,7 @@ def test_scene_generation_preserves_references_constraints_and_serialization():
                 assert check_map_position(maps[scene], (pose["x"], pose["y"]), .8)["pass"]
             assert math.dist((navigation[0]["x"], navigation[0]["y"]),
                              (navigation[1]["x"], navigation[1]["y"])) >= 2
-    document = pose_groups_document(first, 11)
+    document = pose_groups_document(first, 15)
     rendered = dump_pose_groups_yaml(document)
     assert "z: 0.60" in rendered
     assert document["schema_version"] == 2
@@ -199,7 +201,7 @@ def test_scene_generation_preserves_references_constraints_and_serialization():
     restored = poses_from_document(document)
     assert restored == first
     details = validate_generated_poses(restored, maps, p1s(), parameters, frozen)
-    assert len(details) == 99
+    assert len(details) == 135
     assert all(item["pass"] for item in details)
 
 
@@ -373,7 +375,7 @@ def test_reference_loader_rejects_invalid_baselines(tmp_path, mutation):
     elif mutation == "role":
         entry["reference_robot"] = "go2_2"
     elif mutation == "missing":
-        del entry["poses"]["group_11"]
+        del entry["poses"]["group_15"]
     else:
         entry["poses"]["group_01"]["x" if mutation == "nan" else "z"] = float("nan") if mutation == "nan" else 0
     path.write_text(yaml.safe_dump(document, sort_keys=False))
@@ -388,8 +390,26 @@ def test_committed_scene_poses_match_frozen_baseline_and_real_maps():
     generated, _ = generate_poses(maps, targets, GenerationParameters(), frozen)
     assert poses == generated
     details = validate_generated_poses(poses, maps, targets, GenerationParameters(), frozen)
-    assert len(details) == 99 and all(item["pass"] for item in details)
-    assert sum(item["reference_match"] is True for item in details) == 33
+    assert len(details) == 135 and all(item["pass"] for item in details)
+    assert sum(item["reference_match"] is True for item in details) == 45
+    for scene in SCENES:
+        for new, source in zip(range(12, 16), range(1, 5)):
+            assert frozen[scene][f"group_{new:02d}"] == frozen[scene][f"group_{source:02d}"]
+
+
+def test_committed_legacy_pose_groups_remain_unchanged():
+    document = yaml.safe_load(ROBOT_POSE_GROUPS.read_text())
+    legacy = {
+        scene: {
+            f"group_{index:02d}": document["scenes"][scene]["pose_groups"][f"group_{index:02d}"]
+            for index in range(1, 12)
+        }
+        for scene in SCENES
+    }
+    serialized = json.dumps(legacy, sort_keys=True, separators=(",", ":")).encode()
+    assert hashlib.sha256(serialized).hexdigest() == (
+        "ab304ed941418fec0eaafeb1beb25ff5ead4893b18986608531ac5490a7dba10"
+    )
 
 
 def test_default_and_overridden_paths(tmp_path):

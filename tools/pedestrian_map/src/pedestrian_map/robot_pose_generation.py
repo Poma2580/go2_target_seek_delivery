@@ -32,6 +32,7 @@ DEFAULT_MAPS_ROOT = MAPS_ROOT
 DEFAULT_OUTPUT = ROBOT_POSE_GROUPS
 DEFAULT_REPORT_DIR = ROBOT_POSE_REPORT_ROOT
 OUTPUT_DECIMALS = 2
+DEFAULT_GROUP_COUNT = 15
 
 
 class TwoDecimalSafeDumper(yaml.SafeDumper):
@@ -96,7 +97,7 @@ class OccupancyMap:
 @dataclass(frozen=True)
 class GenerationParameters:
     seed: int = 20260901
-    group_count: int = 11
+    group_count: int = DEFAULT_GROUP_COUNT
     neighbor_radius_min: float = 3.0
     neighbor_radius_max: float = 8.0
     spawn_z: Optional[float] = None
@@ -140,7 +141,7 @@ def _parse_pose(raw: object, label: str) -> dict[str, float]:
     return pose
 
 
-def load_reference_poses(path: Path, group_count: int = 11) -> dict:
+def load_reference_poses(path: Path, group_count: int = DEFAULT_GROUP_COUNT) -> dict:
     """Load the frozen pre-migration perception poses, never the generated output."""
     try:
         document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
@@ -500,7 +501,7 @@ def dump_pose_groups_yaml(document: Mapping[str, object]) -> str:
     )
 
 
-def poses_from_document(document: Mapping, group_count: int = 11) -> dict:
+def poses_from_document(document: Mapping, group_count: int = DEFAULT_GROUP_COUNT) -> dict:
     if not isinstance(document, dict) or type(document.get("schema_version")) is not int or document["schema_version"] != 2:
         raise ValueError("pose groups schema_version must be 2")
     if document.get("coordinate_mode") != "scene_absolute":
@@ -562,7 +563,7 @@ def render_scene(
     p1s: Mapping[str, tuple[float, float]],
     anchor: tuple[float, float],
 ) -> bytes:
-    """Render an overview and a readable local view of this scene's 33 robots."""
+    """Render an overview and a readable local view of one scene's pose groups."""
     groups = poses[scene]
     colors = {"go2_1": (40, 70, 230), "go2_2": (50, 160, 60), "go2_3": (220, 90, 40)}
     pixels = [_world_to_pixel(map_data, (pose["x"], pose["y"]))
@@ -625,7 +626,8 @@ def render_scene(
     image = np.full((950, 1480, 3), 255, dtype=np.uint8)
     image[90:, :480] = overview
     image[90:, 480:] = local
-    cv2.putText(image, f"{scene}: 11 groups / 33 robots; reference={REFERENCE_ROBOTS[scene]} (ring)",
+    cv2.putText(image, f"{scene}: {len(groups)} groups / {len(groups) * len(ROBOTS)} robots; "
+                f"reference={REFERENCE_ROBOTS[scene]} (ring)",
                 (15, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (20, 20, 20), 2, cv2.LINE_AA)
     cv2.putText(image, "Overview (orange = detail area)       Local view: group numbers, yaw arrows, group links; star = P1 mean anchor",
                 (15, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (30, 30, 30), 1, cv2.LINE_AA)

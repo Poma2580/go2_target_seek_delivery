@@ -64,10 +64,11 @@ PASS，`1` 表示路线有效但碰撞或安全距离检查失败，`2` 表示�
 
 ## 生成机器人初始位姿
 
-每个场景独立维护 11 组三狗位姿，正式 YAML 使用 `schema_version: 2` 和
+每个场景独立维护 15 组三狗位姿，正式 YAML 使用 `schema_version: 2` 和
 `coordinate_mode: scene_absolute`，数据路径为 `scenes.<scene>.pose_groups.<group>`。
-city 固定 go2_1，forest 固定 go2_2，airport 固定 go2_3。迁移前的 33 个感知狗
-完整位姿保存在 `artifacts/robot_pose_generation/reference_robot_poses.yaml`，
+city 固定 go2_1，forest 固定 go2_2，airport 固定 go2_3。45 个感知狗位姿
+保存在 `artifacts/robot_pose_generation/reference_robot_poses.yaml`；新增的
+group_12～group_15 分别复用 group_01～group_04 的固定感知狗位姿。
 生成时只读取该基准，不从输出 YAML 提取基准，也不重新计算固定狗的 yaw。
 
 ```bash
@@ -106,7 +107,7 @@ which python3  # 必须输出 /usr/bin/python3
 ```
 
 采样或验证失败时不放宽约束、不替换正式输出。成功后输出 YAML、三张场景图和
-`validation_report.json`。报告包括 99 条机器人记录、固定基准文件校验和、采样统计、
+`validation_report.json`。报告包括 135 条机器人记录、固定基准文件校验和、采样统计、
 距离与 clearance（米）、朝向误差（弧度）及各项检查结果。固定狗记录的半径和
 导航狗间距检查标记为不适用。每张图仅显示本场景位姿，包含全图概览及局部放大，
 标出机器人颜色、组号、朝向、组内连线、P1 和 anchor。

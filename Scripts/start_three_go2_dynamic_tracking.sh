@@ -552,13 +552,13 @@ ros2 run go2_dynamic_encircle dynamic_encircle --ros-args \
 "
 # 不启动，要求已经运行
 # 终端 13-15：分别打开三只狗的压缩相机。
-# for robot_index in 1 2 3; do
-#     robot_name="go2_${robot_index}"
-#     launch_terminal "rqt_image_view_${robot_name}" "
-# echo '==== Starting ${robot_name} rqt_image_view ===='
-# ros2 run rqt_image_view rqt_image_view /${robot_name}/camera/image_raw/compressed
-# "
-# done
+# 分别打开三只狗的带检测框图像。
+for robot_index in 1 2 3; do
+    robot_name="go2_${robot_index}"
+    launch_terminal "rqt_debug_${robot_name}" "
+ros2 run rqt_image_view rqt_image_view /${robot_name}/target_perception/debug_image
+"
+done
 
 # # 启动当前感知狗的误差评估。
 # launch_terminal "perception_eval" "

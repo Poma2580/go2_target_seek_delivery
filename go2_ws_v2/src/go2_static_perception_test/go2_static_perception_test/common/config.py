@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 
-TARGET_KEYS = ("airplane", "person", "pickup_truck", "ground_robot", "dumpster")
+TARGET_KEYS = ("construction_barrel", "person", "fire_hydrant", "ground_robot", "dumpster")
 POSE_KEYS = tuple(f"pose_{index:02d}" for index in range(1, 21))
 
 

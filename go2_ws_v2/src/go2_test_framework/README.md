@@ -8,7 +8,7 @@
 | `tracking`      | T2   | 感知狗连续跟踪                 | 70%                                     |
 | `path_planning` | T3   | 两只导航狗同时到达且无静态碰撞 | 90%                                     |
 
-正式套件都按 `city → forest → airport`、`straight → rectangle → v_shape`、`group_01 → group_11` 展开，均为 99 Cases。T1 的目录、Case ID、
+正式套件都按 `city → forest → airport`、`straight → rectangle → v_shape`、`group_01 → group_15` 展开，均为 135 Cases。T1 的目录、Case ID、
 顺序和既有 CSV 保持兼容；T2/T3 使用独立结果目录。
 
 ## 目录与文件职责
@@ -27,15 +27,15 @@ go2_test_framework/
 ├── config/
 │   ├── suites/
 │   │   ├── T1_smoke_city.yaml             # T1 city/rectangle 单 Case 联调
-│   │   ├── T1_target_test.yaml            # T1 正式 99 Cases
+│   │   ├── T1_target_test.yaml            # T1 正式 135 Cases
 │   │   ├── T2_smoke_city.yaml             # 新增：T2 单 Case 联调
-│   │   ├── T2_tracking_test.yaml          # 新增：T2 正式 99 Cases
+│   │   ├── T2_tracking_test.yaml          # 新增：T2 正式 135 Cases
 │   │   ├── T3_smoke_city.yaml             # 新增：T3 路径规划单 Case 联调
 │   │   ├── T3_collision_smoke_city.yaml   # 新增：T3 碰撞注入验收
-│   │   └── T3_path_planning_test.yaml     # 新增：T3 正式 99 Cases
+│   │   └── T3_path_planning_test.yaml     # 新增：T3 正式 135 Cases
 │   ├── parameters/
 │   │   ├── target_routes.yaml             # 三个场景、三种路线及 World 来源
-│   │   └── robot_pose_groups.yaml         # group_01～group_11 三狗绝对位姿
+│   │   └── robot_pose_groups.yaml         # group_01～group_15 三狗绝对位姿
 │   └── metrics/
 │       ├── recognition.yaml               # T1 识别通过阈值
 │       ├── localization.yaml              # T1 定位误差通过阈值
@@ -260,7 +260,7 @@ ros2 run go2_test_framework target_test_runner \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 ```
 
-把上述选择项换成 `--all` 可运行全部 99 Cases；正式运行前建议先加
+把上述选择项换成 `--all` 可运行全部 135 Cases；正式运行前建议先加
 `--dry-run --results-root /tmp/t2_dry_run`。
 
 ## T3：路径规划与静态碰撞
@@ -309,7 +309,7 @@ ros2 run go2_test_framework target_test_runner \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 ```
 
-正式 99 Case 解析检查使用 `--all --dry-run`；只有确实要执行完整仿真时才
+正式 135 Case 解析检查使用 `--all --dry-run`；只有确实要执行完整仿真时才
 去掉 `--dry-run`。
 
 ## 结果与 Batch 判定
