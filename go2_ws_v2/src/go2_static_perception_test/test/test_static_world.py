@@ -62,7 +62,7 @@ def test_invalid_target_config(tmp_path, fault):
     elif fault == 'prompt':
         targets['ground_robot']['prompt'] = 'robot'
     elif fault == 'duplicate':
-        targets['person']['model_name'] = targets['airplane']['model_name']
+        targets['person']['model_name'] = targets['construction_barrel']['model_name']
     elif fault == 'nan':
         targets['person']['pose']['z'] = float('nan')
     elif fault == 'pose_missing':

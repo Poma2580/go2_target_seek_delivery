@@ -19,6 +19,7 @@ setup(
         'static_yoloe_perception = go2_static_perception_test.static_yoloe_perception:main',
         'validate_static_world = go2_static_perception_test.validate_world:main',
         'static_test_runner = go2_static_perception_test.runner.main:main',
+        'static_summary_preview = go2_static_perception_test.reporting.results:main',
         'static_perception_recorder = go2_static_perception_test.recorders.static_perception_recorder:main',
         'check_static_go2_attitude = go2_static_perception_test.runner.attitude:main',
     ]},

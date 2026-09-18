@@ -13,7 +13,7 @@ from rclpy.parameter import Parameter
 import yaml
 
 
-PROMPTS = {'airplane': 'airplane', 'person': 'person', 'pickup_truck': 'pickup truck',
+PROMPTS = {'construction_barrel': 'construction barrel', 'person': 'person', 'fire_hydrant': 'fire hydrant',
            'ground_robot': 'ground robot', 'dumpster': 'dumpster'}
 POSE_FIELDS = ('x', 'y', 'z', 'roll', 'pitch', 'yaw')
 
