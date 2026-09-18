@@ -169,9 +169,9 @@ class TargetPerception(Node):
         from ultralytics import YOLO   # 延迟导入，避免无依赖时整包失败
         self.get_logger().info(f'加载 YOLO 模型: {model_path} (device={self.device}) ...')
         self.model = YOLO(model_path)
-        # COCO 数据集中 person 的类别 id 是 0，所以 classes=[0] 表示只让 YOLO 返回人。
-        # 这样后面不需要处理车、椅子等其它类别，也能减少误检传播到导航侧。
-        self._yolo_kwargs = dict(classes=[0], conf=self.conf, imgsz=self.imgsz,
+        # person 用于追踪，其余 COCO 类别仅用于 debug 展示。
+        self._yolo_kwargs = dict(classes=[0, 2, 4, 5, 7, 10, 11, 13],
+                                 conf=self.conf, imgsz=self.imgsz,
                                  verbose=False)
         try:
             self._yolo_kwargs['device'] = self.device
@@ -358,7 +358,7 @@ class TargetPerception(Node):
         if best is None:
             self._warn('未检测到 person。')
             if self.dbg_pub is not None:
-                self._publish_debug(rgb, None, rgb_msg.header)
+                self._publish_debug(rgb, None, rgb_msg.header, results=results)
             return False, None, None, False
 
         x1, y1, x2, y2, conf = best
@@ -371,7 +371,8 @@ class TargetPerception(Node):
         if Z is None:
             self._warn(f'bbox 深度无效 (u={u}, v={v})。')
             if self.dbg_pub is not None:
-                self._publish_debug(rgb, (x1, y1, x2, y2, conf, None), rgb_msg.header)
+                self._publish_debug(rgb, (x1, y1, x2, y2, conf, None),
+                                    rgb_msg.header, results=results)
             return True, conf, bbox, False
 
         # ---- 反投影到 camera_depth_optical_frame ----
@@ -406,6 +407,9 @@ class TargetPerception(Node):
                 pt_world = tf2_geometry_msgs.do_transform_point(pt, tf)
             except Exception as e:  # noqa: BLE001
                 self._warn(f'TF {pt.header.frame_id} -> {self.target_frame} 失败：{e}')
+                if self.dbg_pub is not None:
+                    self._publish_debug(rgb, (x1, y1, x2, y2, conf, Z),
+                                        rgb_msg.header, results=results)
                 return True, conf, bbox, False
 
         gx = pt_world.point.x
@@ -423,7 +427,7 @@ class TargetPerception(Node):
 
         if self.dbg_pub is not None:
             self._publish_debug(rgb, (x1, y1, x2, y2, conf, Z), rgb_msg.header,
-                                gx=gx, gy=gy, depth_source=depth_source)
+                                gx=gx, gy=gy, depth_source=depth_source, results=results)
         return True, conf, bbox, True
 
     def _publish_result_status(self, stamp, sample_id, recognition_success=False,
@@ -447,8 +451,8 @@ class TargetPerception(Node):
     def _pick_person(self, results):
         """从 YOLO 结果里挑面积最大的一个 person bbox。
 
-        YOLOv8 的每个 box 都带类别、置信度和 xyxy 坐标。虽然推理时已经设置
-        classes=[0]，这里仍检查 cls==0，相当于再做一层保险。
+        YOLOv8 的每个 box 都带类别、置信度和 xyxy 坐标。
+        只接受 cls==0，其他类别仅供 debug 展示，不参与目标选择。
 
         当前策略是“面积最大的人 = 目标人”。这适合场景里通常只有一个主要行人，
         或者最近的人在图像上最大；如果未来要多目标跟踪，可以在这里改成按 ID、
@@ -562,36 +566,48 @@ class TargetPerception(Node):
         self.pose_pub.publish(pose)
         self.odom_pub.publish(odom)
 
-    def _publish_debug(self, rgb, det, header, gx=None, gy=None, depth_source=None):
+    def _publish_debug(self, rgb, det, header, gx=None, gy=None, depth_source=None,
+                       results=None):
         """发布带检测框的调试图。
 
         det 为 None 时表示这一帧没有检测到人；否则 det 里包含 bbox、置信度和
         可选深度 Z。调试图只用于人工观察，不参与控制闭环。
         """
-        import cv2
-        img = rgb.copy()
-        if det is not None:
-            x1, y1, x2, y2, conf, Z = det
-            cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)),
-                          (0, 255, 0), 2)
-            label = f'person {conf:.2f}'
-            if Z is not None:
-                label += f' Z={Z:.2f}m'
-            if depth_source is not None:
-                label += f' {depth_source}'
-            if gx is not None:
-                label += f' ({gx:.1f},{gy:.1f})'
-            cv2.putText(img, label, (int(x1), max(0, int(y1) - 6)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        else:
-            cv2.putText(img, 'no person', (10, 24),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
         try:
+            import cv2
+            img = rgb.copy()
+            for result in results if results is not None else ():
+                if result.boxes is None:
+                    continue
+                for box in result.boxes:
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    label = f'{result.names[int(box.cls[0])]} {float(box.conf[0]):.2f}'
+                    cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)),
+                                  (255, 255, 0), 2)
+                    cv2.putText(img, label, (int(x1), max(0, int(y1) - 6)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+            # 最后叠加原有目标行人的绿色框与定位信息。
+            if det is not None:
+                x1, y1, x2, y2, conf, Z = det
+                cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)),
+                              (0, 255, 0), 2)
+                label = f'person {conf:.2f}'
+                if Z is not None:
+                    label += f' Z={Z:.2f}m'
+                if depth_source is not None:
+                    label += f' {depth_source}'
+                if gx is not None:
+                    label += f' ({gx:.1f},{gy:.1f})'
+                cv2.putText(img, label, (int(x1), max(0, int(y1) - 6)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            else:
+                cv2.putText(img, 'no person', (10, 24),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             out = self.bridge.cv2_to_imgmsg(img, encoding='bgr8')
             out.header = header
             self.dbg_pub.publish(out)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as error:  # noqa: BLE001
+            self._warn(f'debug 图绘制或发布失败：{error}')
 
 
 def main(args=None):
