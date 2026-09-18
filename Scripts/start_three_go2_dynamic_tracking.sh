@@ -15,7 +15,8 @@ usage() {
 可选环境变量：
   MERGED_MAP_TIMEOUT=120       等待 /merged_map 首条消息的秒数
   ACTOR_SERVICE_TIMEOUT=30     等待 /walking_target/start 的秒数
-  MAX_GO2_RESTARTS=3           机器狗翻倒时的最大自动重启次数
+  NAV2_LIFECYCLE_TIMEOUT=20    等待每只 Go2 Nav2 lifecycle 激活的秒数
+  MAX_GO2_RESTARTS=3           翻倒或 Nav2 超时时的最大自动重启次数
 EOF
 }
 
@@ -28,6 +29,7 @@ KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
 YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
 MERGED_MAP_TIMEOUT=${MERGED_MAP_TIMEOUT:-120}
 ACTOR_SERVICE_TIMEOUT=${ACTOR_SERVICE_TIMEOUT:-30}
+NAV2_LIFECYCLE_TIMEOUT=${NAV2_LIFECYCLE_TIMEOUT:-20}
 GO2_RESTART_COUNT=${GO2_RESTART_COUNT:-0}
 MAX_GO2_RESTARTS=${MAX_GO2_RESTARTS:-3}
 SCENE=city
@@ -98,6 +100,11 @@ fi
 
 if ! [[ "$ACTOR_SERVICE_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: ACTOR_SERVICE_TIMEOUT must be a positive integer number of seconds."
+    exit 2
+fi
+
+if ! [[ "$NAV2_LIFECYCLE_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: NAV2_LIFECYCLE_TIMEOUT must be a positive integer number of seconds."
     exit 2
 fi
 
@@ -208,6 +215,28 @@ cleanup_current_run() {
     echo "本轮进程清理完成。"
 }
 
+trigger_auto_restart() {
+    local reason=$1
+    local failure_status=$2
+    shift 2
+
+    echo "ERROR: ${reason}" >&2
+    cleanup_current_run
+    if [ "$GO2_RESTART_COUNT" -ge "$MAX_GO2_RESTARTS" ]; then
+        echo "ERROR: 已达到最大自动重启次数 $MAX_GO2_RESTARTS，停止启动。" >&2
+        exit "$failure_status"
+    fi
+
+    local next_restart_count=$((GO2_RESTART_COUNT + 1))
+    echo "1 秒后进行第 ${next_restart_count}/${MAX_GO2_RESTARTS} 次自动重启..."
+    sleep 1
+    exec env \
+        GO2_RESTART_COUNT="$next_restart_count" \
+        MAX_GO2_RESTARTS="$MAX_GO2_RESTARTS" \
+        NAV2_LIFECYCLE_TIMEOUT="$NAV2_LIFECYCLE_TIMEOUT" \
+        "$SCRIPT_PATH" "$@"
+}
+
 launch_terminal() {
     local title=$1
     local command=$2
@@ -300,10 +329,23 @@ wait_for_log_message() {
     local log_path=$1
     local message=$2
     local description=$3
-    echo "等待 ${description}..."
+    local timeout_seconds=$4
+    local deadline=$((SECONDS + timeout_seconds))
+    local sleep_seconds
+
+    echo "等待 ${description}（${timeout_seconds}s 超时）..."
     until [ -f "$log_path" ] && grep -Fq "$message" "$log_path"; do
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "ERROR: 等待 ${description} 超时，未在日志中找到 '${message}'。" >&2
+            echo "ERROR: 请检查日志：${log_path}" >&2
+            return 1
+        fi
         echo "waiting for ${description} ..."
-        sleep 2
+        sleep_seconds=$((deadline - SECONDS))
+        if [ "$sleep_seconds" -gt 2 ]; then
+            sleep_seconds=2
+        fi
+        sleep "$sleep_seconds"
     done
     echo "${description} is ready."
 }
@@ -413,19 +455,10 @@ case "$attitude_check_status" in
         echo "三只 Go2 姿态检查通过，继续启动终端 5。"
         ;;
     10)
-        echo "检测到机器狗在 5 帧观察窗口内 abs(roll) > 90 度。" >&2
-        cleanup_current_run
-        if [ "$GO2_RESTART_COUNT" -ge "$MAX_GO2_RESTARTS" ]; then
-            echo "ERROR: 已达到最大自动重启次数 $MAX_GO2_RESTARTS，停止启动。" >&2
-            exit 10
-        fi
-        next_restart_count=$((GO2_RESTART_COUNT + 1))
-        echo "1 秒后进行第 ${next_restart_count}/${MAX_GO2_RESTARTS} 次自动重启..."
-        sleep 1
-        exec env \
-            GO2_RESTART_COUNT="$next_restart_count" \
-            MAX_GO2_RESTARTS="$MAX_GO2_RESTARTS" \
-            "$SCRIPT_PATH" "$@"
+        trigger_auto_restart \
+            "检测到机器狗在 5 帧观察窗口内 abs(roll) > 90 度。" \
+            10 \
+            "$@"
         ;;
     *)
         echo "ERROR: 姿态检查失败（退出码 $attitude_check_status），不自动重启。" >&2
@@ -465,6 +498,17 @@ echo '==== Starting ${robot_name} mapping and navigation ===='
 ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true inflation_radius:=${NAV2_INFLATION_RADIUS} ${nav_cmd_vel_arg} >${mapping_log} 2>&1
 "
 
+    if ! wait_for_log_message \
+        "$mapping_log" \
+        "Managed nodes are active" \
+        "${robot_name} Nav2 lifecycle" \
+        "$NAV2_LIFECYCLE_TIMEOUT"; then
+        trigger_auto_restart \
+            "${robot_name} Nav2 lifecycle 未在 ${NAV2_LIFECYCLE_TIMEOUT}s 内激活。" \
+            124 \
+            "$@"
+    fi
+
     if [ "$merged_map_ready" = false ]; then
         if ! wait_for_topic_message "/merged_map" "$MERGED_MAP_TIMEOUT"; then
             echo "融合地图启动失败，停止后续 mapping-nav 和感知评估启动。" >&2
@@ -472,11 +516,6 @@ ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=tr
         fi
         merged_map_ready=true
     fi
-
-    wait_for_log_message \
-        "$mapping_log" \
-        "Managed nodes are active" \
-        "${robot_name} Nav2 lifecycle"
     wait_for_ros_action "/${robot_name}/navigate_to_pose"
 
     if [ "$robot_index" -lt 3 ]; then

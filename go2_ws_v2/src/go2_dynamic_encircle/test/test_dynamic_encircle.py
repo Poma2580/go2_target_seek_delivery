@@ -61,3 +61,23 @@ def test_startup_routes_all_nav2_commands_through_mux():
     assert "gazebo_leader_slot_controller" in script
     assert 'nav_cmd_vel_arg="cmd_vel_topic:=/${robot_name}/nav_cmd_vel"' in script
     assert 'if [ "$robot_index" -ge 2 ]' not in script
+
+
+def test_startup_restarts_when_nav2_lifecycle_times_out():
+    script = (DELIVERY_ROOT / "Scripts/start_three_go2_dynamic_tracking.sh").read_text()
+    assert "NAV2_LIFECYCLE_TIMEOUT=${NAV2_LIFECYCLE_TIMEOUT:-20}" in script
+    assert (
+        '[[ "$NAV2_LIFECYCLE_TIMEOUT" =~ ^[1-9][0-9]*$ ]]' in script
+    )
+    assert 'local description=$3\n    local timeout_seconds=$4' in script
+    assert "for robot_index in 1 2 3; do" in script
+    assert '"${robot_name} Nav2 lifecycle" \\\n        "$NAV2_LIFECYCLE_TIMEOUT"' in script
+    assert "trigger_auto_restart()" in script
+    assert script.count("trigger_auto_restart \\") == 2
+    assert 'GO2_RESTART_COUNT="$next_restart_count"' in script
+    assert 'MAX_GO2_RESTARTS="$MAX_GO2_RESTARTS"' in script
+
+    mapping_launch = script.index('launch_terminal "mapping_nav_${robot_name}"')
+    lifecycle_wait = script.index("if ! wait_for_log_message", mapping_launch)
+    merged_map_wait = script.index('if [ "$merged_map_ready" = false ]', mapping_launch)
+    assert mapping_launch < lifecycle_wait < merged_map_wait

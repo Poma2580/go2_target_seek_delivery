@@ -1,3 +1,0 @@
-episode,global_step,length,return,success,collision,pair_collision,epsilon,box_length,box_width,blocked_lane,actor_loss,critic_loss
-1,130,130,-64.933248,0,0,0,0.099697,0.8438,0.9703,go2_3,nan,nan
-2,260,130,-75.369435,0,0,0,0.099393,1.1423,0.8041,go2_3,-23.649055,44.772911
