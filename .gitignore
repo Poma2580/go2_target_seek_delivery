@@ -72,3 +72,4 @@ go2_ws_v2.zip
 Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
 Scripts/start_three_go2_gazebo_finetune.sh
 Docs/GitHub常用操作命令.txt
+waypoint_maddpg_v0/runs
