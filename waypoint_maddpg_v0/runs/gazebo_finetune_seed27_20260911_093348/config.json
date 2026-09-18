@@ -1,0 +1,50 @@
+{
+  "initialized_from": "/home/zhj/wat/go2_target_seek_delivery-main/waypoint_maddpg_v0/runs/three_seed_obstacle_curriculum_20260909_091240/seed_27/stage2_two_obstacles/best_model.pt",
+  "seed": 2709,
+  "actor_lr": 1e-05,
+  "critic_lr": 5e-05,
+  "follower_max_speed": 0.2,
+  "leader_forward_speed": 0.1,
+  "leader_heading_kp": 1.5,
+  "leader_max_yaw_rate": 0.6,
+  "reset_robots_each_episode": true,
+  "tensorboard": true,
+  "reset_poses": {
+    "go2_1": [
+      -15.0,
+      4.0,
+      0.3,
+      0.0
+    ],
+    "go2_2": [
+      -13.0,
+      6.0,
+      0.3,
+      0.0
+    ],
+    "go2_3": [
+      -13.0,
+      2.0,
+      0.3,
+      0.0
+    ]
+  },
+  "reward_source": "seed27 checkpoint environment metadata",
+  "obstacle": {
+    "shape": "box",
+    "length_range": [
+      0.8,
+      1.2
+    ],
+    "width_range": [
+      0.8,
+      1.2
+    ],
+    "height": 1.0,
+    "spawn_distance_range": [
+      6.0,
+      9.0
+    ],
+    "lane_jitter": 0.4
+  }
+}

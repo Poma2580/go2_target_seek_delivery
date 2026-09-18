@@ -27,5 +27,6 @@
 numpy==1.26.4
 opencv-python==4.10.0.84
 ultralytics==8.4.82
+tensorboard>=2.14,<3
 # YOLOE text tokenizer; use the Ultralytics fork rather than the unrelated PyPI clip package.
 clip @ git+https://github.com/ultralytics/CLIP.git@a13192f8cb767260d7dfd98c843b0716593169e7

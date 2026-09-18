@@ -7,7 +7,7 @@
   },
   "generation": {
     "seed": 20260901,
-    "group_count": 11,
+    "group_count": 15,
     "neighbor_radius_min": 3.0,
     "neighbor_radius_max": 8.0,
     "spawn_z": null,
@@ -17,7 +17,7 @@
   },
   "reference_source": {
     "filename": "reference_robot_poses.yaml",
-    "sha256": "6f82b1551d18ce037df3601ab105ad430f5c27a68b81c456d00b8ba71011c6cb"
+    "sha256": "302b1a691a9aa7df907ae1f6a97fdf9a7ea066c09edad05a810d7199b8e90ff4"
   },
   "reference_robots": {
     "city": "go2_1",
@@ -259,6 +259,86 @@
             "separation": 0
           }
         }
+      },
+      "group_12": {
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_13": {
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_14": {
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_15": {
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
       }
     },
     "forest": {
@@ -481,6 +561,86 @@
             "separation": 0
           }
         }
+      },
+      "group_12": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_13": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 2,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 1,
+            "separation": 0
+          }
+        }
+      },
+      "group_14": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_15": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_3": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
       }
     },
     "airport": {
@@ -685,6 +845,86 @@
         }
       },
       "group_11": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_12": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_13": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_14": {
+        "go2_1": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        },
+        "go2_2": {
+          "attempts": 1,
+          "accepted": 1,
+          "rejected": {
+            "annulus": 0,
+            "map": 0,
+            "separation": 0
+          }
+        }
+      },
+      "group_15": {
         "go2_1": {
           "attempts": 1,
           "accepted": 1,
@@ -1698,6 +1938,366 @@
       "pass": true
     },
     {
+      "scene": "city",
+      "group": "group_12",
+      "robot": "go2_1",
+      "reference_robot": "go2_1",
+      "is_reference": true,
+      "pose": {
+        "x": -25.58,
+        "y": 2.3,
+        "z": 0.6,
+        "yaw": 0.13
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 1.2634557485580444,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 1.2634557485580444
+      },
+      "robot_separation": {
+        "go2_2": 7.770694949616796,
+        "go2_3": 5.343117067779818
+      },
+      "navigation_robot_separation": 5.467741764202109,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_12",
+      "robot": "go2_2",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -17.84,
+        "y": 2.99,
+        "z": 0.6,
+        "yaw": 0.19
+      },
+      "distance_to_reference_robot": 7.770694949616796,
+      "clearance": 5.349621295928955,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 5.349621295928955
+      },
+      "robot_separation": {
+        "go2_1": 7.770694949616796,
+        "go2_3": 5.467741764202109
+      },
+      "navigation_robot_separation": 5.467741764202109,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0028067293535233013,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_12",
+      "robot": "go2_3",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -22.13,
+        "y": 6.38,
+        "z": 0.6,
+        "yaw": -0.25
+      },
+      "distance_to_reference_robot": 5.343117067779818,
+      "clearance": 3.8991761207580566,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 3.8991761207580566
+      },
+      "robot_separation": {
+        "go2_1": 5.343117067779818,
+        "go2_2": 5.467741764202109
+      },
+      "navigation_robot_separation": 5.467741764202109,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0036128871002395757,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_13",
+      "robot": "go2_1",
+      "reference_robot": "go2_1",
+      "is_reference": true,
+      "pose": {
+        "x": -19.53,
+        "y": 14.96,
+        "z": 0.6,
+        "yaw": -1.01
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 10.884653091430664,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 10.884653091430664
+      },
+      "robot_separation": {
+        "go2_2": 6.7786798124708625,
+        "go2_3": 5.226107538120508
+      },
+      "navigation_robot_separation": 2.027140843651471,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_13",
+      "robot": "go2_2",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -22.85,
+        "y": 20.87,
+        "z": 0.6,
+        "yaw": -1.03
+      },
+      "distance_to_reference_robot": 6.7786798124708625,
+      "clearance": 6.754243850708008,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 6.754243850708008
+      },
+      "robot_separation": {
+        "go2_1": 6.7786798124708625,
+        "go2_3": 2.027140843651471
+      },
+      "navigation_robot_separation": 2.027140843651471,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0022921546635932266,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_13",
+      "robot": "go2_3",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -23.02,
+        "y": 18.85,
+        "z": 0.6,
+        "yaw": -0.96
+      },
+      "distance_to_reference_robot": 5.226107538120508,
+      "clearance": 7.729289531707764,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 7.729289531707764
+      },
+      "robot_separation": {
+        "go2_1": 5.226107538120508,
+        "go2_2": 2.027140843651471
+      },
+      "navigation_robot_separation": 2.027140843651471,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.001955957226412619,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_14",
+      "robot": "go2_1",
+      "reference_robot": "go2_1",
+      "is_reference": true,
+      "pose": {
+        "x": -12.54,
+        "y": -6.44,
+        "z": 0.6,
+        "yaw": 1.58
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 2.883946657180786,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.883946657180786
+      },
+      "robot_separation": {
+        "go2_2": 6.2702472040582276,
+        "go2_3": 7.023937642092219
+      },
+      "navigation_robot_separation": 5.921562293854553,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_14",
+      "robot": "go2_2",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -18.12,
+        "y": -9.3,
+        "z": 0.6,
+        "yaw": 1.18
+      },
+      "distance_to_reference_robot": 6.2702472040582276,
+      "clearance": 5.077104568481445,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 5.077104568481445
+      },
+      "robot_separation": {
+        "go2_1": 6.2702472040582276,
+        "go2_3": 5.921562293854553
+      },
+      "navigation_robot_separation": 5.921562293854553,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.001677640011371162,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_14",
+      "robot": "go2_3",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -13.8,
+        "y": -13.35,
+        "z": 0.6,
+        "yaw": 1.51
+      },
+      "distance_to_reference_robot": 7.023937642092219,
+      "clearance": 7.629289627075195,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 7.629289627075195
+      },
+      "robot_separation": {
+        "go2_1": 7.023937642092219,
+        "go2_2": 5.921562293854553
+      },
+      "navigation_robot_separation": 5.921562293854553,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.004432808258806986,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_15",
+      "robot": "go2_1",
+      "reference_robot": "go2_1",
+      "is_reference": true,
+      "pose": {
+        "x": -4.57,
+        "y": -3.49,
+        "z": 0.6,
+        "yaw": 2.4
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 1.4425638914108276,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 1.4425638914108276
+      },
+      "robot_separation": {
+        "go2_2": 3.791793770763384,
+        "go2_3": 5.511306560154316
+      },
+      "navigation_robot_separation": 7.145236175242915,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_15",
+      "robot": "go2_2",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -0.81,
+        "y": -3.98,
+        "z": 0.6,
+        "yaw": 2.55
+      },
+      "distance_to_reference_robot": 3.791793770763384,
+      "clearance": 2.0387916564941406,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.0387916564941406
+      },
+      "robot_separation": {
+        "go2_1": 3.791793770763384,
+        "go2_3": 7.145236175242915
+      },
+      "navigation_robot_separation": 7.145236175242915,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0008086537181264396,
+      "pass": true
+    },
+    {
+      "scene": "city",
+      "group": "group_15",
+      "robot": "go2_3",
+      "reference_robot": "go2_1",
+      "is_reference": false,
+      "pose": {
+        "x": -4.69,
+        "y": 2.02,
+        "z": 0.6,
+        "yaw": 2.9
+      },
+      "distance_to_reference_robot": 5.511306560154316,
+      "clearance": 5.849593639373779,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 5.849593639373779
+      },
+      "robot_separation": {
+        "go2_1": 5.511306560154316,
+        "go2_2": 7.145236175242915
+      },
+      "navigation_robot_separation": 7.145236175242915,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0017137702931382393,
+      "pass": true
+    },
+    {
       "scene": "forest",
       "group": "group_01",
       "robot": "go2_1",
@@ -1737,7 +2337,7 @@
         "x": -34.96,
         "y": -5.82,
         "z": 0.6,
-        "yaw": 2.61
+        "yaw": 2.71
       },
       "distance_to_reference_robot": 0.0,
       "clearance": 2.8991377353668213,
@@ -2685,6 +3285,366 @@
       "radius_pass": true,
       "separation_pass": true,
       "yaw_error_rad": 0.0022068891883177955,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_12",
+      "robot": "go2_1",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -32.01,
+        "y": -6.42,
+        "z": 0.6,
+        "yaw": 2.7
+      },
+      "distance_to_reference_robot": 3.0103986446980766,
+      "clearance": 2.759483575820923,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.759483575820923
+      },
+      "robot_separation": {
+        "go2_2": 3.0103986446980766,
+        "go2_3": 6.005206074732156
+      },
+      "navigation_robot_separation": 6.005206074732156,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0025156634109757547,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_12",
+      "robot": "go2_2",
+      "reference_robot": "go2_2",
+      "is_reference": true,
+      "pose": {
+        "x": -34.96,
+        "y": -5.82,
+        "z": 0.6,
+        "yaw": 2.71
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 2.8991377353668213,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.8991377353668213
+      },
+      "robot_separation": {
+        "go2_1": 3.0103986446980766,
+        "go2_3": 4.373213921133975
+      },
+      "navigation_robot_separation": 6.005206074732156,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_12",
+      "robot": "go2_3",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -35.41,
+        "y": -1.47,
+        "z": 0.6,
+        "yaw": -3.11
+      },
+      "distance_to_reference_robot": 4.373213921133975,
+      "clearance": 2.7945990562438965,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.7945990562438965
+      },
+      "robot_separation": {
+        "go2_1": 6.005206074732156,
+        "go2_2": 4.373213921133975
+      },
+      "navigation_robot_separation": 6.005206074732156,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0017583117091399814,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_13",
+      "robot": "go2_1",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -23.2,
+        "y": -2.43,
+        "z": 0.6,
+        "yaw": 3.1
+      },
+      "distance_to_reference_robot": 7.386155969108694,
+      "clearance": 4.780062675476074,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 4.780062675476074
+      },
+      "robot_separation": {
+        "go2_2": 7.386155969108694,
+        "go2_3": 13.511928063751672
+      },
+      "navigation_robot_separation": 13.511928063751672,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0010121071476896226,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_13",
+      "robot": "go2_2",
+      "reference_robot": "go2_2",
+      "is_reference": true,
+      "pose": {
+        "x": -29.08,
+        "y": -6.9,
+        "z": 0.6,
+        "yaw": 2.76
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 2.263813018798828,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.263813018798828
+      },
+      "robot_separation": {
+        "go2_1": 7.386155969108694,
+        "go2_3": 7.126941840649466
+      },
+      "navigation_robot_separation": 13.511928063751672,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_13",
+      "robot": "go2_3",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -30.31,
+        "y": -13.92,
+        "z": 0.6,
+        "yaw": 2.33
+      },
+      "distance_to_reference_robot": 7.126941840649466,
+      "clearance": 1.010954737663269,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 1.010954737663269
+      },
+      "robot_separation": {
+        "go2_1": 13.511928063751672,
+        "go2_2": 7.126941840649466
+      },
+      "navigation_robot_separation": 13.511928063751672,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0026710561550058465,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_14",
+      "robot": "go2_1",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -25.18,
+        "y": 0.71,
+        "z": 0.6,
+        "yaw": -3.0
+      },
+      "distance_to_reference_robot": 7.101577289588559,
+      "clearance": 4.193090438842773,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 4.193090438842773
+      },
+      "robot_separation": {
+        "go2_2": 7.101577289588559,
+        "go2_3": 12.118225942769019
+      },
+      "navigation_robot_separation": 12.118225942769019,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.001221891681375542,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_14",
+      "robot": "go2_2",
+      "reference_robot": "go2_2",
+      "is_reference": true,
+      "pose": {
+        "x": -32.08,
+        "y": 2.39,
+        "z": 0.6,
+        "yaw": -2.75
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 3.2186663150787354,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 3.2186663150787354
+      },
+      "robot_separation": {
+        "go2_1": 7.101577289588559,
+        "go2_3": 6.806070819496372
+      },
+      "navigation_robot_separation": 12.118225942769019,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_14",
+      "robot": "go2_3",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -34.13,
+        "y": 8.88,
+        "z": 0.6,
+        "yaw": -2.21
+      },
+      "distance_to_reference_robot": 6.806070819496372,
+      "clearance": 2.3623945713043213,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.3623945713043213
+      },
+      "robot_separation": {
+        "go2_1": 12.118225942769019,
+        "go2_2": 6.806070819496372
+      },
+      "navigation_robot_separation": 12.118225942769019,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0018657062509781497,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_15",
+      "robot": "go2_1",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -36.39,
+        "y": 0.92,
+        "z": 0.6,
+        "yaw": -2.71
+      },
+      "distance_to_reference_robot": 4.581015171334843,
+      "clearance": 1.7731982469558716,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 1.7731982469558716
+      },
+      "robot_separation": {
+        "go2_2": 4.581015171334843,
+        "go2_3": 3.457817230566128
+      },
+      "navigation_robot_separation": 3.457817230566128,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.00043826124863288735,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_15",
+      "robot": "go2_2",
+      "reference_robot": "go2_2",
+      "is_reference": true,
+      "pose": {
+        "x": -31.98,
+        "y": -0.32,
+        "z": 0.6,
+        "yaw": -3.01
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 0.9588524103164673,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 0.9588524103164673
+      },
+      "robot_separation": {
+        "go2_1": 4.581015171334843,
+        "go2_3": 4.155887390197188
+      },
+      "navigation_robot_separation": 3.457817230566128,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "forest",
+      "group": "group_15",
+      "robot": "go2_3",
+      "reference_robot": "go2_2",
+      "is_reference": false,
+      "pose": {
+        "x": -33.93,
+        "y": 3.35,
+        "z": 0.6,
+        "yaw": -2.59
+      },
+      "distance_to_reference_robot": 4.155887390197188,
+      "clearance": 2.5254404544830322,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.5254404544830322
+      },
+      "robot_separation": {
+        "go2_1": 3.457817230566128,
+        "go2_2": 4.155887390197188
+      },
+      "navigation_robot_separation": 3.457817230566128,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.004589680627540282,
       "pass": true
     },
     {
@@ -3671,6 +4631,366 @@
         "go2_2": 3.5541806369401097
       },
       "navigation_robot_separation": 9.882352958683473,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_12",
+      "robot": "go2_1",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 55.37,
+        "y": -12.79,
+        "z": 0.6,
+        "yaw": -2.7
+      },
+      "distance_to_reference_robot": 6.888091172451188,
+      "clearance": 10.577293395996094,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 10.577293395996094
+      },
+      "robot_separation": {
+        "go2_2": 14.476688157171859,
+        "go2_3": 6.888091172451188
+      },
+      "navigation_robot_separation": 14.476688157171859,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0023304537617052645,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_12",
+      "robot": "go2_2",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 54.93,
+        "y": 1.68,
+        "z": 0.6,
+        "yaw": -1.82
+      },
+      "distance_to_reference_robot": 7.7446045735079325,
+      "clearance": 4.384623050689697,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 4.384623050689697
+      },
+      "robot_separation": {
+        "go2_1": 14.476688157171859,
+        "go2_3": 7.7446045735079325
+      },
+      "navigation_robot_separation": 14.476688157171859,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0010343920024924458,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_12",
+      "robot": "go2_3",
+      "reference_robot": "go2_3",
+      "is_reference": true,
+      "pose": {
+        "x": 54.1,
+        "y": -6.02,
+        "z": 0.6,
+        "yaw": -1.94
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 5.233061790466309,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 5.233061790466309
+      },
+      "robot_separation": {
+        "go2_1": 6.888091172451188,
+        "go2_2": 7.7446045735079325
+      },
+      "navigation_robot_separation": 14.476688157171859,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_13",
+      "robot": "go2_1",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 57.38,
+        "y": -17.15,
+        "z": 0.6,
+        "yaw": 2.83
+      },
+      "distance_to_reference_robot": 4.537488291995914,
+      "clearance": 14.64594554901123,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 14.64594554901123
+      },
+      "robot_separation": {
+        "go2_2": 3.2422985673747013,
+        "go2_3": 4.537488291995914
+      },
+      "navigation_robot_separation": 3.2422985673747013,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0016555170141483444,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_13",
+      "robot": "go2_2",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 54.48,
+        "y": -18.6,
+        "z": 0.6,
+        "yaw": 2.38
+      },
+      "distance_to_reference_robot": 4.720730875616615,
+      "clearance": 13.751373291015625,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 13.751373291015625
+      },
+      "robot_separation": {
+        "go2_1": 3.2422985673747013,
+        "go2_3": 4.720730875616615
+      },
+      "navigation_robot_separation": 3.2422985673747013,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.004963529009938128,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_13",
+      "robot": "go2_3",
+      "reference_robot": "go2_3",
+      "is_reference": true,
+      "pose": {
+        "x": 58.1,
+        "y": -21.63,
+        "z": 0.6,
+        "yaw": 2.41
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 14.094388008117676,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 14.094388008117676
+      },
+      "robot_separation": {
+        "go2_1": 4.537488291995914,
+        "go2_2": 4.720730875616615
+      },
+      "navigation_robot_separation": 3.2422985673747013,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_14",
+      "robot": "go2_1",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 54.55,
+        "y": 2.05,
+        "z": 0.6,
+        "yaw": -1.79
+      },
+      "distance_to_reference_robot": 7.573803535872846,
+      "clearance": 4.950245380401611,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 4.950245380401611
+      },
+      "robot_separation": {
+        "go2_2": 10.755649678192386,
+        "go2_3": 7.573803535872846
+      },
+      "navigation_robot_separation": 10.755649678192386,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0047376315478899755,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_14",
+      "robot": "go2_2",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 53.97,
+        "y": -8.69,
+        "z": 0.6,
+        "yaw": -2.05
+      },
+      "distance_to_reference_robot": 4.908003667480294,
+      "clearance": 7.362323760986328,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 7.362323760986328
+      },
+      "robot_separation": {
+        "go2_1": 10.755649678192386,
+        "go2_3": 4.908003667480294
+      },
+      "navigation_robot_separation": 10.755649678192386,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.003072720491209768,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_14",
+      "robot": "go2_3",
+      "reference_robot": "go2_3",
+      "is_reference": true,
+      "pose": {
+        "x": 57.24,
+        "y": -5.03,
+        "z": 0.6,
+        "yaw": -2.15
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 2.649583578109741,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 2.649583578109741
+      },
+      "robot_separation": {
+        "go2_1": 7.573803535872846,
+        "go2_2": 4.908003667480294
+      },
+      "navigation_robot_separation": 10.755649678192386,
+      "reference_match": true,
+      "radius_pass": null,
+      "separation_pass": null,
+      "yaw_error_rad": null,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_15",
+      "robot": "go2_1",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 51.1,
+        "y": -10.1,
+        "z": 0.6,
+        "yaw": -1.66
+      },
+      "distance_to_reference_robot": 5.970167501837782,
+      "clearance": 9.737448692321777,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 9.737448692321777
+      },
+      "robot_separation": {
+        "go2_2": 7.071555698712979,
+        "go2_3": 5.970167501837782
+      },
+      "navigation_robot_separation": 7.071555698712979,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.000997768808419508,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_15",
+      "robot": "go2_2",
+      "reference_robot": "go2_3",
+      "is_reference": false,
+      "pose": {
+        "x": 48.05,
+        "y": -3.72,
+        "z": 0.6,
+        "yaw": -1.34
+      },
+      "distance_to_reference_robot": 3.9622720754637704,
+      "clearance": 3.2398786544799805,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 3.2398786544799805
+      },
+      "robot_separation": {
+        "go2_1": 7.071555698712979,
+        "go2_3": 3.9622720754637704
+      },
+      "navigation_robot_separation": 7.071555698712979,
+      "reference_match": null,
+      "radius_pass": true,
+      "separation_pass": true,
+      "yaw_error_rad": 0.0028539316528000125,
+      "pass": true
+    },
+    {
+      "scene": "airport",
+      "group": "group_15",
+      "robot": "go2_3",
+      "reference_robot": "go2_3",
+      "is_reference": true,
+      "pose": {
+        "x": 45.95,
+        "y": -7.08,
+        "z": 0.6,
+        "yaw": -1.03
+      },
+      "distance_to_reference_robot": 0.0,
+      "clearance": 4.636730194091797,
+      "map_check": {
+        "pass": true,
+        "reason": null,
+        "clearance_m": 4.636730194091797
+      },
+      "robot_separation": {
+        "go2_1": 5.970167501837782,
+        "go2_2": 3.9622720754637704
+      },
+      "navigation_robot_separation": 7.071555698712979,
       "reference_match": true,
       "radius_pass": null,
       "separation_pass": null,

@@ -58,6 +58,26 @@ scenes:
         y: -7.99
         z: 0.6
         yaw: 1.32
+      group_12:
+        x: -25.58
+        y: 2.3
+        z: 0.6
+        yaw: 0.13
+      group_13:
+        x: -19.53
+        y: 14.96
+        z: 0.6
+        yaw: -1.01
+      group_14:
+        x: -12.54
+        y: -6.44
+        z: 0.6
+        yaw: 1.58
+      group_15:
+        x: -4.57
+        y: -3.49
+        z: 0.6
+        yaw: 2.4
   forest:
     reference_robot: go2_2
     poses:
@@ -65,7 +85,7 @@ scenes:
         x: -34.96
         y: -5.82
         z: 0.6
-        yaw: 2.61
+        yaw: 2.71
       group_02:
         x: -29.08
         y: -6.9
@@ -116,6 +136,26 @@ scenes:
         y: -5.59
         z: 0.6
         yaw: 2.7
+      group_12:
+        x: -34.96
+        y: -5.82
+        z: 0.6
+        yaw: 2.71
+      group_13:
+        x: -29.08
+        y: -6.9
+        z: 0.6
+        yaw: 2.76
+      group_14:
+        x: -32.08
+        y: 2.39
+        z: 0.6
+        yaw: -2.75
+      group_15:
+        x: -31.98
+        y: -0.32
+        z: 0.6
+        yaw: -3.01
   airport:
     reference_robot: go2_3
     poses:
@@ -174,3 +214,23 @@ scenes:
         y: -2.22
         z: 0.6
         yaw: -1.55
+      group_12:
+        x: 54.1
+        y: -6.02
+        z: 0.6
+        yaw: -1.94
+      group_13:
+        x: 58.1
+        y: -21.63
+        z: 0.6
+        yaw: 2.41
+      group_14:
+        x: 57.24
+        y: -5.03
+        z: 0.6
+        yaw: -2.15
+      group_15:
+        x: 45.95
+        y: -7.08
+        z: 0.6
+        yaw: -1.03

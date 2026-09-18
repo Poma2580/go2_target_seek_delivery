@@ -17,26 +17,38 @@ ros2 run go2_static_perception_test static_test_runner --dry-run
 
 `static_100cases.yaml` 默认与 T1 一致启用 Gazebo GUI 和 RQT；命令行 `--gui/--no-gui`、`--rqt/--no-rqt` 可覆盖。RQT 固定查看 `/go2_1/static_perception/debug_image`。Runner 在启动 Recorder 前等待 YOLOE 至少发布一条真实 `result_status`，仅用于确认感知流已完成首轮推理，不改变 2 Hz、10 s、0.4 s 时间戳匹配或任何指标定义。
 
-结果目录按 T1 层级保存：默认根目录固定为仓库根目录下的 `TestResults/`，不受启动命令当前工作目录影响；可用 `--results-root PATH` 显式覆盖。`TestResults/batch_YYYYmmdd_HHMMSS/resolved_cases.yaml` 位于批次根目录，静态专项位于 `static_target_test/`，Case 使用 `case_001` 到 `case_100`。每个 Case 根目录保存 `case_config.yaml`、`case_summary.yaml` 和 `attempts/`；原始 CSV、指标和完整日志只保存在最终/各次 `attempts/attempt_XX/` 内，不再复制到 Case 根目录。批次逐类与总体加权统计位于 `static_target_test/summary/`。基础设施或倒地失败最多重启八次，识别/定位算法失败不会重试。Runner 不调用静态 world 验证器。
+结果目录按 T1 层级保存：默认根目录固定为仓库根目录下的 `TestResults/`，不受启动命令当前工作目录影响；可用 `--results-root PATH` 显式覆盖。`TestResults/batch_YYYYmmdd_HHMMSS/resolved_cases.yaml` 位于批次根目录，静态专项位于 `static_target_test/`，Case 使用 `case_001` 到 `case_100`。每个 Case 根目录保存 `case_config.yaml`、`case_summary.yaml` 和 `attempts/`；原始 CSV、指标和完整日志只保存在最终/各次 `attempts/attempt_XX/` 内，不再复制到 Case 根目录。批次逐类与总体 Case 百分位统计位于 `static_target_test/summary/`。基础设施或倒地失败最多重启八次，识别/定位算法失败不会重试。Runner 不调用静态 world 验证器。
+
+### 批次聚合公式与离线预览
+
+单个 Case 的指标定义不变。逐类统计和 overall 综合统计采用 Case 级最近秩百分位：设有效 Case 数为 `N`、百分位为 `p`，排名为 `ceil(p / 100 * N)`。识别准确率由高到低排序后取该排名，定位误差由小到大排序后取该排名。overall 直接排序全部类别的 Case，不对五个类别统计值再次聚合。基础设施失败 Case 不参与；定位误差为 `null` 的 Case 不参与定位排序，但会通过 `valid_localization_cases` 反映有效数量。
+
+默认 `p=90`，定义在 `go2_static_perception_test/reporting/results.py` 顶部的 `AGGREGATION_PERCENTILE_PERCENT`；以后需要 95% 时将其改为 `95.0` 并重新构建。已有批次可只读预览，命令只读取 `case_*/case_summary.yaml` 并打印 YAML，不会覆盖原来的 `summary/`：
+
+```bash
+ros2 run go2_static_perception_test static_summary_preview \
+  TestResults/batch_20260911_165216/static_target_test
+```
 
 ## 场景和正式目标
 
 `worlds/city_static_objects.world` 从 `QY_MODEL/target_seek` 派生，保留城市布局、地面、光照、原有环境物体和 `/gazebo/model_states`。原 world 的保存状态已落实到环境模型/局部 link 定义，再移除历史 `<state>`，以免覆盖正式目标 pose。环境原有 `dumpster_94` 和其他行人仍保留；它们不是本次配置中的正式目标。
 
-| target key   | model_name      | 唯一 prompt  |       x |       y |                z |      roll |    pitch |      yaw |
-| ------------ | --------------- | ------------ | ------: | ------: | ---------------: | --------: | -------: | -------: |
-| airplane     | cessna_c172     | airplane     | 45.1531 |      28 |         0.427145 | -0.000106 | -0.06111 | -1.97173 |
-| person       | static_person   | person       |      62 |       5 |                0 |         0 |        0 |        0 |
-| pickup_truck | pickup_truck    | pickup truck |      46 |      10 |    0.00734785678 |         0 |        0 |        0 |
-| ground_robot | pr2             | ground robot |       2 |       2 |                0 |         0 |        0 |        0 |
-| dumpster     | static_dumpster | dumpster     |     -20 |      17 | 0.00137753173193 |         0 |        0 |     3.14 |
+| target key          | model_name                 | 唯一 prompt         |       x |       y |                z | roll | pitch |  yaw |
+| ------------------- | -------------------------- | ------------------- | ------: | ------: | ---------------: | ---: | ----: | ---: |
+| construction_barrel | static_construction_barrel | construction barrel | 45.1531 |      28 |                0 |    0 |     0 |    0 |
+| person              | static_person              | person              |      62 |       5 |                0 |    0 |     0 |    0 |
+| fire_hydrant        | static_fire_hydrant        | fire hydrant        |      46 |      10 |                0 |    0 |     0 |    0 |
+| ground_robot        | pr2                        | ground robot        |       2 |       2 |                0 |    0 |     0 |    0 |
+| dumpster            | static_dumpster            | dumpster            |     -20 |      17 | 0.00137753173193 |    0 |     0 | 3.14 |
 
-位置单位米、角度单位弧度；YAML 中 pose 是 **Gazebo world 坐标系的模型原点**。五个正式目标均显式设为 `<static>true</static>`。飞机保留任务提供的 x/z 和姿态，仅将 y 调整为 28.0，使其 10–12 m 测试圆环位于现有 City occupancy map 内；不使用旧 `<state>` 中另一个飞机 pose。
+位置单位米、角度单位弧度；YAML 中 pose 是 **Gazebo world 坐标系的模型原点**。五个正式目标均显式设为 `<static>true</static>`。Construction barrel 与 fire hydrant 分别沿用原飞机和 Pickup 的 x/y 位置及对应的 20 组 Go2 位姿，只替换正式目标物体；City 中其他 fire hydrant 已移除，避免同类背景干扰。
 
 其他位姿的来源：
 
 - 行人使用 `~/.gazebo/models/person_walking` 的完整模型结构，保留其底部碰撞盒和 visual/collision 的局部 z=`-0.02`，在派生 world 中重命名为 `static_person` 并显式设为静态；模型原点 pose 保持为 `(62, 5, 0, 0, 0, 0)`。
-- Pickup 实际来源是 `~/.gazebo/models/pickup/model.sdf`，不是 `model://pickup_truck`。保留其局部 mesh yaw `-1.57079632679` 和模型默认朝向。DAE 单位为英寸，最低顶点 z 为 `-0.2517014`，场景节点 z 平移 `-0.0375843`；落地高度为 `(0.2517014 + 0.0375843) * 0.0254`。
+- Construction barrel 使用 `~/.gazebo/models/construction_barrel`，以模型原点 z=0 正常落地，并在 world 中重命名为 `static_construction_barrel`。
+- Fire hydrant 使用 `~/.gazebo/models/fire_hydrant`，以模型原点 z=0 正常落地，并在 world 中重命名为 `static_fire_hydrant`。
 - PR2 保留原 SDF 的基座默认朝向及 link pose；`base_footprint` 底部 box 中心 z=0.071、高 0.142，底面为 0。复制到新 world 后删除全部 18 个 sensor 和 2 个 plugin，仅保留外观、碰撞和静态机构。
 - Dumpster DAE 单位为英寸，最低顶点 z=`-8.806948`，节点平移 z=`8.72673`，节点 Z scale=`0.4507179`，SDF mesh scale=`1.5`。落地高度为 `(8.806948-8.72673)*0.4507179*0.0254*1.5`；yaw=3.14 沿用原 City `dumpster_94` 的摆放朝向，roll/pitch 沿用模型直立定义。
 - 原 world 的 `ground_plane` 高度为 0。以上高度结合模型变换计算，并通过 Gazebo 静止检查和相机画面检查。
@@ -45,7 +57,7 @@ ros2 run go2_static_perception_test static_test_runner --dry-run
 
 ## 环境与构建
 
-使用 ROS 2 Humble / Gazebo Classic、系统 Python、已构建的 `go2_config` 及其依赖。沿用现有 City 场景资源：`QY_MODEL/models` 与 `~/.gazebo/models`；后者需包含 person_walking、pickup、pr2、dumpster 等场景使用的模型。
+使用 ROS 2 Humble / Gazebo Classic、系统 Python、已构建的 `go2_config` 及其依赖。沿用现有 City 场景资源：`QY_MODEL/models` 与 `~/.gazebo/models`；后者需包含 construction_barrel、fire_hydrant、person_walking、pr2、dumpster 等场景使用的模型。
 
 YOLOE 使用系统 Python 环境中的 Ultralytics、PyTorch、OpenCV 和 NumPy。没有需要单独安装的 `yoloe` pip 包，YOLOE API 包含在 `ultralytics==8.4.82` 中。YOLOE-26 的文字 tokenizer 由 Ultralytics 的 CLIP fork 提供，默认模型使用 TorchScript 文本编码器 `mobileclip2_b.ts`，不需要另装 `mobileclip` Python 包。
 

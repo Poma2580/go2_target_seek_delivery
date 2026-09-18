@@ -1,0 +1,40 @@
+{
+  "completed_step": 200000,
+  "maximum_steps": 200000,
+  "convergence_criterion_enabled": true,
+  "convergence_criterion_met": false,
+  "consecutive_passing_evaluations": 0,
+  "final_evaluation": {
+    "reward": -3.720994951527573,
+    "reward_std": 95.02735746340593,
+    "success_rate": 0.91,
+    "collision_rate": 0.09,
+    "episode_length": 100.58,
+    "obstacle_collision_counts": [
+      2,
+      7
+    ],
+    "obstacle_shape_collision_counts": {
+      "square": 2,
+      "circle": 7
+    },
+    "pair_collision_count": 0,
+    "pair_collision_rate": 0.0,
+    "min_obstacle_clearance": 2.1372752216260413,
+    "min_pair_distance": 1.5515197277069093,
+    "action_counts": [
+      1397,
+      3809,
+      10125,
+      2746,
+      2039
+    ],
+    "action_switch_rate": 0.033406243786040964,
+    "action_oscillation_rate": 0.005170013919268244,
+    "clear_default_action_rate": 0.9507811029550159,
+    "empty_episode_count": 9,
+    "empty_success_rate": 1.0,
+    "obstacle_episode_count": 91,
+    "obstacle_success_rate": 0.9010989010989011
+  }
+}

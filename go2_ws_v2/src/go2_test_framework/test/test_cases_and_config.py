@@ -10,39 +10,39 @@ from go2_test_framework.runner.cases import expand_cases
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_formal_suite_expands_stable_99_cases():
+def test_formal_suite_expands_stable_135_cases():
     routes = load_routes(PACKAGE_ROOT / "config/parameters/target_routes.yaml")
     poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
     suite = load_suite(PACKAGE_ROOT / "config/suites/T1_target_test.yaml")
     cases = expand_cases(suite, routes, poses)
-    assert len(cases) == 99
+    assert len(cases) == 135
     assert all(case.task_type == "perception" for case in cases)
     assert cases[0].case_id == "T1-CITY-STRAIGHT-G01"
     assert cases[0].case_index == 1
-    assert cases[-1].case_id == "T1-AIRPORT-V-G11"
-    assert cases[-1].case_index == 99
+    assert cases[-1].case_id == "T1-AIRPORT-V-G15"
+    assert cases[-1].case_index == 135
 
 
-def test_formal_t2_suite_expands_stable_99_tracking_cases():
+def test_formal_t2_suite_expands_stable_135_tracking_cases():
     routes = load_routes(PACKAGE_ROOT / "config/parameters/target_routes.yaml")
     poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
     suite = load_suite(PACKAGE_ROOT / "config/suites/T2_tracking_test.yaml")
     cases = expand_cases(suite, routes, poses)
-    assert len(cases) == 99
+    assert len(cases) == 135
     assert cases[0].case_id == "T2-CITY-STRAIGHT-G01"
-    assert cases[-1].case_id == "T2-AIRPORT-V-G11"
+    assert cases[-1].case_id == "T2-AIRPORT-V-G15"
     assert {case.task_type for case in cases} == {"tracking"}
 
 
-def test_formal_t3_suite_preserves_forest_only_selection():
+def test_formal_t3_suite_expands_stable_135_path_planning_cases():
     routes = load_routes(PACKAGE_ROOT / "config/parameters/target_routes.yaml")
     poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
     suite = load_suite(PACKAGE_ROOT / "config/suites/T3_path_planning_test.yaml")
     cases = expand_cases(suite, routes, poses)
-    assert suite["scenes"] == ["forest"]
-    assert len(cases) == 33
-    assert cases[0].case_id == "T3-FOREST-STRAIGHT-G01"
-    assert cases[-1].case_id == "T3-FOREST-V-G11"
+    assert suite["scenes"] == ["city", "forest", "airport"]
+    assert len(cases) == 135
+    assert cases[0].case_id == "T3-CITY-STRAIGHT-G01"
+    assert cases[-1].case_id == "T3-AIRPORT-V-G15"
     assert {case.task_type for case in cases} == {"path_planning"}
 
 
@@ -50,7 +50,7 @@ def test_formal_pose_groups_are_resolved_and_accepted():
     poses = load_pose_groups(PACKAGE_ROOT / "config/parameters/robot_pose_groups.yaml")
     assert tuple(poses) == ("city", "forest", "airport")
     for groups in poses.values():
-        assert tuple(groups) == tuple(f"group_{i:02d}" for i in range(1, 12))
+        assert tuple(groups) == tuple(f"group_{i:02d}" for i in range(1, 16))
         assert all(group["resolved"] for group in groups.values())
         assert all(set(group["robots"]) == {"go2_1", "go2_2", "go2_3"} for group in groups.values())
     assert require_resolved_pose("group_01", poses["city"]["group_01"])["go2_1"]["z"] == 0.6
@@ -103,10 +103,10 @@ def test_every_case_id_order_and_scene_pose(suite_name, prefix):
         f"{prefix}-{scene.upper()}-{route}-G{i:02d}"
         for scene in ("city", "forest", "airport")
         for route in ("STRAIGHT", "RECTANGLE", "V")
-        for i in range(1, 12)
+        for i in range(1, 16)
     ]
     assert [case.case_id for case in cases] == expected
-    assert [case.case_index for case in cases] == list(range(1, 100))
+    assert [case.case_index for case in cases] == list(range(1, 136))
     for case in cases:
         assert case.robot_poses == poses[case.scene][case.pose_group]["robots"]
     suite["inline_pose_groups"] = {"group_01": poses["forest"]["group_02"]}
@@ -147,7 +147,7 @@ def test_pose_schema_rejects_invalid_values(tmp_path, path, value):
 
 @pytest.mark.parametrize("path", [
     ("scenes", "airport"),
-    ("scenes", "forest", "pose_groups", "group_11"),
+    ("scenes", "forest", "pose_groups", "group_15"),
     ("scenes", "city", "pose_groups", "group_01", "resolved"),
     ("scenes", "city", "pose_groups", "group_01", "robots", "go2_3"),
     ("scenes", "city", "pose_groups", "group_01", "robots", "go2_1", "yaw"),

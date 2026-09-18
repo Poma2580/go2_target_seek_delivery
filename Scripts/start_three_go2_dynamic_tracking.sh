@@ -60,12 +60,15 @@ case "$SCENE" in
     city|qy|target_seek)
         SCENE=city
         WORLD_PATH=$QY_MODEL_ROOT/target_seek
+        NAV2_INFLATION_RADIUS=0.4
         ;;
     forest)
         WORLD_PATH=$KD_MODEL_ROOT/world/forestV3_dynamic.world
+        NAV2_INFLATION_RADIUS=0.7
         ;;
     airport)
         WORLD_PATH=$KD_MODEL_ROOT/world/airport_dynamic.world
+        NAV2_INFLATION_RADIUS=0.4
         ;;
 esac
 
@@ -442,9 +445,12 @@ ros2 launch go2_mapping_nav three_go2_map_merge.launch.py use_sim_time:=true use
 "
 
 # 速度所有权选择器：Nav2 与 MADDPG 只能通过各自私有输入控制跟随犬。
+# 两只跟随犬的 Nav2 线速度统一限制为 0.30 m/s。
 launch_terminal "follower_cmd_vel_mux" "
 echo '==== Starting follower command velocity mux (initial owner: Nav2) ===='
-ros2 run go2_dynamic_encircle follower_cmd_vel_mux --ros-args -p use_sim_time:=true
+ros2 run go2_dynamic_encircle follower_cmd_vel_mux --ros-args \
+    -p use_sim_time:=true \
+    -p max_navigation_linear_speed:=0.30
 "
 
 # 终端 6-8：依次启动三套 RTAB-Map + Nav2，并统一使用融合地图。
@@ -456,7 +462,7 @@ for robot_index in 1 2 3; do
     : > "$mapping_log"
     launch_terminal "mapping_nav_${robot_name}" "
 echo '==== Starting ${robot_name} mapping and navigation ===='
-ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true ${nav_cmd_vel_arg} >${mapping_log} 2>&1
+ros2 launch go2_mapping_nav ${robot_name}_mapping_nav.launch.py use_sim_time:=true use_merged_map:=true use_rviz:=false delete_db_on_start:=true inflation_radius:=${NAV2_INFLATION_RADIUS} ${nav_cmd_vel_arg} >${mapping_log} 2>&1
 "
 
     if [ "$merged_map_ready" = false ]; then
@@ -501,26 +507,58 @@ ros2 launch go2_target_perception three_go2_target_tracking.launch.py use_sim_ti
 
 wait_for_topic "/target_role/perception_robot"
 
-# MADDPG 提前加载模型并等待接管信号；输出进入私有 mux 输入话题。
-launch_terminal "maddpg_follower_controller" "
-echo '==== Preloading MADDPG follower controller (disabled) ===='
-ros2 run go2_dynamic_encircle gazebo_leader_slot_controller --ros-args -p use_sim_time:=true -p wait_for_enable:=true -p command_topic_suffix:=maddpg_cmd_vel
+# MADDPG 选点器提前加载模型并等待交接。它只发布 Nav2 goal，
+# Nav2 在全流程中始终是唯一的 cmd_vel 控制者。
+# MADDPG 每 1 秒决策，每 8 秒最多向 Nav2 刷新一次目标。
+ #-p model_path:=$DELIVERY_ROOT/waypoint_maddpg_v0/runs/three_seed_obstacle_curriculum_20260909_091240/seed_27/stage2_two_obstacles/best_model.pt \
+launch_terminal "maddpg_waypoint_selector" "
+echo '==== Preloading role-aware MADDPG waypoint selector (disabled) ===='
+ros2 run go2_mapping_nav maddpg_waypoint_selector.py --ros-args \
+    -p use_sim_time:=true \
+    -p model_path:=$DELIVERY_ROOT/waypoint_maddpg_v0/runs/single_seed_obstacle_curriculum_20260915_203837/seed_27/stage2_two_obstacles/best_model.pt \
+    -p global_frame:=merged_map \
+    -p robot_names:='[go2_1,go2_2,go2_3]' \
+    -p perception_robot_topic:=/target_role/perception_robot \
+    -p wait_for_enable:=true \
+    -p enabled:=false \
+    -p enable_topic:=/dynamic_encircle/maddpg_enable \
+    -p controller_ready_topic:=/maddpg_waypoint/controller_ready \
+    -p controller_active_topic:=/maddpg_waypoint/controller_active \
+    -p decision_period:=1.0 \
+    -p nav_goal_update_period:=3.0 \
+    -p require_initial_formation:=false \
+    -p leader_speed_tolerance:=0.15 \
+    -p speed_tolerance:=0.20 \
+    -p dry_run:=false
 "
+
+wait_for_topic "/maddpg_waypoint/controller_ready"
 
 # 终端 12：启动基于 Nav2 的三 Go2 动态围捕。
 launch_terminal "nav2_dynamic_encircle" "
 echo '==== Starting Nav2 dynamic encircle ===='
-ros2 run go2_dynamic_encircle dynamic_encircle --ros-args -p use_sim_time:=true -p scene:=${SCENE} -p perception_robot_topic:=/target_role/perception_robot -p robot_names:="[go2_1,go2_2,go2_3]"
+ros2 run go2_dynamic_encircle dynamic_encircle --ros-args \
+    -p use_sim_time:=true \
+    -p scene:=${SCENE} \
+    -p perception_robot_topic:=/target_role/perception_robot \
+    -p robot_names:="[go2_1,go2_2,go2_3]" \
+    -p catch_speed:=0.20 \
+    -p max_linear:=0.20 \
+    -p max_coast_speed:=0.20 \
+    -p maddpg_ready_topic:=/maddpg_waypoint/controller_ready \
+    -p maddpg_active_topic:=/maddpg_waypoint/controller_active \
+    -p maddpg_enable_topic:=/dynamic_encircle/maddpg_enable \
+    -p switch_mux_to_maddpg:=false
 "
-
+# 不启动，要求已经运行
 # 终端 13-15：分别打开三只狗的压缩相机。
-# for robot_index in 1 2 3; do
-#     robot_name="go2_${robot_index}"
-#     launch_terminal "rqt_image_view_${robot_name}" "
-# echo '==== Starting ${robot_name} rqt_image_view ===='
-# ros2 run rqt_image_view rqt_image_view /${robot_name}/camera/image_raw/compressed
-# "
-# done
+# 分别打开三只狗的带检测框图像。
+for robot_index in 1 2 3; do
+    robot_name="go2_${robot_index}"
+    launch_terminal "rqt_debug_${robot_name}" "
+ros2 run rqt_image_view rqt_image_view /${robot_name}/target_perception/debug_image
+"
+done
 
 # # 启动当前感知狗的误差评估。
 # launch_terminal "perception_eval" "

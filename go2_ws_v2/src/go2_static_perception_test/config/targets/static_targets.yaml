@@ -1,15 +1,15 @@
 schema_version: 1
 targets:
-  airplane:
-    model_name: cessna_c172
-    prompt: airplane
+  construction_barrel:
+    model_name: static_construction_barrel
+    prompt: construction barrel
     pose:
       x: 45.1531
       y: 28.0
-      z: 0.427145
-      roll: -0.000106
-      pitch: -0.06111
-      yaw: -1.97173
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
   person:
     model_name: static_person
     prompt: person
@@ -20,13 +20,13 @@ targets:
       roll: 0.0
       pitch: 0.0
       yaw: 0.0
-  pickup_truck:
-    model_name: pickup_truck
-    prompt: pickup truck
+  fire_hydrant:
+    model_name: static_fire_hydrant
+    prompt: fire hydrant
     pose:
       x: 46.0
       y: 10.0
-      z: 0.00734785678
+      z: 0.0
       roll: 0.0
       pitch: 0.0
       yaw: 0.0

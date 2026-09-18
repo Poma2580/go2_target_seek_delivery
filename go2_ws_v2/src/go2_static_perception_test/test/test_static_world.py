@@ -29,6 +29,19 @@ def state_message(targets):
     return message
 
 
+def find_world_entity(world, model_name):
+    entities = [
+        model for model in world.findall('model')
+        if model.get('name') == model_name
+    ]
+    entities.extend(
+        include for include in world.findall('include')
+        if include.findtext('name') == model_name
+    )
+    assert len(entities) == 1, f'{model_name}: expected exactly one model or include'
+    return entities[0]
+
+
 def test_world_yaml_and_static_contract():
     targets = load_targets(CONFIG)
     world = ET.parse(WORLD).getroot().find('world')
@@ -37,11 +50,10 @@ def test_world_yaml_and_static_contract():
     assert 'walking_target' not in WORLD.read_text()
     assert world.find("model[@name='dumpster_94']") is not None
     for target in targets.values():
-        model = world.find(f"model[@name='{target['model_name']}']")
-        assert model is not None
-        assert model.findtext('static') in ('true', '1')
-        assert list(map(float, model.findtext('pose').split())) == list(target['pose'].values())
-        assert not model.findall('.//sensor') and not model.findall('.//plugin')
+        entity = find_world_entity(world, target['model_name'])
+        assert entity.findtext('static') in ('true', '1')
+        assert list(map(float, entity.findtext('pose').split())) == list(target['pose'].values())
+        assert not entity.findall('.//sensor') and not entity.findall('.//plugin')
     assert world.find("plugin[@filename='libgazebo_ros_state.so']") is not None
     person = world.find("model[@name='static_person']")
     assert person.findtext('static') in ('true', '1')
@@ -62,7 +74,7 @@ def test_invalid_target_config(tmp_path, fault):
     elif fault == 'prompt':
         targets['ground_robot']['prompt'] = 'robot'
     elif fault == 'duplicate':
-        targets['person']['model_name'] = targets['airplane']['model_name']
+        targets['person']['model_name'] = targets['construction_barrel']['model_name']
     elif fault == 'nan':
         targets['person']['pose']['z'] = float('nan')
     elif fault == 'pose_missing':
@@ -106,7 +118,11 @@ def test_validator_rejects_bad_world(fault):
     elif fault == 'position':
         message.pose[0].position.x += .02
     elif fault == 'rotation':
-        message.pose[0].orientation.w = .9
+        q = quaternion(0.0, 0.0, 0.1)
+        (message.pose[0].orientation.x,
+         message.pose[0].orientation.y,
+         message.pose[0].orientation.z,
+         message.pose[0].orientation.w) = q
     elif fault == 'nan':
         message.pose[0].position.x = float('nan')
     with pytest.raises(ValueError):

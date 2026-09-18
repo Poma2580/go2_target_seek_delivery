@@ -145,7 +145,7 @@ def load_pose_groups(path):
     scenes = _required(root, "scenes", "root")
     if not isinstance(scenes, dict):
         raise ValueError("root.scenes must be a mapping")
-    expected = tuple(f"group_{index:02d}" for index in range(1, 12))
+    expected = tuple(f"group_{index:02d}" for index in range(1, 16))
     result = {}
     for scene in SCENES:
         entry = _required(scenes, scene, "scenes")
@@ -156,7 +156,7 @@ def load_pose_groups(path):
         if not isinstance(groups, dict):
             raise ValueError(f"{where} must be a mapping")
         if tuple(groups) != expected:
-            raise ValueError(f"{where} must contain group_01..group_11 in order")
+            raise ValueError(f"{where} must contain group_01..group_15 in order")
         result[scene] = {
             name: _parse_pose_group(name, groups[name], where) for name in expected
         }

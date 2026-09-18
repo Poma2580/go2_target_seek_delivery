@@ -1,0 +1,194 @@
+三 Go2 动态追踪 + MADDPG Waypoint 选点 + Nav2 运行指令
+
+
+一、脚本位置
+
+  /home/zhj/wat/go2_target_seek_delivery-main/Scripts/start_three_go2_dynamic_tracking.sh
+
+该脚本支持 city、forest、airport 三个场景。运行后会依次启动 Gazebo、
+三只 Go2、Velodyne、RGB-D 相机、地图融合、三套 Nav2、目标感知、动态角色
+选择、MADDPG waypoint 选点器和动态行人。
+
+MADDPG 只负责选择候选目标点，Nav2 负责路径规划和机器狗运动。
+
+
+二、首次运行或代码更新后的编译
+
+打开终端执行：
+
+  cd /home/zhj/wat/go2_target_seek_delivery-main/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  colcon build --symlink-install
+  source install/setup.bash
+
+
+三、启动命令
+
+1. 城市场景（默认）
+
+  cd /home/zhj/wat/go2_target_seek_delivery-main
+  ./Scripts/start_three_go2_dynamic_tracking.sh
+
+也可以显式指定 city：
+
+  ./Scripts/start_three_go2_dynamic_tracking.sh city
+
+2. 森林场景
+
+  cd /home/zhj/wat/go2_target_seek_delivery-main
+  ./Scripts/start_three_go2_dynamic_tracking.sh forest
+
+3. 机场场景
+
+  cd /home/zhj/wat/go2_target_seek_delivery-main
+  ./Scripts/start_three_go2_dynamic_tracking.sh airport
+
+注意：同一时间只运行一个场景。重新启动前，应先关闭上一轮脚本打开的
+Gazebo、RViz 和 ROS 节点终端。
+
+
+四、可选环境变量
+
+1. 修改等待融合地图的超时时间，单位为秒：
+
+  MERGED_MAP_TIMEOUT=180 ./Scripts/start_three_go2_dynamic_tracking.sh forest
+
+2. 修改等待动态行人服务的超时时间：
+
+  ACTOR_SERVICE_TIMEOUT=60 ./Scripts/start_three_go2_dynamic_tracking.sh airport
+
+3. 修改机器狗翻倒后的最大自动重启次数：
+
+  MAX_GO2_RESTARTS=5 ./Scripts/start_three_go2_dynamic_tracking.sh forest
+
+
+五、正常启动流程
+
+脚本正常运行时会依次完成：
+
+  1. 启动所选 Gazebo 动态行人世界。
+  2. 依次生成 go2_1、go2_2、go2_3。
+  3. 检查三只机器狗的控制器、传感器和姿态。
+  4. 启动三机地图融合并发布 /merged_map。
+  5. 启动三套 RTAB-Map 和 Nav2。
+  6. 启动三套目标感知并选出领航犬。
+  7. 加载 MADDPG waypoint 模型并等待接管。
+  8. Nav2 首先完成初始接近和编队。
+  9. 自动交接给 MADDPG waypoint 选点器。
+ 10. 启动动态行人运动。
+
+
+六、关键检查命令
+
+建议另开一个已经加载 ROS 环境的终端：
+
+  cd /home/zhj/wat/go2_target_seek_delivery-main/go2_ws_v2
+  source /opt/ros/humble/setup.bash
+  source install/setup.bash
+
+1. 检查三只机器狗的里程计：
+
+  ros2 topic hz /go2_1/odom
+  ros2 topic hz /go2_2/odom
+  ros2 topic hz /go2_3/odom
+
+2. 检查激光雷达：
+
+  ros2 topic hz /go2_1/scan
+  ros2 topic hz /go2_2/scan
+  ros2 topic hz /go2_3/scan
+
+3. 检查融合地图：
+
+  ros2 topic echo /merged_map nav_msgs/msg/OccupancyGrid --once
+
+4. 检查 Nav2 action：
+
+  ros2 action list | grep navigate_to_pose
+
+5. 查看当前感知领航犬：
+
+  ros2 topic echo /target_role/perception_robot --once \
+    --qos-durability transient_local
+
+6. 查看动态围捕和 MADDPG 交接阶段：
+
+  ros2 topic echo /dynamic_encircle/handoff_state \
+    --qos-durability transient_local
+
+7. 查看 MADDPG 选择的动作：
+
+  ros2 topic echo /maddpg_waypoint/actions
+
+8. 查看 MADDPG 发送给 Nav2 的目标点：
+
+  ros2 topic echo /maddpg_waypoint/goals
+
+9. 查看两只跟随犬与选定目标点的误差：
+
+  ros2 topic echo /maddpg_waypoint/errors
+
+10. 查看候选点障碍判断和动作诊断：
+
+  ros2 topic echo /maddpg_waypoint/decision_diagnostics
+
+正常进入选点阶段后，handoff_state 应进入 MADDPG_ACTIVE，且
+/maddpg_waypoint/actions 和 /maddpg_waypoint/goals 应持续发布消息。
+
+
+七、当前使用的 waypoint 模型
+
+  /home/zhj/wat/go2_target_seek_delivery-main/waypoint_maddpg_v0/runs/three_seed_obstacle_curriculum_20260909_091240/seed_27/stage2_two_obstacles/best_model.pt
+
+如需更换模型，请修改 start_three_go2_dynamic_tracking.sh 中
+maddpg_waypoint_selector.py 启动段的 model_path 参数。
+
+
+八、常见问题
+
+1. 一直等待 /merged_map
+
+检查以下话题是否存在：
+
+  ros2 topic list | grep -E '/go2_[123]/map|/merged_map'
+
+同时检查 go2_ws_v2/runtime/logs/ 下的 map_merger.log 和各机器狗的
+mapping_nav 日志。
+
+2. 一直等待 /target_role/perception_robot
+
+检查三只机器狗的相机话题和目标感知节点：
+
+  ros2 topic list | grep camera/image_raw
+  ros2 node list | grep target
+
+3. MADDPG 没有发布动作
+
+依次检查：
+
+  ros2 topic echo /maddpg_waypoint/controller_ready --once \
+    --qos-durability transient_local
+
+  ros2 topic echo /maddpg_waypoint/controller_active --once \
+    --qos-durability transient_local
+
+  ros2 topic echo /dynamic_encircle/handoff_state --once \
+    --qos-durability transient_local
+
+如果 controller_ready 为 false，重点检查两只跟随犬的 /scan、三狗 /odom
+以及 merged_map 坐标变换。
+
+4. 脚本提示机器狗翻倒
+
+脚本会自动清理本轮进程并重新启动。达到 MAX_GO2_RESTARTS 后仍然失败时，
+需要检查对应场景 YAML 中的 spawn 坐标和高度。
+
+
+九、停止运行
+
+关闭脚本打开的 Gazebo、RViz 和 ROS 节点终端。再次启动前使用下面的命令
+确认没有残留的核心节点：
+
+  ros2 node list | grep -E 'maddpg_waypoint|dynamic_encircle|map_merger'
+
+讨论一下

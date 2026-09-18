@@ -17,6 +17,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_sim_time_param = ParameterValue(use_sim_time, value_type=bool)
     model_path = LaunchConfiguration("model_path")
+    forced_robot = LaunchConfiguration("forced_robot")
     package_share = get_package_share_directory("go2_target_perception")
     perception_config = os.path.join(
         package_share, "config", "target_perception.yaml"
@@ -56,6 +57,7 @@ def generate_launch_description():
                 "confirmation_window": 1.0,
                 "max_message_age": 0.5,
                 "role_topic": "/target_role/perception_robot",
+                "forced_robot": forced_robot,
             }
         ],
     )
@@ -64,6 +66,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("model_path", default_value="yolov8s.pt"),
+            DeclareLaunchArgument("forced_robot", default_value=""),
             *perception_nodes,
             selector,
         ]

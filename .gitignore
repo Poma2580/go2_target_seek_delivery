@@ -67,6 +67,12 @@ go2_ws_v2.zip
 
 # 测试产物
 /TestResults
+
+# 旧 MADDPG 实现（仅保留在本地）
+/-MADDPG/
+Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
+Scripts/start_three_go2_gazebo_finetune.sh
+Docs/GitHub常用操作命令.txt
 /Figure/test_static_YOLO
 /tools/static_perception_map
 /tools/static_yolo_smoke

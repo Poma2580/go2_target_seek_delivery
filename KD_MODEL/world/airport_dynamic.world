@@ -22,7 +22,7 @@
 
       <update_rate>20.0</update_rate>
     </plugin>
-       
+
 
     <!-- Field size is X Y Z. Change X to tune overall length and Y to tune width. -->
     <model name="airport_flat_field">

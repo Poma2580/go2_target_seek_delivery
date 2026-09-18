@@ -775,9 +775,9 @@ def test_batch_gate_stops_next_case_and_writes_planned_counts(tmp_path, monkeypa
     assert status == 1
     summary = yaml.safe_load(next((tmp_path / "results").rglob("batch_summary.yaml")).read_text())
     assert len(calls) == (0 if initial else 1)
-    assert summary["scheduled_case_count"] == 99
+    assert summary["scheduled_case_count"] == 135
     assert summary["started_case_count"] == len(calls)
-    assert summary["not_run_case_count"] == 99 - len(calls)
+    assert summary["not_run_case_count"] == 135 - len(calls)
     assert summary["completion_status"] == "incomplete" and not summary["batch_pass"]
 
 
