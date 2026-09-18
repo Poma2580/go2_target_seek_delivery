@@ -119,37 +119,33 @@ def _group_exists(process_group):
     return True
 
 
-def cleanup_stale_test_processes(timeout=5.0, *, reporter=print):
-    matches = stale_test_processes(scan_processes())
-    if not matches:
-        reporter("[startup] no stale test-framework process groups found")
-        return []
-    groups = sorted({record.process_group for record in matches})
-    for record in matches:
-        reporter(
-            f"[startup] stale PID={record.pid} PGID={record.process_group}: "
-            f"{record.command[:180]}"
-        )
-    for process_group in groups:
-        try:
-            os.killpg(process_group, signal.SIGTERM)
-            reporter(f"[startup] SIGTERM sent to PGID={process_group}")
-        except ProcessLookupError:
-            pass
-    deadline = time.monotonic() + timeout
-    remaining = groups
-    while remaining and time.monotonic() < deadline:
-        remaining = [group for group in remaining if _group_exists(group)]
-        if remaining:
-            time.sleep(0.1)
-    for process_group in remaining:
-        try:
-            os.killpg(process_group, signal.SIGKILL)
-            reporter(f"[startup] SIGKILL sent to PGID={process_group}")
-        except ProcessLookupError:
-            pass
-    reporter(f"[startup] stale cleanup complete; groups={len(groups)}")
-    return groups
+def cleanup_stale_test_processes(timeout=15.0, *, reporter=print, output_dir=None):
+    from dataclasses import replace
+    from go2_test_framework.reporting.results import write_yaml
+    from go2_test_framework.runner.lifecycle import BatchSafetyError, OwnedProcesses, identities
+
+    records, errors = identities()
+    marked = [r for r in records if r.run and r.pid != os.getpid() and r.state != "Z"]
+    # Unmarked historical commands are diagnostic evidence, not ownership proof.
+    legacy = [r for r in scan_processes() if _is_legacy_test_process(r) and not r.environment.get(RUN_MARKER)]
+    world_groups = {r.group for r in marked if r.phase == "world" or "gzserver" in r.command
+                    or "gazebo_target_seek_world.launch.py" in r.command}
+    seeds = [replace(r, phase="world" if r.group in world_groups else "workers") for r in marked]
+    for record in seeds:
+        reporter(f"[startup] stale PID={record.pid} PGID={record.group}: {record.command[:180]}")
+    owned = OwnedProcesses(seeds=seeds)
+    report = owned.shutdown((timeout, 5.0, 3.0))
+    if legacy:
+        report["success"] = False
+        report["unowned_legacy"] = [{"pid": r.pid, "command": r.command} for r in legacy]
+    if output_dir is not None:
+        write_yaml(Path(output_dir) / "cleanup_summary.yaml", report)
+    if not report["success"]:
+        raise BatchSafetyError("cleanup_failed", "startup cleanup could not confirm a clean environment")
+    if report.get("received_signals"):
+        raise ShutdownRequested(getattr(signal, report["received_signals"][0]))
+    reporter(f"[startup] stale cleanup complete; processes={len(seeds)}")
+    return sorted({r.group for r in seeds})
 
 
 @contextmanager

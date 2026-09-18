@@ -1,0 +1,2 @@
+metric: target_recognition_accuracy
+pass_threshold_percent: 80.0

@@ -31,7 +31,7 @@ scenes:
         turn_duration: 2.0
         provisional: false
       rectangle:
-        points: [[-45.0, 0.0], [-10.0, 0.0], [-10.0, -13.0], [-45.0, -13.0]]
+        points: [[-45.0, 0.0], [-45.0, -13.0], [-10.0, -13.0], [-10.0, 0.0]]
         traversal: closed
         speed: 0.15
         turn_duration: 2.0

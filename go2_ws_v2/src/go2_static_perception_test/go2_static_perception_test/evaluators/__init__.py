@@ -1,0 +1,1 @@
+"""Static perception metric evaluators."""

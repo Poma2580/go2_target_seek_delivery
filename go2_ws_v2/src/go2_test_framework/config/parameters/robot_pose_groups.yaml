@@ -1,201 +1,603 @@
-schema_version: 1
-coordinate_mode: shared_absolute
-pose_groups:
-  group_01:
-    resolved: true
-    robots:
-      go2_1:
-        x: -25.58
-        y: 2.30
-        z: 0.80
-        yaw: 0.13
-      go2_2:
-        x: -34.96
-        y: -5.82
-        z: 0.80
-        yaw: 2.61
-      go2_3:
-        x: 54.10
-        y: -6.02
-        z: 0.80
-        yaw: -1.94
-  group_02:
-    resolved: true
-    robots:
-      go2_1:
-        x: -19.53
-        y: 14.96
-        z: 0.80
-        yaw: -1.01
-      go2_2:
-        x: -29.08
-        y: -6.90
-        z: 0.80
-        yaw: 2.76
-      go2_3:
-        x: 58.10
-        y: -21.63
-        z: 0.80
-        yaw: 2.41
-  group_03:
-    resolved: true
-    robots:
-      go2_1:
-        x: -12.54
-        y: -6.44
-        z: 0.80
-        yaw: 1.58
-      go2_2:
-        x: -32.08
-        y: 2.39
-        z: 0.80
-        yaw: -2.75
-      go2_3:
-        x: 57.24
-        y: -5.03
-        z: 0.80
-        yaw: -2.15
-  group_04:
-    resolved: true
-    robots:
-      go2_1:
-        x: -4.57
-        y: -3.49
-        z: 0.80
-        yaw: 2.40
-      go2_2:
-        x: -31.98
-        y: -0.32
-        z: 0.80
-        yaw: -3.01
-      go2_3:
-        x: 45.95
-        y: -7.08
-        z: 0.80
-        yaw: -1.03
-  group_05:
-    resolved: true
-    robots:
-      go2_1:
-        x: -12.86
-        y: 15.25
-        z: 0.80
-        yaw: -1.55
-      go2_2:
-        x: -34.46
-        y: 2.80
-        z: 0.80
-        yaw: -2.61
-      go2_3:
-        x: 47.75
-        y: -3.35
-        z: 0.80
-        yaw: -1.33
-  group_06:
-    resolved: true
-    robots:
-      go2_1:
-        x: -16.09
-        y: 14.40
-        z: 0.80
-        yaw: -1.25
-      go2_2:
-        x: -35.09
-        y: 3.08
-        z: 0.80
-        yaw: -2.54
-      go2_3:
-        x: 52.55
-        y: -2.25
-        z: 0.80
-        yaw: -1.72
-  group_07:
-    resolved: true
-    robots:
-      go2_1:
-        x: -15.40
-        y: 15.72
-        z: 0.80
-        yaw: -1.34
-      go2_2:
-        x: -33.13
-        y: 1.96
-        z: 0.80
-        yaw: -2.75
-      go2_3:
-        x: 51.16
-        y: -6.46
-        z: 0.80
-        yaw: -1.63
-  group_08:
-    resolved: true
-    robots:
-      go2_1:
-        x: -0.99
-        y: 4.44
-        z: 0.80
-        yaw: -3.10
-      go2_2:
-        x: -33.77
-        y: -8.80
-        z: 0.80
-        yaw: 2.43
-      go2_3:
-        x: 62.37
-        y: -18.24
-        z: 0.80
-        yaw: 2.87
-  group_09:
-    resolved: true
-    robots:
-      go2_1:
-        x: -21.33
-        y: 10.94
-        z: 0.80
-        yaw: -0.68
-      go2_2:
-        x: -33.50
-        y: -0.37
-        z: 0.80
-        yaw: -2.99
-      go2_3:
-        x: 41.63
-        y: -5.54
-        z: 0.80
-        yaw: -0.81
-  group_10:
-    resolved: true
-    robots:
-      go2_1:
-        x: -15.94
-        y: 15.73
-        z: 0.80
-        yaw: -1.30
-      go2_2:
-        x: -33.02
-        y: 3.52
-        z: 0.80
-        yaw: -2.62
-      go2_3:
-        x: 50.19
-        y: -5.12
-        z: 0.80
-        yaw: -1.52
-  group_11:
-    resolved: true
-    robots:
-      go2_1:
-        x: -15.76
-        y: -7.99
-        z: 0.80
-        yaw: 1.32
-      go2_2:
-        x: -33.74
-        y: -5.59
-        z: 0.80
-        yaw: 2.70
-      go2_3:
-        x: 50.35
-        y: -2.22
-        z: 0.80
-        yaw: -1.55
+schema_version: 2
+coordinate_mode: scene_absolute
+scenes:
+  city:
+    pose_groups:
+      group_01:
+        resolved: true
+        robots:
+          go2_1:
+            x: -25.58
+            y: 2.30
+            z: 0.60
+            yaw: 0.13
+          go2_2:
+            x: -23.42
+            y: 4.75
+            z: 0.60
+            yaw: -0.07
+          go2_3:
+            x: -19.56
+            y: 0.75
+            z: 0.60
+            yaw: 0.44
+      group_02:
+        resolved: true
+        robots:
+          go2_1:
+            x: -19.53
+            y: 14.96
+            z: 0.60
+            yaw: -1.01
+          go2_2:
+            x: -22.71
+            y: 10.43
+            z: 0.60
+            yaw: -0.57
+          go2_3:
+            x: -14.56
+            y: 17.33
+            z: 0.60
+            yaw: -1.43
+      group_03:
+        resolved: true
+        robots:
+          go2_1:
+            x: -12.54
+            y: -6.44
+            z: 0.60
+            yaw: 1.58
+          go2_2:
+            x: -12.05
+            y: -1.20
+            z: 0.60
+            yaw: 1.69
+          go2_3:
+            x: -16.25
+            y: -6.07
+            z: 0.60
+            yaw: 1.23
+      group_04:
+        resolved: true
+        robots:
+          go2_1:
+            x: -4.57
+            y: -3.49
+            z: 0.60
+            yaw: 2.40
+          go2_2:
+            x: -1.17
+            y: -2.09
+            z: 0.60
+            yaw: 2.65
+          go2_3:
+            x: 2.72
+            y: -6.73
+            z: 0.60
+            yaw: 2.53
+      group_05:
+        resolved: true
+        robots:
+          go2_1:
+            x: -12.86
+            y: 15.25
+            z: 0.60
+            yaw: -1.40
+          go2_2:
+            x: -12.55
+            y: 18.31
+            z: 0.60
+            yaw: -1.58
+          go2_3:
+            x: -17.84
+            y: 11.96
+            z: 0.60
+            yaw: -0.99
+      group_06:
+        resolved: true
+        robots:
+          go2_1:
+            x: -16.09
+            y: 14.40
+            z: 0.60
+            yaw: -1.25
+          go2_2:
+            x: -21.75
+            y: 11.95
+            z: 0.60
+            yaw: -0.72
+          go2_3:
+            x: -20.14
+            y: 17.13
+            z: 0.60
+            yaw: -1.05
+      group_07:
+        resolved: true
+        robots:
+          go2_1:
+            x: -15.40
+            y: 15.72
+            z: 0.60
+            yaw: -1.34
+          go2_2:
+            x: -11.28
+            y: 22.41
+            z: 0.60
+            yaw: -1.65
+          go2_3:
+            x: -13.34
+            y: 22.65
+            z: 0.60
+            yaw: -1.53
+      group_08:
+        resolved: true
+        robots:
+          go2_1:
+            x: -0.99
+            y: 4.44
+            z: 0.60
+            yaw: -3.10
+          go2_2:
+            x: 2.40
+            y: 6.76
+            z: 0.60
+            yaw: -2.96
+          go2_3:
+            x: 4.96
+            y: 1.70
+            z: 0.60
+            yaw: 3.01
+      group_09:
+        resolved: true
+        robots:
+          go2_1:
+            x: -21.33
+            y: 10.94
+            z: 0.60
+            yaw: -0.68
+          go2_2:
+            x: -18.31
+            y: 18.11
+            z: 0.60
+            yaw: -1.19
+          go2_3:
+            x: -28.54
+            y: 10.92
+            z: 0.60
+            yaw: -0.41
+      group_10:
+        resolved: true
+        robots:
+          go2_1:
+            x: -15.94
+            y: 15.73
+            z: 0.60
+            yaw: -1.30
+          go2_2:
+            x: -18.80
+            y: 20.27
+            z: 0.60
+            yaw: -1.21
+          go2_3:
+            x: -19.24
+            y: 22.84
+            z: 0.60
+            yaw: -1.24
+      group_11:
+        resolved: true
+        robots:
+          go2_1:
+            x: -15.76
+            y: -7.99
+            z: 0.60
+            yaw: 1.32
+          go2_2:
+            x: -19.49
+            y: -14.32
+            z: 0.60
+            yaw: 1.21
+          go2_3:
+            x: -10.29
+            y: -11.93
+            z: 0.60
+            yaw: 1.72
+  forest:
+    pose_groups:
+      group_01:
+        resolved: true
+        robots:
+          go2_1:
+            x: -36.39
+            y: -12.61
+            z: 0.60
+            yaw: 2.04
+          go2_2:
+            x: -34.96
+            y: -5.82
+            z: 0.60
+            yaw: 2.71
+          go2_3:
+            x: -34.62
+            y: 1.92
+            z: 0.60
+            yaw: -2.69
+      group_02:
+        resolved: true
+        robots:
+          go2_1:
+            x: -33.23
+            y: -10.15
+            z: 0.60
+            yaw: 2.37
+          go2_2:
+            x: -29.08
+            y: -6.90
+            z: 0.60
+            yaw: 2.76
+          go2_3:
+            x: -25.87
+            y: -13.58
+            z: 0.60
+            yaw: 2.51
+      group_03:
+        resolved: true
+        robots:
+          go2_1:
+            x: -37.07
+            y: 6.77
+            z: 0.60
+            yaw: -2.10
+          go2_2:
+            x: -32.08
+            y: 2.39
+            z: 0.60
+            yaw: -2.75
+          go2_3:
+            x: -28.99
+            y: 0.99
+            z: 0.60
+            yaw: -2.94
+      group_04:
+        resolved: true
+        robots:
+          go2_1:
+            x: -35.04
+            y: -6.81
+            z: 0.60
+            yaw: 2.51
+          go2_2:
+            x: -31.98
+            y: -0.32
+            z: 0.60
+            yaw: -3.01
+          go2_3:
+            x: -33.97
+            y: -4.77
+            z: 0.60
+            yaw: 2.77
+      group_05:
+        resolved: true
+        robots:
+          go2_1:
+            x: -32.07
+            y: 7.14
+            z: 0.60
+            yaw: -2.42
+          go2_2:
+            x: -34.46
+            y: 2.80
+            z: 0.60
+            yaw: -2.51
+          go2_3:
+            x: -42.08
+            y: 2.19
+            z: 0.60
+            yaw: -1.55
+      group_06:
+        resolved: true
+        robots:
+          go2_1:
+            x: -33.72
+            y: 6.00
+            z: 0.60
+            yaw: -2.39
+          go2_2:
+            x: -35.09
+            y: 3.08
+            z: 0.60
+            yaw: -2.44
+          go2_3:
+            x: -42.19
+            y: 3.08
+            z: 0.60
+            yaw: -1.53
+      group_07:
+        resolved: true
+        robots:
+          go2_1:
+            x: -35.64
+            y: 6.01
+            z: 0.60
+            yaw: -2.26
+          go2_2:
+            x: -33.13
+            y: 1.96
+            z: 0.60
+            yaw: -2.75
+          go2_3:
+            x: -26.17
+            y: 2.88
+            z: 0.60
+            yaw: -2.86
+      group_08:
+        resolved: true
+        robots:
+          go2_1:
+            x: -35.68
+            y: -1.56
+            z: 0.60
+            yaw: -3.12
+          go2_2:
+            x: -33.77
+            y: -8.80
+            z: 0.60
+            yaw: 2.43
+          go2_3:
+            x: -35.27
+            y: -4.94
+            z: 0.60
+            yaw: 2.69
+      group_09:
+        resolved: true
+        robots:
+          go2_1:
+            x: -40.79
+            y: 2.67
+            z: 0.60
+            yaw: -1.84
+          go2_2:
+            x: -33.50
+            y: -0.37
+            z: 0.60
+            yaw: -2.99
+          go2_3:
+            x: -32.55
+            y: -7.16
+            z: 0.60
+            yaw: 2.62
+      group_10:
+        resolved: true
+        robots:
+          go2_1:
+            x: -37.96
+            y: 9.71
+            z: 0.60
+            yaw: -1.91
+          go2_2:
+            x: -33.02
+            y: 3.52
+            z: 0.60
+            yaw: -2.52
+          go2_3:
+            x: -26.34
+            y: -0.77
+            z: 0.60
+            yaw: -3.08
+      group_11:
+        resolved: true
+        robots:
+          go2_1:
+            x: -27.59
+            y: -9.25
+            z: 0.60
+            yaw: 2.66
+          go2_2:
+            x: -33.74
+            y: -5.59
+            z: 0.60
+            yaw: 2.70
+          go2_3:
+            x: -33.14
+            y: -8.97
+            z: 0.60
+            yaw: 2.45
+  airport:
+    pose_groups:
+      group_01:
+        resolved: true
+        robots:
+          go2_1:
+            x: 55.46
+            y: -13.12
+            z: 0.60
+            yaw: -2.77
+          go2_2:
+            x: 51.00
+            y: -3.20
+            z: 0.60
+            yaw: -1.60
+          go2_3:
+            x: 54.10
+            y: -6.02
+            z: 0.60
+            yaw: -1.94
+      group_02:
+        resolved: true
+        robots:
+          go2_1:
+            x: 57.63
+            y: -15.76
+            z: 0.60
+            yaw: 3.03
+          go2_2:
+            x: 51.04
+            y: -22.62
+            z: 0.60
+            yaw: 1.62
+          go2_3:
+            x: 58.10
+            y: -21.63
+            z: 0.60
+            yaw: 2.41
+      group_03:
+        resolved: true
+        robots:
+          go2_1:
+            x: 61.00
+            y: -5.96
+            z: 0.60
+            yaw: -2.42
+          go2_2:
+            x: 59.52
+            y: -12.10
+            z: 0.60
+            yaw: -2.83
+          go2_3:
+            x: 57.24
+            y: -5.03
+            z: 0.60
+            yaw: -2.15
+      group_04:
+        resolved: true
+        robots:
+          go2_1:
+            x: 47.77
+            y: -0.44
+            z: 0.60
+            yaw: -1.37
+          go2_2:
+            x: 49.61
+            y: -6.57
+            z: 0.60
+            yaw: -1.45
+          go2_3:
+            x: 45.95
+            y: -7.08
+            z: 0.60
+            yaw: -1.03
+      group_05:
+        resolved: true
+        robots:
+          go2_1:
+            x: 40.84
+            y: -5.88
+            z: 0.60
+            yaw: -0.75
+          go2_2:
+            x: 43.17
+            y: -4.49
+            z: 0.60
+            yaw: -0.95
+          go2_3:
+            x: 47.75
+            y: -3.35
+            z: 0.60
+            yaw: -1.33
+      group_06:
+        resolved: true
+        robots:
+          go2_1:
+            x: 54.15
+            y: -7.71
+            z: 0.60
+            yaw: -2.02
+          go2_2:
+            x: 55.23
+            y: 4.57
+            z: 0.60
+            yaw: -1.80
+          go2_3:
+            x: 52.55
+            y: -2.25
+            z: 0.60
+            yaw: -1.72
+      group_07:
+        resolved: true
+        robots:
+          go2_1:
+            x: 46.71
+            y: -4.05
+            z: 0.60
+            yaw: -1.22
+          go2_2:
+            x: 49.54
+            y: -12.66
+            z: 0.60
+            yaw: -1.12
+          go2_3:
+            x: 51.16
+            y: -6.46
+            z: 0.60
+            yaw: -1.63
+      group_08:
+        resolved: true
+        robots:
+          go2_1:
+            x: 62.32
+            y: -25.91
+            z: 0.60
+            yaw: 2.39
+          go2_2:
+            x: 68.39
+            y: -20.35
+            z: 0.60
+            yaw: 2.85
+          go2_3:
+            x: 62.37
+            y: -18.24
+            z: 0.60
+            yaw: 2.87
+      group_09:
+        resolved: true
+        robots:
+          go2_1:
+            x: 39.42
+            y: -9.49
+            z: 0.60
+            yaw: -0.46
+          go2_2:
+            x: 35.65
+            y: -0.88
+            z: 0.60
+            yaw: -0.75
+          go2_3:
+            x: 41.63
+            y: -5.54
+            z: 0.60
+            yaw: -0.81
+      group_10:
+        resolved: true
+        robots:
+          go2_1:
+            x: 55.16
+            y: -7.37
+            z: 0.60
+            yaw: -2.10
+          go2_2:
+            x: 54.87
+            y: -4.62
+            z: 0.60
+            yaw: -1.96
+          go2_3:
+            x: 50.19
+            y: -5.12
+            z: 0.60
+            yaw: -1.52
+      group_11:
+        resolved: true
+        robots:
+          go2_1:
+            x: 54.86
+            y: 2.30
+            z: 0.60
+            yaw: -1.81
+          go2_2:
+            x: 48.46
+            y: -5.23
+            z: 0.60
+            yaw: -1.35
+          go2_3:
+            x: 50.35
+            y: -2.22
+            z: 0.60
+            yaw: -1.55

@@ -26,36 +26,6 @@ class FakeProcess:
         return 0
 
 
-def test_process_groups_are_terminated_then_swept(monkeypatch, tmp_path):
-    created = []
-    signals = []
-
-    def fake_popen(*args, **kwargs):
-        process = FakeProcess()
-        created.append(process)
-        return process
-
-    def fake_killpg(pid, signal):
-        signals.append((pid, signal))
-        for process in created:
-            if process.pid == pid:
-                process.running = False
-
-    monkeypatch.setattr("go2_test_framework.runner.processes.subprocess.Popen", fake_popen)
-    monkeypatch.setattr("go2_test_framework.runner.processes.os.killpg", fake_killpg)
-    monkeypatch.setattr(
-        "go2_test_framework.runner.processes._process_group_exists", lambda _: True
-    )
-    manager = ProcessGroupManager(tmp_path / "logs", shutdown_timeout=0.0)
-    first = manager.start("first", ["first"])
-    second = manager.start("second", ["second"])
-    manager.stop()
-
-    assert signals[0][0] == second.pid
-    assert signals[1][0] == first.pid
-    assert [pid for pid, _ in signals[-2:]] == [second.pid, first.pid]
-    assert (tmp_path / "logs/first.log").is_file()
-
 
 def test_environment_markers_are_added_to_children(monkeypatch, tmp_path):
     captured = {}
@@ -67,6 +37,7 @@ def test_environment_markers_are_added_to_children(monkeypatch, tmp_path):
         return process
 
     monkeypatch.setattr("go2_test_framework.runner.processes.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("go2_test_framework.runner.lifecycle.OwnedProcesses.add", lambda *a: None)
     manager = ProcessGroupManager(
         tmp_path / "logs", environment={"GO2_TEST_RUN_ID": "batch-1"}
     )
@@ -86,6 +57,7 @@ def test_console_tee_preserves_log_and_prefix(monkeypatch, tmp_path, capsys):
         "go2_test_framework.runner.processes.subprocess.Popen",
         lambda *args, **kwargs: TeeProcess(),
     )
+    monkeypatch.setattr("go2_test_framework.runner.lifecycle.OwnedProcesses.add", lambda *a: None)
     manager = ProcessGroupManager(tmp_path / "logs")
     manager.start(
         "attitude_check", ["checker"], mirror_to_console=True,

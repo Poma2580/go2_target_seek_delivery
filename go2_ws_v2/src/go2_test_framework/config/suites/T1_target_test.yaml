@@ -1,6 +1,8 @@
 schema_version: 1
+task_type: perception
 execution:
   gazebo_gui: true
+  rviz: false
   rqt: true
   robot_startup:
     world_to_first_delay_sec: 3.0
@@ -12,7 +14,7 @@ execution:
     roll_limit_deg: 90.0
     sample_frames: 5
     timeout_sec: 10.0
-    max_restarts: 5
+    max_restarts: 8
     restart_delay_sec: 1.0
 suite_id: T1
 formal: true

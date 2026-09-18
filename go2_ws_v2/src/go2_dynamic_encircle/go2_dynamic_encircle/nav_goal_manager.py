@@ -1,12 +1,15 @@
 """NavigateToPose dispatch, throttling, cancellation, and callback ownership."""
 
 import math
+import json
 from functools import partial
 
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import String
 
 from .geometry import yaw_to_quaternion_components
 
@@ -106,6 +109,15 @@ class NavGoalManager:
             name: ActionClient(node, NavigateToPose, f"/{name}/navigate_to_pose")
             for name in self.robot_names
         }
+        status_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=100,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.nav_goal_status_publisher = node.create_publisher(
+            String, "/dynamic_encircle/nav_goal_status", status_qos
+        )
         self.active_goal_handles = {name: {} for name in self.robot_names}
         self.pending_goal_sends = {name: set() for name in self.robot_names}
         self.cancel_inflight = {name: set() for name in self.robot_names}
@@ -157,15 +169,25 @@ class NavGoalManager:
             return False
 
         generation = self.state.mark_dispatched(now)
+        goals = {
+            name: tuple(self.plan.slots[name]) for name in self.navigation_dogs
+        }
         for name in self.navigation_dogs:
             self.pending_goal_sends[name].add(generation)
-            point = self.plan.slots[name]
+            point = goals[name]
             future = self.action_clients[name].send_goal_async(
                 self._goal_message(point)
             )
             future.add_done_callback(
-                partial(self._goal_response_callback, name, generation, point)
+                partial(
+                    self._goal_response_callback,
+                    name,
+                    generation,
+                    goals,
+                    point,
+                )
             )
+        self._publish_status("DISPATCHED", generation, goals)
         self.node.get_logger().info(
             "[nav_goal] generation %d heading=%.1f deg: %s"
             % (
@@ -179,6 +201,35 @@ class NavGoalManager:
             )
         )
         return True
+
+    def _publish_status(
+        self, event, generation, goals, *, robot=None, action_status=None
+    ):
+        """Publish one strict-JSON observation without changing goal state."""
+        stamp = self.node.get_clock().now().to_msg()
+        value = {
+            "schema_version": 1,
+            "stamp": {"sec": int(stamp.sec), "nanosec": int(stamp.nanosec)},
+            "event": event,
+            "generation": int(generation),
+            "frame_id": self.global_frame,
+            "navigation_dogs": list(self.navigation_dogs),
+            "goals": {
+                name: {
+                    "goal_x": float(point[0]),
+                    "goal_y": float(point[1]),
+                    "goal_yaw": float(point[2]),
+                }
+                for name, point in goals.items()
+            },
+            "robot": robot,
+            "action_status": action_status,
+        }
+        message = String()
+        message.data = json.dumps(
+            value, allow_nan=False, separators=(",", ":"), sort_keys=True
+        )
+        self.nav_goal_status_publisher.publish(message)
 
     def suspend(self, reason):
         """Suspend goal updates and cancel accepted active goals."""
@@ -245,7 +296,7 @@ class NavGoalManager:
         goal.pose = pose
         return goal
 
-    def _goal_response_callback(self, name, generation, point, future):
+    def _goal_response_callback(self, name, generation, goals, point, future):
         """Accept current handles and cancel accepted stale generations."""
         self.pending_goal_sends[name].discard(generation)
         try:
@@ -259,12 +310,23 @@ class NavGoalManager:
                 )
             return
 
+        response_event = "ACCEPTED" if goal_handle.accepted else "REJECTED"
+        self._publish_status(
+            response_event,
+            generation,
+            goals,
+            robot=name,
+            action_status=response_event,
+        )
+
         if self._handoff_cancelling:
             if goal_handle.accepted:
                 self.active_goal_handles[name][generation] = goal_handle
                 result_future = goal_handle.get_result_async()
                 result_future.add_done_callback(
-                    partial(self._goal_result_callback, name, generation)
+                    partial(
+                        self._goal_result_callback, name, generation, goals
+                    )
                 )
                 self._request_handoff_cancel(name, generation, goal_handle)
             return
@@ -283,34 +345,38 @@ class NavGoalManager:
         self.active_goal_handles[name][generation] = goal_handle
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(
-            partial(self._goal_result_callback, name, generation)
+            partial(self._goal_result_callback, name, generation, goals)
         )
 
-    def _goal_result_callback(self, name, generation, future):
+    def _goal_result_callback(self, name, generation, goals, future):
         """Log a current result without treating it as formation completion."""
         self.active_goal_handles[name].pop(generation, None)
         self.cancel_inflight[name].discard(generation)
-        if self._handoff_cancelling:
-            try:
-                future.result()
-            except Exception as error:
-                self._handoff_cancel_failed = True
-                self.node.get_logger().error(
-                    f"[nav_goal] {name} terminal result failed: {error}"
-                )
-            return
-        if not self.state.is_current(generation):
-            return
         try:
             status = future.result().status
         except Exception as error:
+            if self._handoff_cancelling:
+                self._handoff_cancel_failed = True
             self.node.get_logger().error(
-                f"[nav_goal] {name} result failed: {error}"
+                f"[nav_goal] {name} terminal result failed: {error}"
             )
+            return
+        status_label = goal_status_label(status)
+        if status_label in ("SUCCEEDED", "CANCELED", "ABORTED"):
+            self._publish_status(
+                status_label,
+                generation,
+                goals,
+                robot=name,
+                action_status=status_label,
+            )
+        if self._handoff_cancelling:
+            return
+        if not self.state.is_current(generation):
             return
         self.node.get_logger().info(
             f"[nav_goal] {name} generation {generation} finished: "
-            f"{goal_status_label(status)}; overall success still uses "
+            f"{status_label}; overall success still uses "
             "simultaneous slot pose"
         )
 

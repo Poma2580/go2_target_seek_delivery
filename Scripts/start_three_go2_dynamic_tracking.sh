@@ -550,7 +550,7 @@ ros2 run go2_dynamic_encircle dynamic_encircle --ros-args \
     -p maddpg_enable_topic:=/dynamic_encircle/maddpg_enable \
     -p switch_mux_to_maddpg:=false
 "
-不启动，要求已经运行
+# 不启动，要求已经运行
 # 终端 13-15：分别打开三只狗的压缩相机。
 # for robot_index in 1 2 3; do
 #     robot_name="go2_${robot_index}"

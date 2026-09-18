@@ -27,6 +27,7 @@ __pycache__/
 /Docs/情况说明_0610.2.txt
 /Docs/情况说明_0819.txt
 /Docs/更正说明0609.txt
+/Docs/情况说明0916.txt
 /Plan
 /Middle_Report
 # YOLO 模型权重（标准可下载，不入库避免仓库膨胀）
@@ -72,3 +73,7 @@ go2_ws_v2.zip
 Scripts/start_three_go2_dynamic_waypoint_maddpg.sh
 Scripts/start_three_go2_gazebo_finetune.sh
 Docs/GitHub常用操作命令.txt
+/Figure/test_static_YOLO
+/tools/static_perception_map
+/tools/static_yolo_smoke
+/tools/static_perception_pose_generator

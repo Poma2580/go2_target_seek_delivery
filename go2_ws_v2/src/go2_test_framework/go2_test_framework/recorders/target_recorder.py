@@ -23,7 +23,7 @@ import tf2_geometry_msgs  # noqa: F401  (register PointStamped transforms)
 from go2_test_framework.common.config import read_yaml
 from go2_test_framework.ground_truth.visibility import CameraIntrinsics, project_camera_point, quaternion_conjugate_rotate
 from go2_test_framework.recorders.cache import TimeCache
-from go2_test_framework.reporting.results import evaluate_csv, write_yaml
+from go2_test_framework.reporting.results import evaluate_task_csv, write_yaml
 
 
 ROBOTS = ("go2_1", "go2_2", "go2_3")
@@ -338,8 +338,8 @@ class TargetTestRecorder(Node):
             writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
             writer.writeheader()
             writer.writerows(self.rows)
-        summary = evaluate_csv(
-            raw_path, self.output_dir / "metrics",
+        summary = evaluate_task_csv(
+            self.case["task_type"], raw_path, self.output_dir / "metrics",
             infrastructure_valid=self.infrastructure_valid,
             provisional=bool(self.case.get("provisional", False) or not self.case.get("formal", False)),
             recognition_threshold=float(self.case.get("metrics", {}).get("recognition_pass_threshold_percent", 80.0)),

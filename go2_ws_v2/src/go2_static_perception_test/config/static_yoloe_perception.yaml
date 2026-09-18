@@ -1,0 +1,30 @@
+/**/static_yoloe_perception:
+  ros__parameters:
+    robot_namespace: go2_1
+    model_path: yoloe-26s-seg.pt
+    model_cache_dir: ~/.cache/go2_static_yolo_smoke
+    target_prompt: person
+    rgb_topic: ''
+    depth_topic: ''
+    camera_info_topic: ''
+    pose_topic: ''
+    result_status_topic: ''
+    debug_image_topic: ''
+    target_frame: ''
+    conf: 0.15
+    imgsz: 960
+    device: cpu
+    depth_window: 5
+    depth_percentile: 30.0
+    min_depth_samples: 20
+    min_depth: 0.3
+    max_depth: 25.0
+    roi_x_min: 0.25
+    roi_x_max: 0.75
+    roi_y_min: 0.20
+    roi_y_max: 0.70
+    sync_slop: 0.05
+    inference_rate: 8.0
+    max_image_age: 0.30
+    tf_timeout: 0.1
+    publish_debug: true

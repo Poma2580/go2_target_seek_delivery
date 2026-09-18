@@ -102,9 +102,12 @@ def test_late_accepted_goal_is_cancelled_and_waited_to_terminal():
             warning=lambda *args, **kwargs: None,
         )
     )
+    manager._publish_status = lambda *args, **kwargs: None
     handle = FakeGoalHandle()
     manager._goal_response_callback(
-        "go2_2", 7, (0.0, 0.0, 0.0), FakeFuture(handle)
+        "go2_2", 7,
+        {"go2_2": (0.0, 0.0, 0.0), "go2_3": (1.0, 0.0, 0.0)},
+        (0.0, 0.0, 0.0), FakeFuture(handle)
     )
     assert not manager.pending_goal_sends["go2_2"]
     assert 7 in manager.active_goal_handles["go2_2"]
