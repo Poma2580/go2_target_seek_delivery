@@ -52,6 +52,8 @@ from std_msgs.msg import String
 import tf2_ros
 import tf2_geometry_msgs  # noqa: F401  (注册 PointStamped 的 do_transform)
 
+from .detector_backend import create_detector
+
 
 def should_exit_for_role(robot_namespace, selected_robot):
     """Return whether this single-robot perception process is not selected."""
@@ -102,9 +104,20 @@ class TargetPerception(Node):
         self.declare_parameter('target_frame', '')        # 留空则用 <ns>/odom
         self.declare_parameter('role_topic', '/target_role/perception_robot')
 
-        self.declare_parameter('model_path', 'yolov8m.pt')  # m 比 nano 对远/小目标召回强很多
-        self.declare_parameter('conf', 0.7)               # 阈值放低，捞回远处低分检测
-        self.declare_parameter('imgsz', 960)               # 推理分辨率，上采样提升小目标召回
+        self.declare_parameter('detector_backend', 'yoloe')
+        self.declare_parameter('detector_backend_override', '')
+        self.declare_parameter(
+            'yolov8_model_path',
+            '/home/bit/go2_target_seek_delivery/yolov8s.pt')
+        self.declare_parameter('yoloe_model_path', 'yoloe-26s-seg.pt')
+        self.declare_parameter('model_path_override', '')
+        self.declare_parameter('model_cache_dir', '~/.cache/go2_static_yolo_smoke')
+        self.declare_parameter('detection_classes', [
+            'person', 'car', 'airplane', 'bus', 'truck',
+            'fire hydrant', 'stop sign', 'bench'])
+        self.declare_parameter('target_class', 'person')
+        self.declare_parameter('conf', 0.15)
+        self.declare_parameter('imgsz', 640)
         self.declare_parameter('device', 'cuda:0')        # 无 GPU 改 'cpu'
         self.declare_parameter('depth_window', 5)         # 中值采样半窗口(像素)
         self.declare_parameter('depth_percentile', 30.0)  # ROI 内取偏近分位，减少背景污染
@@ -164,19 +177,30 @@ class TargetPerception(Node):
         if not isinstance(role_topic, str) or not role_topic:
             raise ValueError('role_topic 必须是非空字符串')
 
-        # ---- YOLO ----
-        model_path = self.get_parameter('model_path').value
-        from ultralytics import YOLO   # 延迟导入，避免无依赖时整包失败
-        self.get_logger().info(f'加载 YOLO 模型: {model_path} (device={self.device}) ...')
-        self.model = YOLO(model_path)
-        # person 用于追踪，其余 COCO 类别仅用于 debug 展示。
-        self._yolo_kwargs = dict(classes=[0, 2, 4, 5, 7, 10, 11, 13],
-                                 conf=self.conf, imgsz=self.imgsz,
-                                 verbose=False)
-        try:
-            self._yolo_kwargs['device'] = self.device
-        except Exception:
-            pass
+        # ---- 可切换检测后端 ----
+        configured_backend = self.get_parameter('detector_backend').value
+        backend_override = self.get_parameter('detector_backend_override').value
+        self.detector_backend = backend_override.strip() or configured_backend
+        model_override = self.get_parameter('model_path_override').value.strip()
+        detection_classes = list(self.get_parameter('detection_classes').value)
+        target_class = self.get_parameter('target_class').value
+        self.get_logger().info(
+            f'加载 {self.detector_backend} 检测后端 '
+            f'(device={self.device}, classes={detection_classes}) ...')
+        self.detector = create_detector(
+            backend=self.detector_backend,
+            yolov8_model_path=self.get_parameter('yolov8_model_path').value,
+            yoloe_model_path=self.get_parameter('yoloe_model_path').value,
+            model_cache_dir=self.get_parameter('model_cache_dir').value,
+            detection_classes=detection_classes,
+            target_class=target_class,
+            conf=self.conf,
+            imgsz=self.imgsz,
+            device=self.device,
+            model_path_override=model_override,
+        )
+        self.target_class = target_class.strip()
+        self.target_class_id = self.detector.target_class_id
 
         # ---- 内部状态 ----
         self.bridge = CvBridge()
@@ -353,7 +377,7 @@ class TargetPerception(Node):
 
         # ---- YOLO 检测 ----
         # results 里可能包含多个检测框；_pick_person 会挑一个“面积最大的人”作为跟踪目标。
-        results = self.model(rgb, **self._yolo_kwargs)
+        results = self.detector.predict(rgb)
         best = self._pick_person(results)
         if best is None:
             self._warn('未检测到 person。')
@@ -451,8 +475,8 @@ class TargetPerception(Node):
     def _pick_person(self, results):
         """从 YOLO 结果里挑面积最大的一个 person bbox。
 
-        YOLOv8 的每个 box 都带类别、置信度和 xyxy 坐标。
-        只接受 cls==0，其他类别仅供 debug 展示，不参与目标选择。
+        两种 Ultralytics 后端的每个 box 都带类别、置信度和 xyxy 坐标。
+        只接受后端映射出的 target_class_id，其他类别仅供 debug 展示。
 
         当前策略是“面积最大的人 = 目标人”。这适合场景里通常只有一个主要行人，
         或者最近的人在图像上最大；如果未来要多目标跟踪，可以在这里改成按 ID、
@@ -469,7 +493,7 @@ class TargetPerception(Node):
                 continue
             for b in boxes:
                 cls = int(b.cls[0]) if b.cls is not None else -1
-                if cls != 0:
+                if cls != self.target_class_id:
                     continue
                 xyxy = b.xyxy[0].tolist()
                 x1, y1, x2, y2 = xyxy
@@ -591,7 +615,7 @@ class TargetPerception(Node):
                 x1, y1, x2, y2, conf, Z = det
                 cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)),
                               (0, 255, 0), 2)
-                label = f'person {conf:.2f}'
+                label = f'{self.target_class} {conf:.2f}'
                 if Z is not None:
                     label += f' Z={Z:.2f}m'
                 if depth_source is not None:
@@ -601,7 +625,7 @@ class TargetPerception(Node):
                 cv2.putText(img, label, (int(x1), max(0, int(y1) - 6)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             else:
-                cv2.putText(img, 'no person', (10, 24),
+                cv2.putText(img, f'no {self.target_class}', (10, 24),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             out = self.bridge.cv2_to_imgmsg(img, encoding='bgr8')
             out.header = header

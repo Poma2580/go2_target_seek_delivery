@@ -693,6 +693,7 @@ def test_attempt_rviz_order_and_cleanup(tmp_path, monkeypatch, task_type, enable
         attempt = orchestration.run_attempt(
             case, PACKAGE, tmp_path / f"attempt_{number}", case_config,
             Path("model.pt"), config, number,
+            detector_backend="yolov8",
             process_manager_factory=Processes, reporter=lambda *a, **k: None,
             health_gate=lambda *a: None,
         )
@@ -702,6 +703,9 @@ def test_attempt_rviz_order_and_cleanup(tmp_path, monkeypatch, task_type, enable
         else:
             assert attempt.status is AttemptStatus.COMPLETED, attempt.reason
         assert managers[-1].stopped
+        perception = next(command for name, command in events if name == "perception")
+        assert "detector_backend_override:=yolov8" in perception
+        assert "model_path_override:=model.pt" in perception
         launches = [command for name, command in events if name == "rviz"]
         assert len(launches) == int(enabled)
         if enabled:
@@ -770,7 +774,8 @@ def test_batch_gate_stops_next_case_and_writes_planned_counts(tmp_path, monkeypa
     model.touch()
     status = runner_main.main([
         "--suite", str(PACKAGE / "config/suites/T1_target_test.yaml"), "--all",
-        "--model-path", str(model), "--results-root", str(tmp_path / "results"),
+        "--detector-backend", "yolov8", "--model-path", str(model),
+        "--results-root", str(tmp_path / "results"),
     ])
     assert status == 1
     summary = yaml.safe_load(next((tmp_path / "results").rglob("batch_summary.yaml")).read_text())

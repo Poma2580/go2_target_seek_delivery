@@ -16,7 +16,8 @@ ROBOT_NAMES = ("go2_1", "go2_2", "go2_3")
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_sim_time_param = ParameterValue(use_sim_time, value_type=bool)
-    model_path = LaunchConfiguration("model_path")
+    detector_backend_override = LaunchConfiguration("detector_backend_override")
+    model_path_override = LaunchConfiguration("model_path_override")
     forced_robot = LaunchConfiguration("forced_robot")
     package_share = get_package_share_directory("go2_target_perception")
     perception_config = os.path.join(
@@ -36,7 +37,8 @@ def generate_launch_description():
                 {
                     "use_sim_time": use_sim_time_param,
                     "robot_namespace": name,
-                    "model_path": model_path,
+                    "detector_backend_override": detector_backend_override,
+                    "model_path_override": model_path_override,
                 },
             ],
         )
@@ -65,7 +67,8 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_sim_time", default_value="true"),
-            DeclareLaunchArgument("model_path", default_value="yolov8s.pt"),
+            DeclareLaunchArgument("detector_backend_override", default_value=""),
+            DeclareLaunchArgument("model_path_override", default_value=""),
             DeclareLaunchArgument("forced_robot", default_value=""),
             *perception_nodes,
             selector,

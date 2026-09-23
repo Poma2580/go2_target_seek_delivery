@@ -8,7 +8,7 @@ scenes:
     inflation_radius: 0.4
 
   forest:
-    min_height: -0.15
+    min_height: 0.30
     max_height: 0.50
     cost_scaling_factor: 1.0
     inflation_radius: 1.5

@@ -1,7 +1,7 @@
 schema_version: 1
 task_type: path_planning
 execution:
-  gazebo_gui: false
+  gazebo_gui: true
   rviz: true
   rqt: false
   robot_startup:

@@ -28,14 +28,15 @@ def probe(boxes):
     node._warn = warnings.append
     node.get_logger = lambda: NS(info=lambda *a, **kw: None)
     node.K = (100., 100., 50., 50.)
-    node._yolo_kwargs = {}
     results = [NS(boxes=boxes, names=NAMES)]
 
     def infer(*args, **kwargs):
         calls.append(1)
         return results
 
-    node.model = infer
+    node.detector = NS(predict=infer)
+    node.target_class = 'person'
+    node.target_class_id = 0
     node._sample_depth_from_bbox = lambda *a: (2., 'roi')
     node.tf_buffer = NS(transform=lambda *a, **kw: NS(point=Point(x=1., y=2., z=3.)))
     node.target_frame = 'go2_1/odom'

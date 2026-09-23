@@ -254,8 +254,11 @@ def run_attempt(
     case, share, attempt_dir, case_config, model_path, execution, attempt_number,
     *, run_id="unmarked", total_attempts=None, reporter=print,
     process_manager_factory=ProcessGroupManager, health_gate=startup_health,
+    detector_backend=None,
 ):
     """Run one isolated attempt and convert every terminal path to a result."""
+    if model_path is not None and detector_backend is None:
+        raise ValueError("model_path requires detector_backend")
     attempt_dir = Path(attempt_dir)
     attempt_dir.mkdir(parents=True, exist_ok=False)
     total_attempts = total_attempts or (
@@ -407,11 +410,17 @@ def run_attempt(
                 "rviz2", "-d", str(rviz_config),
                 "--ros-args", "-p", "use_sim_time:=true",
             ])
-        processes.start("perception", [
+        perception_command = [
             "ros2", "launch", "go2_target_perception",
             "three_go2_target_tracking.launch.py", "use_sim_time:=true",
-            f"model_path:={model_path}",
-        ])
+        ]
+        if detector_backend is not None:
+            perception_command.append(
+                f"detector_backend_override:={detector_backend}"
+            )
+        if model_path is not None:
+            perception_command.append(f"model_path_override:={model_path}")
+        processes.start("perception", perception_command)
         selected_robot = bounded_worker(
             processes, "role", {"timeout_sec": case.settings["role_timeout_sec"]},
             case.settings["role_timeout_sec"], require_current_world,
@@ -587,7 +596,7 @@ def should_retry(result, max_restarts):
 def run_case(
     case, share, case_dir, model_path, metrics, execution, *,
     run_id="unmarked", attempt_runner=run_attempt, sleep=time.sleep,
-    reporter=print, scene_config_root=None,
+    reporter=print, scene_config_root=None, detector_backend=None,
 ):
     """Run a Case with a shared retry budget and write its root summary."""
     case_dir = Path(case_dir)
@@ -637,6 +646,7 @@ def run_case(
                 run_id=run_id,
                 total_attempts=total_attempts,
                 reporter=reporter,
+                detector_backend=detector_backend,
             )
         except BatchSafetyError as error:
             summary = _failure_summary_preserving_metrics(

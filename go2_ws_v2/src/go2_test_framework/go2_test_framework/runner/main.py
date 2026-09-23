@@ -93,7 +93,14 @@ def _build_parser(share):
     )
     parser.add_argument("--case-id", action="append", default=[])
     parser.add_argument("--all", action="store_true")
-    parser.add_argument("--model-path", type=Path, default=Path("yolov8s.pt"))
+    parser.add_argument(
+        "--detector-backend", choices=("yolov8", "yoloe"), default=None,
+        help="override target_perception.yaml detector backend",
+    )
+    parser.add_argument(
+        "--model-path", type=Path, default=None,
+        help="override the selected detector model; requires --detector-backend",
+    )
     parser.add_argument("--results-root", type=Path, default=Path("TestResults"))
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -260,6 +267,8 @@ def main(argv=None):
     share = _package_share()
     scenario_share = _package_share("go2_scenario_config")
     args = _build_parser(share).parse_args(argv)
+    if args.model_path is not None and args.detector_backend is None:
+        raise ValueError("--model-path requires --detector-backend")
     suite = load_suite(args.suite)
     try:
         result_directory = TASK_RESULT_DIRECTORIES[suite["task_type"]]
@@ -332,8 +341,9 @@ def main(argv=None):
     if args.dry_run:
         print(f"resolved {len(selected)} case(s) in {batch_root}")
         return 0
-    if not args.model_path.is_file():
+    if args.model_path is not None and not args.model_path.is_file():
         raise ValueError(f"YOLO model does not exist: {args.model_path}")
+    model_path = args.model_path.resolve() if args.model_path is not None else None
 
     results = []
     started_case_ids = []
@@ -355,7 +365,8 @@ def main(argv=None):
                 started_case_ids.append(case.case_id)
                 result = run_case(
                     case, share, batch_dir / f"case_{case.case_index:03d}",
-                    args.model_path.resolve(), metrics, execution,
+                    model_path, metrics, execution,
+                    detector_backend=args.detector_backend,
                     run_id=batch_id,
                     scene_config_root=scenario_share / "config/scenes",
                 )

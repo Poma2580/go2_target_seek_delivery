@@ -26,7 +26,6 @@ DELIVERY_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 WS=$DELIVERY_ROOT/go2_ws_v2
 QY_MODEL_ROOT=$DELIVERY_ROOT/QY_MODEL
 KD_MODEL_ROOT=$DELIVERY_ROOT/KD_MODEL
-YOLO_MODEL=$DELIVERY_ROOT/yolov8s.pt
 MERGED_MAP_TIMEOUT=${MERGED_MAP_TIMEOUT:-120}
 ACTOR_SERVICE_TIMEOUT=${ACTOR_SERVICE_TIMEOUT:-30}
 NAV2_LIFECYCLE_TIMEOUT=${NAV2_LIFECYCLE_TIMEOUT:-20}
@@ -77,11 +76,6 @@ esac
 RUN_ID="go2_tracking_$$_${GO2_RESTART_COUNT}_$(date +%s%N)"
 RUNTIME_DIR="$WS/runtime"
 PID_DIR="$RUNTIME_DIR/pids/$RUN_ID"
-
-if [ ! -f "$YOLO_MODEL" ]; then
-    echo "ERROR: YOLO model not found: $YOLO_MODEL"
-    exit 1
-fi
 
 if [ ! -d "$WS/install" ] || [ ! -f "$WORLD_PATH" ]; then
     echo "ERROR: workspace is not built or world does not exist: $WORLD_PATH"
@@ -541,7 +535,7 @@ rviz2 -d \$(ros2 pkg prefix go2_mapping_nav)/share/go2_mapping_nav/rviz/three_go
 # 终端 11：启动三套目标感知和首次稳定发现角色选举。
 launch_terminal "three_go2_target_tracking" "
 echo '==== Starting three-Go2 target perception and role selector ===='
-ros2 launch go2_target_perception three_go2_target_tracking.launch.py use_sim_time:=true model_path:=$YOLO_MODEL
+ros2 launch go2_target_perception three_go2_target_tracking.launch.py use_sim_time:=true
 "
 
 wait_for_topic "/target_role/perception_robot"
@@ -581,9 +575,6 @@ ros2 run go2_dynamic_encircle dynamic_encircle --ros-args \
     -p scene:=${SCENE} \
     -p perception_robot_topic:=/target_role/perception_robot \
     -p robot_names:="[go2_1,go2_2,go2_3]" \
-    -p catch_speed:=0.20 \
-    -p max_linear:=0.20 \
-    -p max_coast_speed:=0.20 \
     -p maddpg_ready_topic:=/maddpg_waypoint/controller_ready \
     -p maddpg_active_topic:=/maddpg_waypoint/controller_active \
     -p maddpg_enable_topic:=/dynamic_encircle/maddpg_enable \

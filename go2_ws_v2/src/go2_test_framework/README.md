@@ -175,9 +175,11 @@ config/suites/T3_collision_smoke_city.yaml   # 只用于注入碰撞验收
 - `--path-planning-metrics`
 
 其他主要参数是 `--suite`、可重复的 `--case-id`、`--all`、
-`--model-path`、`--results-root`、`--dry-run`，以及 `--[no-]gui`、
+`--detector-backend`、`--model-path`、`--results-root`、`--dry-run`，以及 `--[no-]gui`、
 `--[no-]rqt`、`--[no-]rviz`、`--[no-]lidar`、`--[no-]check-attitude`、
 `--max-restarts`。不带 `--case-id/--all` 时只执行 suite 的第一个 Case。
+未指定检测器参数时，Runner 完全使用 `go2_target_perception` 的 YAML 配置；
+`--model-path` 是临时覆盖项，必须与 `--detector-backend` 一起提供。
 
 ## RViz 可视化
 
@@ -223,12 +225,14 @@ T1 沿用既有启动链与输出。完整 GT、CameraInfo 和 TF 就绪且目�
 # city smoke
 ros2 run go2_test_framework target_test_runner \
   --suite go2_ws_v2/src/go2_test_framework/config/suites/T1_smoke_city.yaml \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 
 # 正式 suite 的一个 Case
 ros2 run go2_test_framework target_test_runner \
   --suite go2_ws_v2/src/go2_test_framework/config/suites/T1_target_test.yaml \
   --case-id T1-CITY-RECTANGLE-G01 \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 ```
 
@@ -250,6 +254,7 @@ T2 不启动 RTAB-Map、merged map、Nav2 或 MADDPG。GT、CameraInfo、TF 完�
 # city smoke
 ros2 run go2_test_framework target_test_runner \
   --suite go2_ws_v2/src/go2_test_framework/config/suites/T2_smoke_city.yaml \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 
 # 单 Case / 小批量 / 全部
@@ -257,6 +262,7 @@ ros2 run go2_test_framework target_test_runner \
   --suite go2_ws_v2/src/go2_test_framework/config/suites/T2_tracking_test.yaml \
   --case-id T2-CITY-RECTANGLE-G01 \
   --case-id T2-FOREST-RECTANGLE-G01 \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 ```
 
@@ -298,6 +304,7 @@ Gazebo contact bridge 发布当前 trunk 接触集合。Recorder 忽略 ground�
 # city smoke
 ros2 run go2_test_framework target_test_runner \
   --suite go2_ws_v2/src/go2_test_framework/config/suites/T3_smoke_city.yaml \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 
 # 三场景 rectangle 各一例
@@ -306,6 +313,7 @@ ros2 run go2_test_framework target_test_runner \
   --case-id T3-CITY-RECTANGLE-G01 \
   --case-id T3-FOREST-RECTANGLE-G01 \
   --case-id T3-AIRPORT-RECTANGLE-G01 \
+  --detector-backend yolov8 \
   --model-path /home/bit/go2_target_seek_delivery/yolov8s.pt
 ```
 

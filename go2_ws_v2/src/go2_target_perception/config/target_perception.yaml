@@ -1,6 +1,20 @@
 /**/target_perception:
   ros__parameters:
-    conf: 0.7
+    detector_backend: yoloe
+    yolov8_model_path: /home/bit/go2_target_seek_delivery/yolov8s.pt
+    yoloe_model_path: yoloe-26s-seg.pt
+    model_cache_dir: ~/.cache/go2_static_yolo_smoke
+    detection_classes:
+      - person
+      - car
+      - airplane
+      - bus
+      - truck
+      - fire hydrant
+      - stop sign
+      - bench
+    target_class: person
+    conf: 0.70
     imgsz: 640
     device: cuda:0
     inference_rate: 8.0
